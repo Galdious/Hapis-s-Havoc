@@ -291,28 +291,21 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                     if (entrySnapPoint1 >= 0)
                     {
                         validMoves.Add(tile1);
+                        tileToSnapPoint[tile1] = entrySnapPoint1; // Continue path snap point
                         
-                        // For U-shaped tiles, calculate both continue and reverse snap points
-                        if (IsUShapedTile(tile1))
+                        // Calculate reverse snap point (if we came from this tile)
+                        if (lastSnapPointUsed >= 0)
                         {
-                            int continueSnap = CalculateUPathContinueSnap(connection.from, tile1);
-                            tileToSnapPoint[tile1] = continueSnap; // Continue path snap point
-                            tileToReverseSnapPoint[tile1] = entrySnapPoint1; // Reverse snap point
-                            
-                            if (showDebugInfo)
-                            {
-                                Debug.Log($"[BoatController] U-shaped tile {tile1.name}: continue snap {continueSnap}, reverse snap {entrySnapPoint1}");
-                            }
+                            tileToReverseSnapPoint[tile1] = lastSnapPointUsed;
                         }
                         else
                         {
-                            tileToSnapPoint[tile1] = entrySnapPoint1; // Continue path snap point
-                            tileToReverseSnapPoint[tile1] = entrySnapPoint1; // Same for non-U tiles
+                            tileToReverseSnapPoint[tile1] = entrySnapPoint1; // Fallback
                         }
                         
                         if (showDebugInfo)
                         {
-                            Debug.Log($"[BoatController] Found connection via 'from' end: {currentTile.name}[{connection.from}] -> {tile1.name}[{entrySnapPoint1}] (continue: {tileToSnapPoint[tile1]}, reverse: {tileToReverseSnapPoint[tile1]})");
+                            Debug.Log($"[BoatController] Found connection via 'from' end: {currentTile.name}[{connection.from}] -> {tile1.name}[{entrySnapPoint1}] (reverse: {tileToReverseSnapPoint[tile1]})");
                         }
                     }
                     else if (showDebugInfo)
@@ -333,28 +326,21 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                     if (entrySnapPoint2 >= 0)
                     {
                         validMoves.Add(tile2);
+                        tileToSnapPoint[tile2] = entrySnapPoint2; // Continue path snap point
                         
-                        // For U-shaped tiles, calculate both continue and reverse snap points
-                        if (IsUShapedTile(tile2))
+                        // Calculate reverse snap point (if we came from this tile)
+                        if (lastSnapPointUsed >= 0)
                         {
-                            int continueSnap = CalculateUPathContinueSnap(connection.to, tile2);
-                            tileToSnapPoint[tile2] = continueSnap; // Continue path snap point
-                            tileToReverseSnapPoint[tile2] = entrySnapPoint2; // Reverse snap point
-                            
-                            if (showDebugInfo)
-                            {
-                                Debug.Log($"[BoatController] U-shaped tile {tile2.name}: continue snap {continueSnap}, reverse snap {entrySnapPoint2}");
-                            }
+                            tileToReverseSnapPoint[tile2] = lastSnapPointUsed;
                         }
                         else
                         {
-                            tileToSnapPoint[tile2] = entrySnapPoint2; // Continue path snap point
-                            tileToReverseSnapPoint[tile2] = entrySnapPoint2; // Same for non-U tiles
+                            tileToReverseSnapPoint[tile2] = entrySnapPoint2; // Fallback
                         }
                         
                         if (showDebugInfo)
                         {
-                            Debug.Log($"[BoatController] Found connection via 'to' end: {currentTile.name}[{connection.to}] -> {tile2.name}[{entrySnapPoint2}] (continue: {tileToSnapPoint[tile2]}, reverse: {tileToReverseSnapPoint[tile2]})");
+                            Debug.Log($"[BoatController] Found connection via 'to' end: {currentTile.name}[{connection.to}] -> {tile2.name}[{entrySnapPoint2}] (reverse: {tileToReverseSnapPoint[tile2]})");
                         }
                     }
                     else if (showDebugInfo)
@@ -376,36 +362,6 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             {
                 Debug.Log($"  -> {move.name} at snap {tileToSnapPoint[move]} (reverse: {tileToReverseSnapPoint[move]})");
             }
-        }
-    }
-    
-    bool IsUShapedTile(TileInstance tile)
-    {
-        foreach (var connection in tile.connections)
-        {
-            if ((connection.from == 2 && connection.to == 3) || (connection.from == 3 && connection.to == 2))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    int CalculateUPathContinueSnap(int entrySnap, TileInstance tile)
-    {
-        // For U-shaped tiles (TileFace with connection 2-3), calculate the opposite snap
-        if (entrySnap == 2)
-        {
-            return 3; // If we enter at snap 2, continue to snap 3
-        }
-        else if (entrySnap == 3)
-        {
-            return 2; // If we enter at snap 3, continue to snap 2
-        }
-        else
-        {
-            // For non-U connections, just return the same snap point
-            return entrySnap;
         }
     }
     
