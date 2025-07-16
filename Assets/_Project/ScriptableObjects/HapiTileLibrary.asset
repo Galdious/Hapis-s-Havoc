@@ -1,0 +1,151 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad35795c03e6a449eb7a57e69cb4df5b, type: 3}
+  m_Name: HapiTileLibrary
+  m_EditorClassIdentifier: Assembly-CSharp::TileLibrary
+  tileTypes:
+  - displayName: TileSimple_01
+    quantity: 4
+    frontPaths:
+    - {x: 0, y: 5}
+    - {x: 2, y: 1}
+    - {x: 3, y: 4}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileSimple_02
+    quantity: 4
+    frontPaths:
+    - {x: 2, y: 5}
+    - {x: 0, y: 3}
+    - {x: 1, y: 4}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileFace
+    quantity: 4
+    frontPaths:
+    - {x: 0, y: 5}
+    - {x: 1, y: 4}
+    - {x: 2, y: 3}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileCross
+    quantity: 4
+    frontPaths:
+    - {x: 0, y: 2}
+    - {x: 1, y: 3}
+    - {x: 5, y: 4}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileTurn_01
+    quantity: 4
+    frontPaths:
+    - {x: 0, y: 5}
+    - {x: 2, y: 4}
+    - {x: 1, y: 3}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileTurn_02
+    quantity: 4
+    frontPaths:
+    - {x: 0, y: 2}
+    - {x: 1, y: 4}
+    - {x: 3, y: 5}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileTurn_03
+    quantity: 4
+    frontPaths:
+    - {x: 0, y: 5}
+    - {x: 2, y: 5}
+    - {x: 2, y: 1}
+    - {x: 3, y: 4}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileTurn_04
+    quantity: 4
+    frontPaths:
+    - {x: 0, y: 5}
+    - {x: 1, y: 4}
+    - {x: 2, y: 5}
+    - {x: 0, y: 3}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileChange
+    quantity: 4
+    frontPaths:
+    - {x: 0, y: 5}
+    - {x: 2, y: 5}
+    - {x: 1, y: 4}
+    - {x: 3, y: 4}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileTurnChange_01
+    quantity: 4
+    frontPaths:
+    - {x: 0, y: 5}
+    - {x: 2, y: 5}
+    - {x: 2, y: 4}
+    - {x: 1, y: 3}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileTurnChange_02
+    quantity: 4
+    frontPaths:
+    - {x: 3, y: 5}
+    - {x: 0, y: 2}
+    - {x: 1, y: 4}
+    - {x: 3, y: 4}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileThriughTurn_01
+    quantity: 4
+    frontPaths:
+    - {x: 0, y: 5}
+    - {x: 0, y: 2}
+    - {x: 1, y: 3}
+    - {x: 3, y: 4}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileThriughTurn_02
+    quantity: 4
+    frontPaths:
+    - {x: 2, y: 5}
+    - {x: 0, y: 2}
+    - {x: 1, y: 3}
+    - {x: 1, y: 4}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
+  - displayName: TileMax
+    quantity: 0
+    frontPaths:
+    - {x: 0, y: 5}
+    - {x: 2, y: 5}
+    - {x: 0, y: 3}
+    - {x: 1, y: 4}
+    - {x: 3, y: 4}
+    - {x: 1, y: 2}
+    backObstacle: 0
+    canRotate180: 1
+    canFlip: 1
