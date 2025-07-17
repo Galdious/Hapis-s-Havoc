@@ -157,7 +157,7 @@ MonoBehaviour:
   spawnPointsPerSide: 4
   spawnPointSpacing: 1
   showSpawnPointGizmos: 1
-  bankMaterial: {fileID: 0}
+  bankMaterial: {fileID: 2100000, guid: fa541c8e8941a421e8681e04e18ef044, type: 2}
   spawnPointMaterial: {fileID: 0}
 --- !u!4 &310586316
 Transform:

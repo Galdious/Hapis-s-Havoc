@@ -135,7 +135,7 @@ public class RiverBankManager : MonoBehaviour
         // Apply material
         if (bankMaterial != null)
         {
-            bankVisual.GetComponent<Renderer>().material = bankMaterial;
+            bankVisual.GetComponent<Renderer>().sharedMaterial = bankMaterial;
         }
         else
         {

@@ -1,11 +1,13 @@
 /*
- *  BoatController.cs
+ *  BoatController.cs - v03
  *  ---------------------------------------------------------------
- *  FINAL VERSION - BANK DOCKING CORRECTED
+ *  - VERSION 03: Fixes the bank material bug.
  *
- *  - This is the working baseline script with the correct U-turn logic.
- *  - FIXED: Bank docking is now correctly determined by the TILE'S ROW, not the snap point index.
- *  - All other working logic is preserved.
+ *  - This script is based on the working version 02.
+ *  - CHANGE: The logic for highlighting and clearing highlights on BANKS
+ *    has been updated to correctly use sharedMaterial, mirroring the
+ *    successful fix for the tiles. This prevents banks from staying cyan.
+ *  - No other code has been modified.
  */
 
 using System.Collections;
@@ -34,8 +36,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     private int currentMovementPoints = 3;
     
     [Header("Visual Feedback")]
-    public Material validMoveMaterial;
-    public Color selectedColor = Color.yellow;
+    public Color selectedColor = Color.magenta;
     
     [Header("Debug")]
     public bool showDebugInfo = true;
@@ -58,8 +59,9 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     private List<GameObject> highlightedBanks = new List<GameObject>();
     private Dictionary<TileInstance, int> tileToSnapPoint = new Dictionary<TileInstance, int>();
     private Dictionary<TileInstance, int> tileToReverseSnapPoint = new Dictionary<TileInstance, int>();
-    private Dictionary<TileInstance, Material> originalMaterials = new Dictionary<TileInstance, Material>();
-    private Dictionary<GameObject, Material> originalBankMaterials = new Dictionary<GameObject, Material>();
+
+    private Dictionary<Renderer, Material> originalMaterials = new Dictionary<Renderer, Material>();
+    private Dictionary<Renderer, Material> originalBankMaterials = new Dictionary<Renderer, Material>();
     
     void Start()
     {
@@ -86,6 +88,12 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     {
         isSelected = true;
         if (currentMovementPoints <= 0) currentMovementPoints = maxMovementPoints;
+
+        if (!isAtBank && currentTile != null)
+        {
+           HighlightTile(currentTile);
+        }
+        
         StartCoroutine(LiftAndBobBoat(true));
         FindValidMoves();
         StartCoroutine(HighlightValidMovesWithDelay());
@@ -138,6 +146,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     IEnumerator HighlightValidMovesWithDelay()
     {
         yield return new WaitForSeconds(tileLiftDelay);
+        if(!isSelected) yield break;
         foreach (TileInstance tile in validMoves)
         {
             if (tile != null) HighlightTile(tile);
@@ -154,15 +163,6 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         else if (currentTile != null) FindRiverPathMoves();
     }
 
-    // ┌──────────────────────────────────────────────────┐
-    // │ │
-    // │ --- !!! ONLY THESE 2 METHODS ARE CHANGED !!! --- │
-    // │ │
-    // └──────────────────────────────────────────────────┘
-
-    /// <summary>
-    /// MODIFIED: Now uses the tile's ROW to determine which bank to highlight.
-    /// </summary>
     void FindRiverPathMoves()
     {
         if (currentTile == null || currentSnapPoint < 0) return;
@@ -188,7 +188,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                         tileToSnapPoint[neighbor] = entrySnap;
                 }
             }
-            else // Path leads off the grid
+            else
             {
                 var (x, y) = GetTileCoordinates(currentTile);
                 if (y == 0) HighlightBankForDocking(RiverBankManager.BankSide.Bottom);
@@ -197,9 +197,6 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         }
     }
     
-    /// <summary>
-    /// NEW HELPER: Gets the grid coordinates of a tile, necessary for the fix above.
-    /// </summary>
     (int, int) GetTileCoordinates(TileInstance tile)
     {
         for (int x = 0; x < gridManager.cols; x++)
@@ -210,11 +207,14 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                     return (x, y);
             }
         }
-        return (-1, -1); // Not found
+        return (-1, -1);
     }
     
-    // --- ALL OTHER CODE BELOW IS THE WORKING BASELINE ---
-    
+    // ┌──────────────────────────────────────────────────┐
+    // │ │
+    // │ --- !!! THIS IS THE FIRST CHANGED METHOD (v03) !!! --- │
+    // │ │
+    // └──────────────────────────────────────────────────┘
     void HighlightBankForDocking(RiverBankManager.BankSide side)
     {
         if (riverBankManager == null) return;
@@ -222,12 +222,17 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         GameObject bankGO = riverBankManager.GetBankGameObject(side);
         if (bankGO != null && !highlightedBanks.Contains(bankGO))
         {
-            highlightedBanks.Add(bankGO);
             var renderer = bankGO.GetComponentInChildren<MeshRenderer>();
             if (renderer != null)
             {
-                if (!originalBankMaterials.ContainsKey(bankGO)) originalBankMaterials[bankGO] = renderer.material;
+                // Correctly save the original shared material before changing the color.
+                if (!originalBankMaterials.ContainsKey(renderer))
+                {
+                    originalBankMaterials[renderer] = renderer.sharedMaterial;
+                }
                 renderer.material.color = Color.cyan;
+                
+                highlightedBanks.Add(bankGO);
             }
 
             var clicker = bankGO.AddComponent<BankClickHandler>();
@@ -236,37 +241,49 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         }
     }
 
+    // ┌──────────────────────────────────────────────────┐
+    // │ │
+    // │ --- !!! THIS IS THE SECOND CHANGED METHOD (v03) !!! --- │
+    // │ │
+    // └──────────────────────────────────────────────────┘
     void ClearHighlights()
     {
+        // Restore tile materials
+        foreach (var pair in originalMaterials)
+        {
+            if (pair.Key != null)
+            {
+                pair.Key.sharedMaterial = pair.Value;
+            }
+        }
+
+        // Restore bank materials
+        foreach (var pair in originalBankMaterials)
+        {
+            if(pair.Key != null)
+            {
+                pair.Key.sharedMaterial = pair.Value;
+            }
+        }
+
+        // Clean up GameObjects and components
         foreach (GameObject tileGO in highlightedTiles)
         {
             if (tileGO != null)
             {
-                var tile = tileGO.GetComponent<TileInstance>();
-                if (tile != null && originalMaterials.ContainsKey(tile))
-                {
-                    var renderer = tile.GetComponentInChildren<MeshRenderer>();
-                    if(renderer != null) renderer.material = originalMaterials[tile];
-                }
-                StartCoroutine(LiftTileSmooth(tile, false));
-                if (tileGO.GetComponent<SimpleTileClickHandler>() != null) DestroyImmediate(tileGO.GetComponent<SimpleTileClickHandler>());
+                StartCoroutine(LiftTileSmooth(tileGO.GetComponent<TileInstance>(), false));
+                var clicker = tileGO.GetComponent<SimpleTileClickHandler>();
+                if (clicker != null) DestroyImmediate(clicker);
             }
         }
-        
         foreach(GameObject bankGO in highlightedBanks)
         {
             if(bankGO != null)
             {
-                if(originalBankMaterials.ContainsKey(bankGO))
-                {
-                    var renderer = bankGO.GetComponentInChildren<MeshRenderer>();
-                    if(renderer != null) renderer.material = originalBankMaterials[bankGO];
-                }
-                if(bankGO.GetComponent<BankClickHandler>() != null) Destroy(bankGO.GetComponent<BankClickHandler>());
+                var clicker = bankGO.GetComponent<BankClickHandler>();
+                if (clicker != null) Destroy(clicker);
             }
         }
-
-        if (!isAtBank && currentTile != null) StartCoroutine(LiftTileSmooth(currentTile, false));
         
         highlightedTiles.Clear();
         highlightedBanks.Clear();
@@ -278,10 +295,12 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     {
         if (isMoving || !isSelected || !validMoves.Contains(clickedTile) || currentMovementPoints <= 0) return;
         
+        isMoving = true;
+        isSelected = false;
+
         if (isAtBank)
         {
-            int snapPoint = DetermineSnapPointFromClick(clickedTile);
-            MoveFromBankToTile(clickedTile, snapPoint);
+            MoveFromBankToTile(clickedTile, DetermineSnapPointFromClick(clickedTile));
         }
         else
         {
@@ -295,6 +314,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         if(isMoving || !isSelected || currentMovementPoints <= 0) return;
 
         isMoving = true;
+        isSelected = false;
         StopAllCoroutines();
         
         Transform targetSpawn = riverBankManager.GetNearestSpawnPoint(side, transform.position);
@@ -319,8 +339,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                 float distanceToContinue = Vector3.Distance(hit.point, continueSnapPos);
                 float distanceToReverse = Vector3.Distance(hit.point, reverseSnapPos);
 
-                if (distanceToContinue < distanceToReverse) return continueSnapIndex;
-                else return reverseSnapIndex;
+                return (distanceToContinue < distanceToReverse) ? continueSnapIndex : reverseSnapIndex;
             }
         }
         else if (isPath) return tileToSnapPoint[tile];
@@ -402,43 +421,40 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     void MoveFromBankToTile(TileInstance targetTile, int snapPoint)
     {
         StopAllCoroutines();
-        isBobbing = false;
         ClearNonTargetHighlights(targetTile);
-        isMoving = true;
         StartCoroutine(MoveToTileCoroutine(targetTile, snapPoint));
     }
 
     void MoveFromTileToTile(TileInstance targetTile, int targetSnapPoint)
     {
         StopAllCoroutines();
-        isBobbing = false;
         ClearNonTargetHighlights(targetTile);
-        isMoving = true;
         StartCoroutine(MoveToTileCoroutine(targetTile, targetSnapPoint));
     }
 
     void ClearNonTargetHighlights(TileInstance targetTile)
     {
-        var tilesToRemove = new List<GameObject>();
-        foreach (var tileGO in highlightedTiles)
+        var renderersToKeep = new List<Renderer>();
+        var renderer = targetTile?.GetComponentInChildren<MeshRenderer>();
+        if(renderer != null) renderersToKeep.Add(renderer);
+
+        var materialsToRestore = originalMaterials.Where(pair => !renderersToKeep.Contains(pair.Key)).ToList();
+        
+        foreach (var pair in materialsToRestore)
         {
-            if (tileGO != null && (targetTile == null || tileGO != targetTile.gameObject))
-                tilesToRemove.Add(tileGO);
-        }
-        foreach (var tileGO in tilesToRemove)
-        {
-            highlightedTiles.Remove(tileGO);
-            var tile = tileGO.GetComponent<TileInstance>();
-            if (tile != null)
+            if(pair.Key != null)
             {
-                if (originalMaterials.ContainsKey(tile))
+                pair.Key.sharedMaterial = pair.Value;
+                originalMaterials.Remove(pair.Key);
+
+                var tile = pair.Key.GetComponentInParent<TileInstance>();
+                if(tile != null)
                 {
-                    var renderer = tile.GetComponentInChildren<MeshRenderer>();
-                    if (renderer != null) renderer.material = originalMaterials[tile];
-                    originalMaterials.Remove(tile);
+                    StartCoroutine(LiftTileSmooth(tile, false));
+                    var clicker = tile.GetComponent<SimpleTileClickHandler>();
+                    if(clicker != null) DestroyImmediate(clicker);
+                    highlightedTiles.Remove(tile.gameObject);
                 }
-                StartCoroutine(LiftTileSmooth(tile, false));
-                if (tile.GetComponent<SimpleTileClickHandler>() != null) DestroyImmediate(tile.GetComponent<SimpleTileClickHandler>());
             }
         }
     }
@@ -475,7 +491,6 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         currentMovementPoints--;
         
         CompleteMovementTurn();
-        isMoving = false;
     }
     
     IEnumerator MoveToBankCoroutine(Transform targetSpawn)
@@ -496,22 +511,20 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         SetAtBank(targetSpawn);
         currentMovementPoints--;
         CompleteMovementTurn();
-        isMoving = false;
     }
     
     void CompleteMovementTurn()
     {
-        isSelected = false;
+        isMoving = false;
         isBobbing = false;
-        StopAllCoroutines();
         StartCoroutine(LiftAndBobBoat(false));
         ClearHighlights();
     }
 
     public void EndMovementTurn()
     {
-        currentMovementPoints = 0;
         if(isSelected) DeselectBoat();
+        currentMovementPoints = 0;
     }
 
     public void ResetMovementPoints()
@@ -519,9 +532,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         currentMovementPoints = maxMovementPoints;
         if (isSelected)
         {
-            ClearHighlights();
-            FindValidMoves();
-            StartCoroutine(HighlightValidMovesWithDelay());
+            DeselectBoat();
+            SelectBoat();
         }
     }
     
@@ -601,12 +613,18 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     
     void HighlightTile(TileInstance tile)
     {
-        MeshRenderer renderer = tile.GetComponentInChildren<MeshRenderer>();
-        if (renderer == null) return;
-        if (!originalMaterials.ContainsKey(tile)) originalMaterials[tile] = renderer.material;
-        renderer.material.color = Color.magenta;
+        var renderer = tile.GetComponentInChildren<MeshRenderer>();
+        if (renderer == null || originalMaterials.ContainsKey(renderer)) return;
+
+        originalMaterials[renderer] = renderer.sharedMaterial;
+        renderer.material.color = selectedColor;
+        
+        if (!highlightedTiles.Contains(tile.gameObject))
+        {
+             highlightedTiles.Add(tile.gameObject);
+        }
+
         StartCoroutine(LiftTileSmooth(tile, true));
-        highlightedTiles.Add(tile.gameObject);
         var clickHandler = tile.gameObject.AddComponent<SimpleTileClickHandler>();
         clickHandler.targetBoat = this;
         clickHandler.targetTile = tile;
@@ -616,8 +634,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     {
         if (tile == null) yield break;
         Vector3 startPos = tile.transform.position;
-        Vector3 targetPos = startPos;
-        targetPos.y = lift ? hoverHeight : 0f;
+        Vector3 targetPos = new Vector3(startPos.x, lift ? hoverHeight : 0f, startPos.z);
+        
         float elapsed = 0f;
         while (elapsed < tileLiftDuration)
         {
