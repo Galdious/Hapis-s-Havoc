@@ -40,6 +40,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     
     [Header("Debug")]
     public bool showDebugInfo = true;
+
+    public TileInstance GetCurrentTile() => currentTile;
     
     // --- State & References ---
     private TileInstance currentTile;

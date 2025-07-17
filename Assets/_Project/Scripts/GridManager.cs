@@ -23,6 +23,7 @@ public class GridManager : MonoBehaviour
     public TileBagManager bagManager;    // drag BagManager GO here
     public GameObject     tilePrefab;    // DominoTile prefab
     public Transform      gridParent;    // optional parent object
+    public BoatManager    boatManager;   // link our BoatManager for spawning boats
 
     [Header("Grid Size")]
     public int   rows = 6;
@@ -258,6 +259,46 @@ public class GridManager : MonoBehaviour
         TileInstance newTile = newTileGO.GetComponent<TileInstance>();
         InitializeTile(newTile, newTileTemplate, showObstacleSide);
 
+
+      
+    // --- START OF CORRECTED BLOCK ---
+    // BOAT STICKING LOGIC (Part 1: Find and Parent)
+    List<BoatController> boatsOnRow = new List<BoatController>();
+    if (boatManager != null)
+    {
+        // Get all tiles that are currently in the row that is about to move.
+        List<TileInstance> tilesInRow = new List<TileInstance>();
+        for(int x = 0; x < cols; x++) 
+        {
+            if(grid[x, rowIndex] != null)
+            {
+                tilesInRow.Add(grid[x, rowIndex]);
+            }
+        }
+
+        // Find all boats that are on one of those tiles.
+        foreach (var boat in boatManager.GetPlayerBoats())
+        {
+            if (boat != null && tilesInRow.Contains(boat.GetCurrentTile()))
+            {
+                boatsOnRow.Add(boat);
+            }
+        }
+
+        // Temporarily parent the found boats to their respective tiles.
+        foreach (var boat in boatsOnRow)
+        {
+            boat.transform.SetParent(boat.GetCurrentTile().transform, true);
+            // The 'if (showDebugInfo)' has been removed from the next line
+            Debug.Log($"[GridManager] Parenting {boat.name} to {boat.GetCurrentTile().name} for push.");
+        }
+    }
+    // --- END OF CORRECTED BLOCK ---
+
+    
+
+
+
         // Animate all tiles sliding
         List<Coroutine> slideCoroutines = new List<Coroutine>();
 
@@ -305,6 +346,28 @@ public class GridManager : MonoBehaviour
         {
             yield return coroutine;
         }
+
+
+      
+      
+// --- START OF CORRECTED BLOCK ---
+    // BOAT STICKING LOGIC (Part 2: Un-parent)
+    foreach (var boat in boatsOnRow)
+    {
+        if (boat != null) // Safety check in case the boat was on the ejected tile
+        {
+            boat.transform.SetParent(null, true); // Un-parent from tile
+            // The 'if (showDebugInfo)' has been removed from the next line
+            Debug.Log($"[GridManager] Un-parenting {boat.name}.");
+        }
+    }
+    // --- END OF CORRECTED BLOCK ---
+
+    
+
+    
+
+
 
         // Return ejected tile to bag (extract its template data)
         if (ejectingTile != null)
