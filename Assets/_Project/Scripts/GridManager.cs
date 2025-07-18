@@ -25,6 +25,10 @@ public class GridManager : MonoBehaviour
     public Transform      gridParent;    // optional parent object
     public BoatManager    boatManager;   // link our BoatManager for spawning boats
 
+    public enum ReversedTileRule { Blocker, PushYourLuck }
+    [Header("Gameplay Rules")]
+    public ReversedTileRule reversedTileRule = ReversedTileRule.PushYourLuck;
+
     [Header("Grid Size")]
     public int   rows = 6;
     public int   cols = 6;
@@ -602,16 +606,22 @@ public class GridManager : MonoBehaviour
             // Flip tile to show obstacle (red) side
             tileInstance.transform.Rotate(180f, 0f, 0f); // Flip on X-axis to show bottom
             
-            // Initialize with empty connections since it's obstacle side
-            tileInstance.Initialise(new List<TileInstance.Connection>());
-            
-            // TODO: Add visual indication of obstacle type (Boulder, Whirlpool, Sandbank)
-            // based on template.backObstacle
+        var straightPaths = new List<TileInstance.Connection>
+        {
+            new TileInstance.Connection { from = 0, to = 2 },
+            new TileInstance.Connection { from = 2, to = 0 },
+            new TileInstance.Connection { from = 1, to = 3 },
+            new TileInstance.Connection { from = 3, to = 1 },
+            new TileInstance.Connection { from = 4, to = 5 },
+            new TileInstance.Connection { from = 5, to = 4 }
+        };
+        
+        tileInstance.Initialise(straightPaths, true);
         }
         else
         {
             // Show normal river paths (blue side) - no flip needed
-            tileInstance.Initialise(ConvertPaths(template.frontPaths));
+            tileInstance.Initialise(ConvertPaths(template.frontPaths), false); // Pass false for isReversed
         }
     }
 

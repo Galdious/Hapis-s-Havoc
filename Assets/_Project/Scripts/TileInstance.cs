@@ -7,6 +7,7 @@ public class TileInstance : MonoBehaviour
     // We PRE-allocate an array of size 6.  Index meaning is fixed:
     // 0=TopL  1=TopR  2=DownL  3=DownR  4=L  5=R
     public Transform[] snapPoints = new Transform[6];
+    public bool IsReversed { get; private set; }
 
     // 2) Connection struct  ---------------------------------------------
 
@@ -34,10 +35,11 @@ public class TileInstance : MonoBehaviour
     /// GridManager will call this once, passing in the template
     /// connections from the TileLibrary.
     /// </summary>
-    public void Initialise(List<Connection> templateConnections)
+    public void Initialise(List<Connection> templateConnections, bool isReversed)
     {
         // Make a fresh copy so editing this tile doesn't mutate the template.
         connections = new List<Connection>(templateConnections);
+        IsReversed = isReversed; // <<< ADD THIS LINE to set the property
 
         GetComponent<PathVisualizer>()?.DrawPaths();
 

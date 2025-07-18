@@ -66,9 +66,11 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     private List<GameObject> highlightedBanks = new List<GameObject>();
     private Dictionary<TileInstance, int> tileToSnapPoint = new Dictionary<TileInstance, int>();
     private Dictionary<TileInstance, int> tileToReverseSnapPoint = new Dictionary<TileInstance, int>();
+    
 
     private Dictionary<Renderer, Material> originalMaterials = new Dictionary<Renderer, Material>();
     private Dictionary<Renderer, Material> originalBankMaterials = new Dictionary<Renderer, Material>();
+    private Dictionary<TileInstance, List<TileInstance>> reversedPathways = new Dictionary<TileInstance, List<TileInstance>>();
     
     void Start()
     {
@@ -186,44 +188,91 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         validMoves.Clear();
         tileToSnapPoint.Clear();
         tileToReverseSnapPoint.Clear();
+        reversedPathways.Clear(); // <<< ADD THIS LINE
         
         if (isAtBank) FindBankEntryMoves();
         else if (currentTile != null) FindRiverPathMoves();
     }
 
-    void FindRiverPathMoves()
+void FindRiverPathMoves()
+{
+    if (currentTile == null || currentSnapPoint < 0) return;
+
+    // Check all forward paths defined by the tile's connections
+    foreach (var connection in currentTile.connections)
     {
-        if (currentTile == null || currentSnapPoint < 0) return;
-
-        var exitPoints = currentTile.connections
-            .Select(c => c.from == currentSnapPoint ? c.to : (c.to == currentSnapPoint ? c.from : -1))
-            .Where(p => p != -1)
-            .ToList();
-        exitPoints.Add(currentSnapPoint);
-
-        foreach (int exitPoint in exitPoints.Distinct())
+        int exitSnap = (connection.from == currentSnapPoint) ? connection.to : (connection.to == currentSnapPoint ? connection.from : -1);
+        if (exitSnap != -1)
         {
-            TileInstance neighbor = FindConnectedTile(currentTile, exitPoint);
-            if (neighbor != null)
-            {
-                int entrySnap = FindConnectedSnapPoint(currentTile, exitPoint, neighbor);
-                if (entrySnap != -1)
-                {
-                    if (!validMoves.Contains(neighbor)) validMoves.Add(neighbor);
-                    if (exitPoint == currentSnapPoint)
-                        tileToReverseSnapPoint[neighbor] = entrySnap;
-                    else
-                        tileToSnapPoint[neighbor] = entrySnap;
-                }
-            }
-            else
-            {
-                var (x, y) = GetTileCoordinates(currentTile);
-                if (y == 0) HighlightBankForDocking(RiverBankManager.BankSide.Bottom);
-                else if (y == gridManager.rows - 1) HighlightBankForDocking(RiverBankManager.BankSide.Top);
-            }
+            FindMoveAtEndOfChain(currentTile, exitSnap, isReverseMove: false);
         }
     }
+    // Also check the path for reversing your last move
+    FindMoveAtEndOfChain(currentTile, currentSnapPoint, isReverseMove: true);
+}
+
+
+void FindMoveAtEndOfChain(TileInstance startTile, int exitSnap, bool isReverseMove)
+{
+    TileInstance currentSearchTile = startTile;
+    int currentExitSnap = exitSnap;
+    List<TileInstance> crossedReversedTiles = new List<TileInstance>();
+
+    for (int i = 0; i < gridManager.cols + 2; i++) // Safety break
+    {
+        // --- CHANGE #1: Use the horizontal-only search ---
+        TileInstance neighbor = FindConnectedTile_HorizontalOnly(currentSearchTile, currentExitSnap);
+
+        if (neighbor == null)
+        {
+            var (x, y) = GetTileCoordinates(currentSearchTile);
+            if (y == 0) HighlightBankForDocking(RiverBankManager.BankSide.Bottom);
+            else if (y == gridManager.rows - 1) HighlightBankForDocking(RiverBankManager.BankSide.Top);
+            return;
+        }
+
+        if (neighbor.IsReversed)
+        {
+            if (gridManager.reversedTileRule == GridManager.ReversedTileRule.Blocker) return;
+
+            crossedReversedTiles.Add(neighbor);
+            // --- CHANGE #2: Use the horizontal-only search here as well ---
+            int entrySnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
+            currentExitSnap = GetOppositeSnapPoint(entrySnap);
+            currentSearchTile = neighbor;
+        }
+        else
+        {
+            // --- CHANGE #3: And here, to find the final landing snap ---
+            int landingSnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
+            if (landingSnap != -1)
+            {
+                if (!validMoves.Contains(neighbor)) validMoves.Add(neighbor);
+
+                if (isReverseMove) tileToReverseSnapPoint[neighbor] = landingSnap;
+                else tileToSnapPoint[neighbor] = landingSnap;
+                
+                if (crossedReversedTiles.Count > 0)
+                {
+                    reversedPathways[neighbor] = crossedReversedTiles;
+                }
+            }
+            return;
+        }
+    }
+}
+
+// Helper to find the opposite snap point for straight-line travel.
+int GetOppositeSnapPoint(int snap)
+{
+    switch (snap)
+    {
+        case 0: return 2; case 1: return 3;
+        case 2: return 0; case 3: return 1;
+        case 4: return 5; case 5: return 4;
+        default: return -1;
+    }
+}
     
     (int, int) GetTileCoordinates(TileInstance tile)
     {
@@ -321,6 +370,18 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     
     public void OnTileClicked(TileInstance clickedTile)
     {
+            // --- ADD THIS BLOCK to the start of the method ---
+    if (reversedPathways.ContainsKey(clickedTile))
+    {
+        List<TileInstance> crossedTiles = reversedPathways[clickedTile];
+        Debug.Log($"[BoatController] Crossed {crossedTiles.Count} reversed tiles.");
+        foreach (var tile in crossedTiles)
+        {
+            Debug.Log($"-- Applying placeholder penalty for crossing {tile.name}!");
+        }
+    }
+        // --- END OF BLOCK TO ADD ---
+    
         if (isMoving || !isSelected || !validMoves.Contains(clickedTile) || currentMovementPoints <= 0) return;
         
         isMoving = true;
@@ -405,6 +466,81 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         }
         return closestTile;
     }
+
+
+
+
+
+
+
+
+
+
+TileInstance FindConnectedTile_HorizontalOnly(TileInstance fromTile, int snapPointIndex)
+{
+    Vector2 snapPosXZ = new Vector2(fromTile.snapPoints[snapPointIndex].position.x, fromTile.snapPoints[snapPointIndex].position.z);
+    float minDistance = float.MaxValue;
+    TileInstance closestTile = null;
+
+    for (int x = 0; x < gridManager.cols; x++)
+    {
+        for (int y = 0; y < gridManager.rows; y++)
+        {
+            TileInstance tile = gridManager.GetTileAt(x, y);
+            if (tile != null && tile != fromTile)
+            {
+                for (int i = 0; i < tile.snapPoints.Length; i++)
+                {
+                    if (tile.snapPoints[i] != null)
+                    {
+                        Vector2 otherSnapPosXZ = new Vector2(tile.snapPoints[i].position.x, tile.snapPoints[i].position.z);
+                        float distance = Vector2.Distance(snapPosXZ, otherSnapPosXZ);
+                        if (distance < 0.5f && distance < minDistance)
+                        {
+                            minDistance = distance;
+                            closestTile = tile;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return closestTile;
+}
+
+// A special version of FindConnectedSnapPoint that only compares horizontal (XZ) distance.
+int FindConnectedSnapPoint_HorizontalOnly(TileInstance fromTile, int fromSnapIndex, TileInstance toTile)
+{
+    Vector2 fromSnapPosXZ = new Vector2(fromTile.snapPoints[fromSnapIndex].position.x, fromTile.snapPoints[fromSnapIndex].position.z);
+    float minDistance = float.MaxValue;
+    int closestSnapPoint = -1;
+
+    for (int i = 0; i < toTile.snapPoints.Length; i++)
+    {
+        if (toTile.snapPoints[i] != null)
+        {
+            Vector2 toSnapPosXZ = new Vector2(toTile.snapPoints[i].position.x, toTile.snapPoints[i].position.z);
+            float distance = Vector2.Distance(fromSnapPosXZ, toSnapPosXZ);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                closestSnapPoint = i;
+            }
+        }
+    }
+    return minDistance < 0.5f ? closestSnapPoint : -1;
+}
+
+
+
+
+
+
+
+
+
+
+
 
     int FindConnectedSnapPoint(TileInstance fromTile, int fromSnapIndex, TileInstance toTile)
     {
