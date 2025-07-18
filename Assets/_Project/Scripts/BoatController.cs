@@ -84,6 +84,27 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         if (Keyboard.current.rKey.wasPressedThisFrame) ResetMovementPoints();
     }
 
+    public void SetAtBank(Transform bankSpawnPoint)
+    {
+        bankPosition = bankSpawnPoint;
+        isAtBank = true;
+        currentTile = null;
+        currentSnapPoint = -1;
+        transform.position = bankSpawnPoint.position;
+        transform.rotation = bankSpawnPoint.rotation;
+    }
+
+    public void MoveToBank(RiverBankManager.BankSide side)
+    {
+        if (riverBankManager == null) return;
+
+        // This is a simplified, immediate version of the movement coroutine
+        Transform targetSpawn = riverBankManager.GetNearestSpawnPoint(side, transform.position);
+        if (targetSpawn != null)
+        {
+            SetAtBank(targetSpawn);
+        }
+    }
     public void OnPointerClick(PointerEventData eventData)
     {
         if (isMoving) return;
@@ -533,6 +554,23 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
         currentMovementPoints = 0;
     }
 
+    public void ResetStateAfterEjection()
+{
+    // Force the boat out of any selection or animation state.
+    isSelected = false;
+    isBobbing = false;
+    StopAllCoroutines();
+    
+    // Ensure the boat is visually lowered to its base position,
+    // as if it were never selected.
+    Vector3 currentPos = transform.position;
+    currentPos.y = isAtBank && bankPosition != null ? bankPosition.position.y : 0f;
+    transform.position = currentPos;
+    
+    // Clear any leftover visual artifacts immediately.
+    ClearHighlights();
+}
+
     public void ResetMovementPoints()
     {
         currentMovementPoints = maxMovementPoints;
@@ -563,15 +601,7 @@ Quaternion GetSnapPointRotation(TileInstance tile, int snapPointIndex)
 
     }
 
-    public void SetAtBank(Transform bankSpawnPoint)
-    {
-        bankPosition = bankSpawnPoint;
-        isAtBank = true;
-        currentTile = null;
-        currentSnapPoint = -1;
-        transform.position = bankSpawnPoint.position;
-        transform.rotation = bankSpawnPoint.rotation;
-    }
+
     
 public void PlaceOnTile(TileInstance tile, int snapPointIndex)
 {
@@ -679,7 +709,7 @@ public class SimpleTileClickHandler : MonoBehaviour, IPointerClickHandler
 {
     public BoatController targetBoat;
     public TileInstance targetTile;
-    
+
     public void OnPointerClick(PointerEventData eventData)
     {
         if (targetBoat != null && targetTile != null)
@@ -687,4 +717,8 @@ public class SimpleTileClickHandler : MonoBehaviour, IPointerClickHandler
             targetBoat.OnTileClicked(targetTile);
         }
     }
+
+
+
+
 }

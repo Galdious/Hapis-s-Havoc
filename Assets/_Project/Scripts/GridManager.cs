@@ -80,6 +80,7 @@ public class GridManager : MonoBehaviour
         bagManager.BuildBag();   // guarantees a fresh full bag
         BuildGrid();
     }
+    
 
     private void Update()
     {
@@ -238,6 +239,50 @@ public class GridManager : MonoBehaviour
 
         // Store the tile that will be ejected
         TileInstance ejectingTile = grid[exitCol, rowIndex];
+
+        //This part finds any boats that need to be saved or parented befroe the tiles move
+                // --- START OF BLOCK TO ADD (Part 1) ---
+        float ejectedTileRotation = 0f;
+        if(ejectingTile != null)
+        {
+            ejectedTileRotation = ejectingTile.transform.eulerAngles.y;
+        }
+
+        BoatController ejectedBoat = null;
+        int originalSnapPoint = -1;
+        List<BoatController> boatsToParent = new List<BoatController>();
+
+        if (boatManager != null)
+        {
+            foreach (var boat in boatManager.GetPlayerBoats())
+            {
+                if (boat != null)
+                {
+                    TileInstance boatTile = boat.GetCurrentTile();
+                    if (boatTile == ejectingTile)
+                    {
+                        // This boat is on the tile that will fall off. Save it.
+                        ejectedBoat = boat;
+                        originalSnapPoint = boat.GetCurrentSnapPoint();
+                        boat.transform.SetParent(null, true); // Un-parent from the falling tile now!
+                    }
+                    else
+                    {
+                        // Check if this boat is on a tile that is just sliding.
+                        for(int x = 0; x < cols; x++)
+                        {
+                            if (grid[x, rowIndex] == boatTile)
+                            {
+                                boatsToParent.Add(boat);
+                                boat.transform.SetParent(boat.GetCurrentTile().transform, true);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // --- END OF BLOCK TO ADD (Part 1) ---
         
         // Create new tile at spawn position (outside grid)
         GameObject newTileGO = Instantiate(tilePrefab, spawnPos, Quaternion.identity, gridParent);
@@ -361,13 +406,64 @@ public class GridManager : MonoBehaviour
             Debug.Log($"[GridManager] Un-parenting {boat.name}.");
         }
     }
-    // --- END OF CORRECTED BLOCK ---
 
-    
+        //This logic places the saved boat back onto the grid or bank
+        // --- START OF BLOCK TO ADD (Part 2) ---
+        if (ejectedBoat != null)
+        {
 
-    
+            // Tell the boat to reset its internal state before moving it.
+            ejectedBoat.ResetStateAfterEjection();
+
+            // Determine target row based on cargo (one row "back")
+            int targetRow = rowIndex + (ejectedBoat.hasCargo ? 1 : -1);
+
+            // Bank Snap Rule
+            if (targetRow < 0)
+            {
+                ejectedBoat.MoveToBank(RiverBankManager.BankSide.Bottom);
+                ejectedBoat.enabled = true; // Re-enable the script
+            }
+            else if (targetRow >= rows)
+            {
+                ejectedBoat.MoveToBank(RiverBankManager.BankSide.Top);
+                ejectedBoat.enabled = true; // Re-enable the script
+            }
+            else // Tile Snap Rule
+            {
+                int landingCol = fromLeft ? cols - 1 : 0;
+                TileInstance landingTile = GetTileAt(landingCol, targetRow);
+
+                if (landingTile != null)
+                {
+                    int targetSnapPoint = originalSnapPoint;
+                    float newTileRotation = landingTile.transform.eulerAngles.y;
+
+                    if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
+                    {
+                        switch (originalSnapPoint)
+                        {
+                            case 0: targetSnapPoint = 3; break;
+                            case 1: targetSnapPoint = 2; break;
+                            case 2: targetSnapPoint = 1; break;
+                            case 3: targetSnapPoint = 0; break;
+                        }
+                    }
+                    ejectedBoat.PlaceOnTile(landingTile, targetSnapPoint);
+                    ejectedBoat.enabled = true; // Re-enable the script to make it clickable
+                }
+                else
+                {
+                    // Fallback if the landing tile doesn't exist for some reason
+                    ejectedBoat.MoveToBank(ejectedBoat.hasCargo ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom);
+                    ejectedBoat.enabled = true;
+                }
+            }
+        }
+        // --- END OF BLOCK TO ADD (Part 2) ---
 
 
+        // --- END OF CORRECTED BLOCK ---
 
         // Return ejected tile to bag (extract its template data)
         if (ejectingTile != null)
