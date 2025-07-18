@@ -34,6 +34,9 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     [Header("Movement System")]
     public int maxMovementPoints = 3;
     private int currentMovementPoints = 3;
+
+    [Header("Gameplay State")]
+    public bool hasCargo = false; // Placeholder for inventory logic
     
     [Header("Visual Feedback")]
     public Color selectedColor = Color.magenta;
@@ -42,6 +45,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     public bool showDebugInfo = true;
 
     public TileInstance GetCurrentTile() => currentTile;
+
+    public int GetCurrentSnapPoint() => currentSnapPoint;
     
     // --- State & References ---
     private TileInstance currentTile;
@@ -461,39 +466,38 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         }
     }
 
-    IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
-    {
-        Vector3 startPos = transform.position;
-        Quaternion startRot = transform.rotation;
-        
-        TileInstance previousTile = currentTile;
-        currentTile = targetTile;
-        Quaternion targetRot = GetSnapPointRotation(snapPoint);
-        currentTile = previousTile;
+IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
+{
+    Vector3 startPos = transform.position;
+    Quaternion startRot = transform.rotation;
+    
+    // The temporary state change is no longer needed and has been removed.
+    // We now pass the targetTile directly to the rotation method.
+    Quaternion targetRot = GetSnapPointRotation(targetTile, snapPoint);
 
-        Vector3 snapPosition = targetTile.snapPoints[snapPoint].position;
-        Vector3 tileCenter = targetTile.transform.position;
-        Vector3 direction = (snapPosition - tileCenter).normalized;
-        Vector3 targetPos = snapPosition - direction * snapOffset;
-        
-        float elapsed = 0f;
-        while (elapsed < moveSpeed)
-        {
-            elapsed += Time.deltaTime;
-            float easeProgress = tileLiftCurve.Evaluate(elapsed / moveSpeed);
-            transform.position = Vector3.Lerp(startPos, targetPos, easeProgress);
-            transform.rotation = Quaternion.Slerp(startRot, targetRot, easeProgress);
-            yield return null;
-        }
-        
-        transform.position = targetPos;
-        transform.rotation = targetRot;
-        
-        PlaceOnTile(targetTile, snapPoint);
-        currentMovementPoints--;
-        
-        CompleteMovementTurn();
+    Vector3 snapPosition = targetTile.snapPoints[snapPoint].position;
+    Vector3 tileCenter = targetTile.transform.position;
+    Vector3 direction = (snapPosition - tileCenter).normalized;
+    Vector3 targetPos = snapPosition - direction * snapOffset;
+    
+    float elapsed = 0f;
+    while (elapsed < moveSpeed)
+    {
+        elapsed += Time.deltaTime;
+        float easeProgress = tileLiftCurve.Evaluate(elapsed / moveSpeed);
+        transform.position = Vector3.Lerp(startPos, targetPos, easeProgress);
+        transform.rotation = Quaternion.Slerp(startRot, targetRot, easeProgress);
+        yield return null;
     }
+    
+    transform.position = targetPos;
+    transform.rotation = targetRot;
+    
+    PlaceOnTile(targetTile, snapPoint);
+    currentMovementPoints--;
+    
+    CompleteMovementTurn();
+}
     
     IEnumerator MoveToBankCoroutine(Transform targetSpawn)
     {
@@ -539,17 +543,24 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         }
     }
     
-    Quaternion GetSnapPointRotation(int snapPointIndex)
+Quaternion GetSnapPointRotation(TileInstance tile, int snapPointIndex)
+{
+    // The only change is using the 'tile' parameter instead of 'currentTile'
+    if (tile != null && snapPointIndex >= 0 && snapPointIndex < tile.snapPoints.Length)
     {
-        if (currentTile != null && snapPointIndex >= 0 && snapPointIndex < currentTile.snapPoints.Length)
+        Vector3 snapPos = tile.snapPoints[snapPointIndex].position;
+        Vector3 tileCenter = tile.transform.position;
+        Vector3 directionToCenter = (tileCenter - snapPos).normalized;
+        if (directionToCenter != Vector3.zero)
         {
-            Vector3 snapPos = currentTile.snapPoints[snapPointIndex].position;
-            Vector3 tileCenter = currentTile.transform.position;
-            Vector3 directionToCenter = (tileCenter - snapPos).normalized;
-            if (directionToCenter != Vector3.zero)
-                return Quaternion.Euler(0f, Mathf.Round(Quaternion.LookRotation(directionToCenter).eulerAngles.y / 90f) * 90f, 0f);
+            Quaternion lookRotation = Quaternion.LookRotation(directionToCenter);
+            Vector3 euler = lookRotation.eulerAngles;
+            float roundedY = Mathf.Round(euler.y / 90f) * 90f;
+            return Quaternion.Euler(0f, roundedY, 0f);
         }
-        return Quaternion.identity;
+    }
+    return Quaternion.identity;
+
     }
 
     public void SetAtBank(Transform bankSpawnPoint)
@@ -562,19 +573,22 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         transform.rotation = bankSpawnPoint.rotation;
     }
     
-    public void PlaceOnTile(TileInstance tile, int snapPointIndex)
-    {
-        if (tile == null || snapPointIndex < 0 || snapPointIndex >= tile.snapPoints.Length) return;
-        currentTile = tile;
-        currentSnapPoint = snapPointIndex;
-        isAtBank = false;
-        bankPosition = null;
-        Vector3 snapPosition = tile.snapPoints[snapPointIndex].position;
-        Vector3 tileCenter = tile.transform.position;
-        Vector3 direction = (snapPosition - tileCenter).normalized;
-        transform.position = snapPosition - direction * snapOffset;
-        transform.rotation = GetSnapPointRotation(snapPointIndex);
-    }
+public void PlaceOnTile(TileInstance tile, int snapPointIndex)
+{
+    if (tile == null || snapPointIndex < 0 || snapPointIndex >= tile.snapPoints.Length) return;
+    currentTile = tile;
+    currentSnapPoint = snapPointIndex;
+    isAtBank = false;
+    bankPosition = null;
+    
+    Vector3 snapPosition = tile.snapPoints[snapPointIndex].position;
+    Vector3 tileCenter = tile.transform.position;
+    Vector3 direction = (snapPosition - tileCenter).normalized;
+    transform.position = snapPosition - direction * snapOffset;
+    
+    // Update the call to pass the correct tile.
+    transform.rotation = GetSnapPointRotation(tile, snapPointIndex);
+}
 
     int DetermineSnapPointFromClick(TileInstance tile)
     {
