@@ -212,56 +212,83 @@ void FindRiverPathMoves()
 }
 
 
+
 void FindMoveAtEndOfChain(TileInstance startTile, int exitSnap, bool isReverseMove)
 {
+    // --- Initial State ---
     TileInstance currentSearchTile = startTile;
     int currentExitSnap = exitSnap;
     List<TileInstance> crossedReversedTiles = new List<TileInstance>();
 
-    for (int i = 0; i < gridManager.cols + 2; i++) // Safety break
+    // --- Search Loop ---
+    // This loop follows a path of tiles until it finds a valid landing spot (blue tile),
+    // a bank, or the path is blocked.
+    for (int i = 0; i < gridManager.cols + 2; i++) // Safety break to prevent infinite loops
     {
-        // --- CHANGE #1: Use the horizontal-only search ---
+        // 1. Find the very next tile connected along the current path.
         TileInstance neighbor = FindConnectedTile_HorizontalOnly(currentSearchTile, currentExitSnap);
 
+        // 2. LOGIC: Path leads off the grid (no connected tile was found).
         if (neighbor == null)
         {
+            // This is the end of the line. Check if we can dock at a bank from here.
             var (x, y) = GetTileCoordinates(currentSearchTile);
-            if (y == 0) HighlightBankForDocking(RiverBankManager.BankSide.Bottom);
-            else if (y == gridManager.rows - 1) HighlightBankForDocking(RiverBankManager.BankSide.Top);
-            return;
+
+            // To dock at the TOP bank, we must be on the top row AND exiting via a top snap point.
+            if (y == gridManager.rows - 1 && (currentExitSnap == 0 || currentExitSnap == 1))
+            {
+                HighlightBankForDocking(RiverBankManager.BankSide.Top);
+            }
+            // To dock at the BOTTOM bank, we must be on the bottom row AND exiting via a bottom snap point.
+            else if (y == 0 && (currentExitSnap == 2 || currentExitSnap == 3))
+            {
+                HighlightBankForDocking(RiverBankManager.BankSide.Bottom);
+            }
+            // If neither condition is met, the path just ends.
+            return; // Terminate the search for this path.
         }
 
+        // 3. LOGIC: Path leads to a REVERSED (red) tile.
         if (neighbor.IsReversed)
         {
+            // If the game rule is that reversed tiles are blockers, end the search.
             if (gridManager.reversedTileRule == GridManager.ReversedTileRule.Blocker) return;
 
+            // Otherwise, this is a "push-your-luck" path.
+            // Add the reversed tile to a list for potential penalties later.
             crossedReversedTiles.Add(neighbor);
-            // --- CHANGE #2: Use the horizontal-only search here as well ---
+
+            // Update our search state to continue from the *other side* of this reversed tile.
             int entrySnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
-            currentExitSnap = GetOppositeSnapPoint(entrySnap);
-            currentSearchTile = neighbor;
+            currentExitSnap = GetOppositeSnapPoint(entrySnap); // We will exit from the opposite side.
+            currentSearchTile = neighbor; // Our new position is this reversed tile.
+
+            // Continue to the next iteration of the for-loop to see what's next.
         }
+        // 4. LOGIC: Path leads to a NORMAL (blue) tile.
         else
         {
-            // --- CHANGE #3: And here, to find the final landing snap ---
+            // This is a valid tile to land on.
             int landingSnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
             if (landingSnap != -1)
             {
+                // Add the tile to the list of possible moves.
                 if (!validMoves.Contains(neighbor)) validMoves.Add(neighbor);
 
+                // Store which snap point we will land on.
                 if (isReverseMove) tileToReverseSnapPoint[neighbor] = landingSnap;
                 else tileToSnapPoint[neighbor] = landingSnap;
                 
+                // If we crossed reversed tiles to get here, store that path information for penalties.
                 if (crossedReversedTiles.Count > 0)
                 {
                     reversedPathways[neighbor] = crossedReversedTiles;
                 }
             }
-            return;
+            return; // Terminate the search for this path.
         }
     }
 }
-
 // Helper to find the opposite snap point for straight-line travel.
 int GetOppositeSnapPoint(int snap)
 {
@@ -562,15 +589,63 @@ int FindConnectedSnapPoint_HorizontalOnly(TileInstance fromTile, int fromSnapInd
         return minDistance < 0.5f ? closestSnapPoint : -1;
     }
     
-    void FindBankEntryMoves()
+void FindBankEntryMoves()
+{
+    int entryRow = DetermineEntryRow();
+    // Determine the direction of search: +1 for up (from bottom), -1 for down (from top).
+    int searchDirection = (entryRow == 0) ? 1 : -1; 
+    RiverBankManager.BankSide oppositeBank = (entryRow == 0) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
+
+    for (int col = 0; col < gridManager.cols; col++)
     {
-        int entryRow = DetermineEntryRow();
-        for (int col = 0; col < gridManager.cols; col++)
+        bool foundLandingTile = false;
+        int currentRow = entryRow;
+        List<TileInstance> crossedReversedTiles = new List<TileInstance>();
+
+        // Search through the column until we find a non-reversed tile or go off the board.
+        while (currentRow >= 0 && currentRow < gridManager.rows)
         {
-            var tile = gridManager.GetTileAt(col, entryRow);
-            if (tile != null) validMoves.Add(tile);
+            var tile = gridManager.GetTileAt(col, currentRow);
+
+            if (tile == null)
+            {
+                // This column has a gap, stop searching here.
+                break;
+            }
+
+            if (tile.IsReversed)
+            {
+                // This is a reversed tile. Log it and continue searching.
+                crossedReversedTiles.Add(tile);
+                currentRow += searchDirection;
+            }
+            else
+            {
+                // This is a valid, non-obstacle tile. Add it as a potential move.
+                if (!validMoves.Contains(tile))
+                {
+                    validMoves.Add(tile);
+                }
+
+                // If we crossed any reversed tiles to get here, store that path.
+                if (crossedReversedTiles.Count > 0)
+                {
+                    reversedPathways[tile] = crossedReversedTiles;
+                }
+
+                foundLandingTile = true;
+                break; // Found our landing spot for this column, so we can stop searching it.
+            }
+        }
+
+        // If we searched the entire column and only found reversed tiles,
+        // then the opposite bank becomes a valid move.
+        if (!foundLandingTile)
+        {
+            HighlightBankForDocking(oppositeBank);
         }
     }
+}
 
     int DetermineEntryRow()
     {
