@@ -80,6 +80,7 @@ MonoBehaviour:
   ejectionSettleDelay: 0.1
   settleStartHeight: 1.5
   settleDuration: 0.6
+  ejectionFadeOutDuration: 0.2
   maxMovementPoints: 3
   hasCargo: 0
   selectedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}

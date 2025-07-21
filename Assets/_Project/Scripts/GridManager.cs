@@ -644,6 +644,7 @@ public class GridManager : MonoBehaviour
             var tileRenderer = tile.GetComponentInChildren<MeshRenderer>();
             if (tileRenderer != null)
             {
+                
                 Color startColor = tileRenderer.material.color;
                 float fadeElapsed = 0f;
                 while (fadeElapsed < actualFadeDuration)

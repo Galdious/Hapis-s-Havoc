@@ -23,6 +23,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     public float snapOffset = 0.15f;
     public float moveSpeed = 1f;
     public float hoverHeight = 0.5f;
+
+    public float aboveTileHoverDistance = 0.1f; // How high the boat hovers above the tile when selected.
     public float bobAmount = 0.1f;
     public float bobSpeed = 2f;
     
@@ -120,6 +122,8 @@ private Color opaqueColor;
 public IEnumerator FadeOutForEjection()
 {
     if (boatRenderer == null) yield break;
+
+    boatRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
     isBobbing = false;
     float elapsed = 0f;
@@ -299,15 +303,17 @@ public void AnimateToNewPositionAfterEjection(RiverBankManager.BankSide side)
     // 6. Finalize the state to ensure perfect placement and appearance.
     transform.position = finalPos;
     boatRenderer.material.color = opaqueColor;
+    
+    boatRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
 
     if (destinationTile != null)
-    {
-        PlaceOnTile(destinationTile, snapPoint);
-    }
-    else
-    {
-        SetStateForBank(bankSpawn);
-    }
+        {
+            PlaceOnTile(destinationTile, snapPoint);
+        }
+        else
+        {
+            SetStateForBank(bankSpawn);
+        }
 }
     void SelectBoat()
     {
@@ -337,7 +343,7 @@ public void AnimateToNewPositionAfterEjection(RiverBankManager.BankSide side)
         float baseY = isAtBank && bankPosition != null ? bankPosition.position.y : 0f;
         Vector3 startPos = transform.position;
         Vector3 targetPos = startPos;
-        targetPos.y = lift ? baseY + hoverHeight : baseY;
+        targetPos.y = lift ? baseY + hoverHeight + aboveTileHoverDistance : baseY;
         
         float liftDuration = 0.3f;
         float elapsed = 0f;
