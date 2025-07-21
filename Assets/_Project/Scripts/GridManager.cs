@@ -414,55 +414,76 @@ public class GridManager : MonoBehaviour
         //This logic places the saved boat back onto the grid or bank
         // --- START OF BLOCK TO ADD (Part 2) ---
         if (ejectedBoat != null)
+{
+    // 1. Prepare the boat and determine its initial target row.
+    ejectedBoat.ResetStateAfterEjection();
+    int targetRow = rowIndex + (ejectedBoat.hasCargo ? 1 : -1);
+
+    // 2. Handle immediate bank placement if the target is off the board.
+    if (targetRow < 0)
+    {
+        ejectedBoat.MoveToBank(RiverBankManager.BankSide.Bottom);
+        ejectedBoat.enabled = true;
+    }
+    else if (targetRow >= rows)
+    {
+        ejectedBoat.MoveToBank(RiverBankManager.BankSide.Top);
+        ejectedBoat.enabled = true;
+    }
+    // 3. If the target is on the board, perform the search.
+    else 
+    {
+        int landingCol = fromLeft ? cols - 1 : 0;
+        int searchDirection = ejectedBoat.hasCargo ? 1 : -1;
+        int currentRow = targetRow; // Start searching from the calculated target row.
+        RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
+
+        List<TileInstance> crossedReversedTiles = new List<TileInstance>();
+        TileInstance finalLandingTile = null;
+
+        // Search the column until we go off the board or find a valid spot.
+        while (currentRow >= 0 && currentRow < rows)
         {
-
-            // Tell the boat to reset its internal state before moving it.
-            ejectedBoat.ResetStateAfterEjection();
-
-            // Determine target row based on cargo (one row "back")
-            int targetRow = rowIndex + (ejectedBoat.hasCargo ? 1 : -1);
-
-            // Bank Snap Rule
-            if (targetRow < 0)
+            TileInstance tileToCheck = GetTileAt(landingCol, currentRow);
+            if (tileToCheck != null && tileToCheck.IsReversed)
             {
-                ejectedBoat.MoveToBank(RiverBankManager.BankSide.Bottom);
-                ejectedBoat.enabled = true; // Re-enable the script
+                crossedReversedTiles.Add(tileToCheck);
+                currentRow += searchDirection;
             }
-            else if (targetRow >= rows)
+            else
             {
-                ejectedBoat.MoveToBank(RiverBankManager.BankSide.Top);
-                ejectedBoat.enabled = true; // Re-enable the script
+                finalLandingTile = tileToCheck;
+                break;
             }
-            else // Tile Snap Rule
+        }
+        
+        // Apply penalties for any tiles we skipped.
+        if (crossedReversedTiles.Count > 0)
+        {
+            ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
+        }
+        
+        // Place the boat on the found tile or the fallback bank.
+        if (finalLandingTile != null)
+        {
+            int targetSnapPoint = originalSnapPoint;
+            float newTileRotation = finalLandingTile.transform.eulerAngles.y;
+
+            if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
             {
-                int landingCol = fromLeft ? cols - 1 : 0;
-                TileInstance landingTile = GetTileAt(landingCol, targetRow);
-
-                if (landingTile != null)
-                {
-                    int targetSnapPoint = originalSnapPoint;
-                    float newTileRotation = landingTile.transform.eulerAngles.y;
-
-                    if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
-                    {
-                        switch (originalSnapPoint)
-                        {
-                            case 0: targetSnapPoint = 3; break;
-                            case 1: targetSnapPoint = 2; break;
-                            case 2: targetSnapPoint = 1; break;
-                            case 3: targetSnapPoint = 0; break;
-                        }
-                    }
-                    ejectedBoat.PlaceOnTile(landingTile, targetSnapPoint);
-                    ejectedBoat.enabled = true; // Re-enable the script to make it clickable
-                }
-                else
-                {
-                    // Fallback if the landing tile doesn't exist for some reason
-                    ejectedBoat.MoveToBank(ejectedBoat.hasCargo ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom);
-                    ejectedBoat.enabled = true;
-                }
+                targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
             }
+            
+            ejectedBoat.PlaceOnTile(finalLandingTile, targetSnapPoint);
+            ejectedBoat.enabled = true;
+        }
+        else
+        {
+            ejectedBoat.MoveToBank(destinationBank);
+            ejectedBoat.enabled = true;
+        }
+    }
+
         }
         // --- END OF BLOCK TO ADD (Part 2) ---
 
@@ -658,7 +679,20 @@ public class GridManager : MonoBehaviour
     // ------------------------------------------------------------
     // 13. Public utility methods
     // ------------------------------------------------------------
-
+private int GetOppositeSnapPoint(int snap)
+{
+    switch (snap)
+    {
+        case 0: return 3;
+        case 1: return 2;
+        case 2: return 1;
+        case 3: return 0;
+        // Snap points 4 and 5 (sides) are their own opposites in a 180-degree flip.
+        case 4: return 5; 
+        case 5: return 4;
+        default: return snap; // Failsafe
+    }
+}
     public bool IsPushInProgress()
     {
         return isPushingInProgress;
