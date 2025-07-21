@@ -605,7 +605,7 @@ int GetOppositeSnapPoint(int snap)
         if (isMoving || !isSelected || !validMoves.Contains(clickedTile) || currentMovementPoints <= 0) return;
         
         isMoving = true;
-        isSelected = false;
+        
 
         if (isAtBank)
         {
@@ -623,13 +623,37 @@ int GetOppositeSnapPoint(int snap)
         if(isMoving || !isSelected || currentMovementPoints <= 0) return;
 
         isMoving = true;
-        isSelected = false;
+        
         StopAllCoroutines();
         
         Transform targetSpawn = riverBankManager.GetNearestSpawnPoint(side, transform.position);
         StartCoroutine(MoveToBankCoroutine(targetSpawn));
     }
     
+
+void RefreshMovementOptions()
+{
+    isMoving = false;
+    
+    // --- THIS IS THE NEW LOGIC BLOCK ---
+    // After a move, check if we are out of points.
+    if (currentMovementPoints <= 0)
+    {
+        // If we have no points left, automatically end the turn.
+        // DeselectBoat() will handle lowering the boat and clearing highlights.
+        DeselectBoat();
+    }
+    else
+    {
+        // If we still have points, find and show the next set of moves.
+        ClearHighlights();
+        FindValidMoves();
+        StartCoroutine(HighlightValidMovesWithDelay());
+    }
+}
+
+
+
     int DetermineRiverSnapPoint(TileInstance tile)
     {
         bool isPath = tileToSnapPoint.ContainsKey(tile);
@@ -921,7 +945,7 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
     PlaceOnTile(targetTile, snapPoint);
     currentMovementPoints--;
     
-    CompleteMovementTurn();
+    RefreshMovementOptions();
 }
     
     IEnumerator MoveToBankCoroutine(Transform targetSpawn)
@@ -941,7 +965,7 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
         }
         SetStateForBank(targetSpawn);
         currentMovementPoints--;
-        CompleteMovementTurn();
+        RefreshMovementOptions();
     }
     
     void CompleteMovementTurn()
