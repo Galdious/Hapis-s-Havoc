@@ -39,8 +39,10 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 public float ejectionSettleDelay = 0.2f; // You can adjust this value
 [Tooltip("How high above its final position the boat appears before settling.")]
 public float settleStartHeight = 1.5f;
-[Tooltip("How long the settle and fade-in animation takes.")]
-public float settleDuration = 0.6f;
+    [Tooltip("How long the settle and fade-in animation takes.")]
+    public float settleDuration = 0.6f;
+[Tooltip("How long the boat's fade-out takes when it is ejected from a falling tile.")]
+public float ejectionFadeOutDuration = 0.2f; // A quick fade
 
 
 
@@ -69,6 +71,9 @@ public float settleDuration = 0.6f;
     private bool isAtBank = true;
     private bool isSelected = false;
     private bool isMoving = false;
+    // --- ADD THESE NEW FIELDS ---
+private MeshRenderer boatRenderer;
+private Color opaqueColor;
     
     private Vector3 originalBoatPosition;
     private bool isBobbing = false;
@@ -90,6 +95,16 @@ public float settleDuration = 0.6f;
     {
         gridManager = FindFirstObjectByType<GridManager>();
         riverBankManager = FindFirstObjectByType<RiverBankManager>();
+
+
+
+        boatRenderer = GetComponentInChildren<MeshRenderer>();
+        if (boatRenderer != null)
+        {
+            opaqueColor = boatRenderer.material.color;
+        }
+
+
         if (gridManager == null) Debug.LogError("[BoatController] GridManager not found!");
         if (riverBankManager == null) Debug.LogError("[BoatController] RiverBankManager not found!");
     }
@@ -99,6 +114,54 @@ public float settleDuration = 0.6f;
         if (Keyboard.current.eKey.wasPressedThisFrame) EndMovementTurn();
         if (Keyboard.current.rKey.wasPressedThisFrame) ResetMovementPoints();
     }
+
+
+
+public IEnumerator FadeOutForEjection()
+{
+    if (boatRenderer == null) yield break;
+
+    isBobbing = false;
+    float elapsed = 0f;
+    Color startColor = boatRenderer.material.color;
+
+    while (elapsed < ejectionFadeOutDuration)
+    {
+        elapsed += Time.deltaTime;
+        float progress = Mathf.Clamp01(elapsed / ejectionFadeOutDuration);
+        
+        // Lerp towards a version of the OPAQUE color with zero alpha
+        Color targetColor = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
+        boatRenderer.material.color = Color.Lerp(startColor, targetColor, progress);
+
+        yield return null;
+    }
+    
+    // Ensure it is fully transparent at the end
+    boatRenderer.material.color = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
+}
+
+private IEnumerator FadeOutCoroutine()
+{
+    isBobbing = false;
+    float elapsed = 0f;
+    Color startColor = boatRenderer.material.color; // Read current color for smooth start
+
+    while (elapsed < ejectionFadeOutDuration)
+    {
+        elapsed += Time.deltaTime;
+        float progress = Mathf.Clamp01(elapsed / ejectionFadeOutDuration);
+        
+        // Lerp towards a version of the OPAQUE color with zero alpha
+        Color targetColor = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
+        boatRenderer.material.color = Color.Lerp(startColor, targetColor, progress);
+
+        yield return null;
+    }
+    // Ensure it is fully transparent at the end
+    boatRenderer.material.color = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
+}
+
 
     public void SetAtBank(Transform bankSpawnPoint)
     {
@@ -179,76 +242,73 @@ public void AnimateToNewPositionAfterEjection(RiverBankManager.BankSide side)
     }
 }
 
-    private IEnumerator SettleAndFadeInCoroutine(TileInstance destinationTile, int snapPoint, Transform bankSpawn)
-    {
-            if (ejectionSettleDelay > 0)
+   private IEnumerator SettleAndFadeInCoroutine(TileInstance destinationTile, int snapPoint, Transform bankSpawn)
+{
+    // 1. Wait for the settle delay if there is one.
+    if (ejectionSettleDelay > 0)
     {
         yield return new WaitForSeconds(ejectionSettleDelay);
     }
-        // --- 1. Setup ---
-        // Get the boat's renderer to control its material's alpha (transparency).
-        var boatRenderer = GetComponentInChildren<MeshRenderer>();
-        Color originalColor = boatRenderer.material.color;
 
-        // Make the boat fully transparent instantly.
-        boatRenderer.material.color = new Color(originalColor.r, originalColor.g, originalColor.b, 0f);
+    // Safety check
+    if (boatRenderer == null) yield break;
+    
+    // 2. Make sure the boat is fully transparent before we start.
+    // Use the cached 'opaqueColor' to maintain the correct RGB values.
+    boatRenderer.material.color = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
 
-        // --- 2. Determine Target Position & Rotation ---
-        Vector3 finalPos;
-        Quaternion finalRot;
+    // 3. Determine the final destination position and rotation.
+    Vector3 finalPos;
+    Quaternion finalRot;
 
-        if (destinationTile != null) // We are moving to a TILE
-        {
-            Vector3 snapPosition = destinationTile.snapPoints[snapPoint].position;
-            Vector3 tileCenter = destinationTile.transform.position;
-            Vector3 direction = (snapPosition - tileCenter).normalized;
-            finalPos = snapPosition - direction * snapOffset;
-            finalRot = GetSnapPointRotation(destinationTile, snapPoint);
-        }
-        else // We are moving to a BANK
-        {
-            finalPos = bankSpawn.position;
-            finalRot = bankSpawn.rotation;
-        }
-
-        // The animation will start from above the final position.
-        Vector3 startPos = finalPos + Vector3.up * settleStartHeight;
-        transform.position = startPos;
-        transform.rotation = finalRot; // Set rotation immediately.
-
-        // --- 3. Animate Over Time ---
-        float elapsed = 0f;
-        while (elapsed < settleDuration)
-        {
-            elapsed += Time.deltaTime;
-            float progress = Mathf.Clamp01(elapsed / settleDuration);
-
-            // Animate position from high-start to final.
-            transform.position = Vector3.Lerp(startPos, finalPos, progress);
-
-            // Animate alpha from 0 (transparent) to 1 (opaque).
-            float newAlpha = Mathf.Lerp(0f, originalColor.a, progress);
-            boatRenderer.material.color = new Color(originalColor.r, originalColor.g, originalColor.b, newAlpha);
-
-            yield return null;
-        }
-
-        // --- 4. Finalize State ---
-        // Ensure final values are set perfectly.
-        transform.position = finalPos;
-        boatRenderer.material.color = originalColor;
-
-        // Call the original placement methods to correctly set the boat's internal state.
-        if (destinationTile != null)
-        {
-            PlaceOnTile(destinationTile, snapPoint);
-        }
-        else
-        {
-            SetStateForBank(bankSpawn);
-        }
+    if (destinationTile != null)
+    {
+        Vector3 snapPosition = destinationTile.snapPoints[snapPoint].position;
+        Vector3 tileCenter = destinationTile.transform.position;
+        Vector3 direction = (snapPosition - tileCenter).normalized;
+        finalPos = snapPosition - direction * snapOffset;
+        finalRot = GetSnapPointRotation(destinationTile, snapPoint);
+    }
+    else
+    {
+        finalPos = bankSpawn.position;
+        finalRot = bankSpawn.rotation;
     }
     
+    // 4. Set the starting position for the animation (above the final spot).
+    Vector3 startPos = finalPos + Vector3.up * settleStartHeight;
+    transform.position = startPos;
+    transform.rotation = finalRot;
+
+    // 5. Animate the movement and fade-in over time.
+    float elapsed = 0f;
+    while (elapsed < settleDuration)
+    {
+        elapsed += Time.deltaTime;
+        float progress = Mathf.Clamp01(elapsed / settleDuration);
+        
+        // Animate position from the start point to the final point.
+        transform.position = Vector3.Lerp(startPos, finalPos, progress);
+        
+        // Animate the material color from its current state towards the fully opaque color.
+        boatRenderer.material.color = Color.Lerp(boatRenderer.material.color, opaqueColor, progress);
+
+        yield return null;
+    }
+
+    // 6. Finalize the state to ensure perfect placement and appearance.
+    transform.position = finalPos;
+    boatRenderer.material.color = opaqueColor;
+
+    if (destinationTile != null)
+    {
+        PlaceOnTile(destinationTile, snapPoint);
+    }
+    else
+    {
+        SetStateForBank(bankSpawn);
+    }
+}
     void SelectBoat()
     {
         isSelected = true;

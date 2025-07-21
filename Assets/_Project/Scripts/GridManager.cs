@@ -324,8 +324,16 @@ public class GridManager : MonoBehaviour
                 }
             }
         }
-        // --- END OF BLOCK TO ADD (Part 1) ---
         
+
+    if (ejectedBoat != null)
+    {
+        yield return StartCoroutine(ejectedBoat.FadeOutForEjection());
+    }
+
+
+        // --- END OF BLOCK TO ADD (Part 1) ---
+
         // Create new tile at spawn position (outside grid)
         GameObject newTileGO = Instantiate(tilePrefab, spawnPos, Quaternion.identity, gridParent);
         newTileGO.name = $"NewTile ({insertCol},{rowIndex})";
@@ -386,32 +394,28 @@ public class GridManager : MonoBehaviour
 
 
 
-        // Animate all tiles sliding
-        List<Coroutine> slideCoroutines = new List<Coroutine>();
+// Animate all critical movements concurrently.
+        List<Coroutine> essentialAnimations = new List<Coroutine>();
 
-
-
-        if (ejectingTile != null)
+        // If a boat is being ejected, add its fade-out animation to the list of animations we must wait for.
+        if (ejectedBoat != null)
         {
-            // We start this coroutine but DON'T add it to the list we wait for.
-            // This is now a "fire and forget" visual effect.
-            StartCoroutine(EjectTileToAbyss(ejectingTile, !fromLeft));
+            essentialAnimations.Add(StartCoroutine(ejectedBoat.FadeOutForEjection()));
         }
 
-
-        // Slide new tile into position
-        slideCoroutines.Add(StartCoroutine(SlideTileToPosition(
+        // Add the new tile sliding into the grid.
+        essentialAnimations.Add(StartCoroutine(SlideTileToPosition(
             newTile.transform, GetWorldPosition(insertCol, rowIndex))));
 
+        // Add all existing tiles sliding within the grid.
         if (fromLeft)
         {
-            // Slide existing tiles right
             for (int x = cols - 1; x >= 1; x--)
             {
                 if (grid[x - 1, rowIndex] != null)
                 {
                     grid[x, rowIndex] = grid[x - 1, rowIndex];
-                    slideCoroutines.Add(StartCoroutine(SlideTileToPosition(
+                    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(
                         grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
                 }
             }
@@ -419,25 +423,29 @@ public class GridManager : MonoBehaviour
         }
         else
         {
-            // Slide existing tiles left
             for (int x = 0; x < cols - 1; x++)
             {
                 if (grid[x + 1, rowIndex] != null)
                 {
                     grid[x, rowIndex] = grid[x + 1, rowIndex];
-                    slideCoroutines.Add(StartCoroutine(SlideTileToPosition(
+                    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(
                         grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
                 }
             }
             grid[cols - 1, rowIndex] = newTile;
         }
 
-
-
-        // Wait for all animations to complete
-        foreach (var coroutine in slideCoroutines)
+        // Start the non-essential "fire-and-forget" animation for the falling tile.
+        // We do NOT add this to the list, so we don't wait for it.
+        if (ejectingTile != null)
         {
-            yield return coroutine;
+            StartCoroutine(EjectTileToAbyss(ejectingTile, !fromLeft));
+        }
+
+        // Now, wait for all essential animations (boat fade + tile slides) to complete.
+        foreach (var anim in essentialAnimations)
+        {
+            yield return anim;
         }
 
 
