@@ -706,6 +706,8 @@ MonoBehaviour:
   tilePrefab: {fileID: 8108575999403111511, guid: 72f459cb832f34201b1485621b9c24a6, type: 3}
   gridParent: {fileID: 470514181}
   boatManager: {fileID: 2016514029}
+  useSpecificSeed: 0
+  gridSeed: 12345
   reversedTileRule: 1
   rows: 6
   cols: 6

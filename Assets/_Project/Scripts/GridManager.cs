@@ -25,6 +25,16 @@ public class GridManager : MonoBehaviour
     public Transform      gridParent;    // optional parent object
     public BoatManager    boatManager;   // link our BoatManager for spawning boats
 
+
+        [Header("Seeding")]
+    [Tooltip("Check this to use the specific integer seed below. Uncheck for a new random river each time.")]
+    public bool useSpecificSeed = false;
+    [Tooltip("The specific seed to use for river generation when the box above is checked.")]
+    public int gridSeed = 12345;
+
+
+
+
     public enum ReversedTileRule { Blocker, PushYourLuck }
     [Header("Gameplay Rules")]
     public ReversedTileRule reversedTileRule = ReversedTileRule.PushYourLuck;
@@ -63,6 +73,8 @@ public class GridManager : MonoBehaviour
     private Vector3 boardOrigin;         // calculated board center offset
     private bool isPushingInProgress = false;  // prevent multiple pushes
 
+    private int currentSeed;             // stores the seed actually used for generation
+
     // ------------------------------------------------------------
     // 3.  Unity lifecycle
     // ------------------------------------------------------------
@@ -74,6 +86,29 @@ public class GridManager : MonoBehaviour
             Debug.LogError("[GridManager] Missing references!");
             return;
         }
+
+
+
+
+    // --- START OF BLOCK TO ADD ---
+    // This block initializes the random number generator with a seed.
+    if (useSpecificSeed)
+    {
+        // Use the seed provided in the Inspector.
+        currentSeed = gridSeed;
+    }
+    else
+    {
+        // Generate a new random seed based on the system time.
+        currentSeed = (int)System.DateTime.Now.Ticks;
+    }
+    
+    // Apply the chosen seed to Unity's random number generator.
+    Random.InitState(currentSeed);
+    Debug.Log($"[GridManager] Generating river with seed: {currentSeed}");
+    // --- END OF BLOCK TO ADD ---
+
+
 
         // Create physical floor under the grid if requested
         if (createGameFloor)
