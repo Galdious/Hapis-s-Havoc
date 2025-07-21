@@ -743,7 +743,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  fallCleanupTime: 3
+  fallFadeDuration: 1.5
+  fallCleanupTime: 2
   fallTorque: 5
   createGameFloor: 1
   floorHeight: -0.8

@@ -49,7 +49,39 @@ MonoBehaviour:
   snapOffset: 0.15
   moveSpeed: 2
   hoverHeight: 0.5
-  validMoveMaterial: {fileID: 0}
+  bobAmount: 0.1
+  bobSpeed: 2
+  tileLiftDuration: 0.4
+  tileLiftDelay: 0.2
+  tileLiftCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  ejectionSettleDelay: 0.1
+  settleStartHeight: 1.5
+  settleDuration: 0.6
+  maxMovementPoints: 3
+  hasCargo: 0
   selectedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   showDebugInfo: 1
 --- !u!1 &8313586836549718392
@@ -150,7 +182,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 9af61865a61f142fe955ffa19a04129e, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

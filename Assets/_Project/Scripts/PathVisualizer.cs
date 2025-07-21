@@ -30,6 +30,18 @@ public class PathVisualizer : MonoBehaviour
             CreateLine( Build(c.from, c.to) );
     }
 
+public void CleanUpPaths()
+{
+    foreach (var g in pool)
+    {
+        if (g != null)
+        {
+            Destroy(g);
+        }
+    }
+    pool.Clear();
+}
+
     /* ───────── routing table ─────────────── */
     List<Vector3> Build(int a, int b)
     {

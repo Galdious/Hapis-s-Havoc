@@ -58,7 +58,10 @@ public class GridManager : MonoBehaviour
     public float spawnOffset = 3f;       // how far outside grid new tiles spawn
     public AnimationCurve pushCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
+
     [Header("Physics Fall Settings")]
+            [Tooltip("How long the tile's fade-out animation takes at the end of its life.")]
+    public float fallFadeDuration = 1.5f;
     public float fallCleanupTime = 3f;    // how long before we clean up fallen tiles
     public float fallTorque = 5f;         // spinning force when ejected
     public bool createGameFloor = true;   // create physical floor under grid
@@ -386,6 +389,16 @@ public class GridManager : MonoBehaviour
         // Animate all tiles sliding
         List<Coroutine> slideCoroutines = new List<Coroutine>();
 
+
+
+        if (ejectingTile != null)
+        {
+            // We start this coroutine but DON'T add it to the list we wait for.
+            // This is now a "fire and forget" visual effect.
+            StartCoroutine(EjectTileToAbyss(ejectingTile, !fromLeft));
+        }
+
+
         // Slide new tile into position
         slideCoroutines.Add(StartCoroutine(SlideTileToPosition(
             newTile.transform, GetWorldPosition(insertCol, rowIndex))));
@@ -419,11 +432,7 @@ public class GridManager : MonoBehaviour
             grid[cols - 1, rowIndex] = newTile;
         }
 
-        // Animate ejected tile falling
-        if (ejectingTile != null)
-        {
-            slideCoroutines.Add(StartCoroutine(EjectTileToAbyss(ejectingTile, !fromLeft))); // Fixed: opposite direction
-        }
+
 
         // Wait for all animations to complete
         foreach (var coroutine in slideCoroutines)
@@ -457,12 +466,12 @@ public class GridManager : MonoBehaviour
     // 2. Handle immediate bank placement if the target is off the board.
     if (targetRow < 0)
     {
-        ejectedBoat.MoveToBank(RiverBankManager.BankSide.Bottom);
+        ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom);
         ejectedBoat.enabled = true;
     }
     else if (targetRow >= rows)
     {
-        ejectedBoat.MoveToBank(RiverBankManager.BankSide.Top);
+        ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top);
         ejectedBoat.enabled = true;
     }
     // 3. If the target is on the board, perform the search.
@@ -509,12 +518,12 @@ public class GridManager : MonoBehaviour
                 targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
             }
             
-            ejectedBoat.PlaceOnTile(finalLandingTile, targetSnapPoint);
+            ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint);
             ejectedBoat.enabled = true;
         }
         else
         {
-            ejectedBoat.MoveToBank(destinationBank);
+            ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank);
             ejectedBoat.enabled = true;
         }
     }
@@ -573,9 +582,9 @@ public class GridManager : MonoBehaviour
         // First, smoothly slide the tile a bit further off the edge to separate it from neighbors
         Vector3 startPos = tile.transform.position;
         Vector3 separationTarget = startPos + (exitingLeft ? Vector3.left : Vector3.right) * 1f; // 1 unit separation
-        
+
         float elapsed = 0f;
-        
+
         // Slide to separation position using adjustable separation time
         while (elapsed < separationTime)
         {
@@ -584,24 +593,24 @@ public class GridManager : MonoBehaviour
             tile.transform.position = Vector3.Lerp(startPos, separationTarget, progress);
             yield return null;
         }
-        
+
         tile.transform.position = separationTarget;
-        
+
         // Now enable physics when tile is safely separated from neighbors
         Rigidbody rb = tile.GetComponent<Rigidbody>();
         if (rb == null)
         {
             rb = tile.gameObject.AddComponent<Rigidbody>();
         }
-        
+
         rb.mass = 5f;                // Much heavier - more stable, less bouncy
         rb.isKinematic = false;      // Enable physics
         rb.linearDamping = 0.4f;     // More damping to reduce bouncing
         rb.angularDamping = 0.5f;    // More angular damping for stability
-        
+
         // No artificial push - just let gravity do its work naturally
         // The tile is already positioned at the edge and will fall on its own
-        
+
         // Add some random spinning for visual interest
         Vector3 randomTorque = new Vector3(
             Random.Range(-fallTorque, fallTorque),
@@ -609,15 +618,64 @@ public class GridManager : MonoBehaviour
             Random.Range(-fallTorque, fallTorque)
         );
         rb.AddTorque(randomTorque, ForceMode.Impulse);
-        
-        // Wait for physics to play out, then clean up
-        yield return new WaitForSeconds(fallCleanupTime);
-        
-        // Clean up the tile
-        if (tile != null && tile.gameObject != null)
+
+        // --- NEW FADE LOGIC ---
+        // Calculate how long the tile should fall before starting to fade.
+        float actualFadeDuration = Mathf.Max(0, Mathf.Min(fallFadeDuration, fallCleanupTime));
+        float solidTime = fallCleanupTime - actualFadeDuration;
+
+        // Wait for the "solid" fall time to pass.
+        if (solidTime > 0)
         {
-            Destroy(tile.gameObject);
+            yield return new WaitForSeconds(solidTime);
         }
+
+        // Now, perform the fade over the remaining duration.
+        if (actualFadeDuration > 0 && tile != null)
+        {
+            var tileRenderer = tile.GetComponentInChildren<MeshRenderer>();
+            if (tileRenderer != null)
+            {
+                Color startColor = tileRenderer.material.color;
+                float fadeElapsed = 0f;
+                while (fadeElapsed < actualFadeDuration)
+                {
+                    if (tile == null) yield break; // Safety check
+
+                    fadeElapsed += Time.deltaTime;
+                    float progress = fadeElapsed / actualFadeDuration;
+
+                    float newAlpha = Mathf.Lerp(startColor.a, 0f, progress);
+                    tileRenderer.material.color = new Color(startColor.r, startColor.g, startColor.b, newAlpha);
+
+                    yield return null;
+                }
+            }
+        }
+
+
+
+
+
+    // --- THIS IS THE CORRECTED FINAL BLOCK ---
+    // Clean up the tile GameObject itself
+    if (tile != null && tile.gameObject != null)
+    {
+        // First, explicitly tell the PathVisualizer to destroy its children.
+        tile.GetComponent<PathVisualizer>()?.CleanUpPaths();
+        
+        // Then, destroy the main tile object.
+        Destroy(tile.gameObject);
+    }
+
+
+
+
+
+
+
+
+
     }
 
     // ------------------------------------------------------------

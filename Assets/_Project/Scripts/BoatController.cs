@@ -30,6 +30,20 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     public float tileLiftDuration = 0.4f;
     public float tileLiftDelay = 0.2f;
     public AnimationCurve tileLiftCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
+
+
+
+    [Header("Ejection Animation")]
+[Tooltip("A short delay before the boat begins its settle animation after being ejected.")]
+public float ejectionSettleDelay = 0.2f; // You can adjust this value
+[Tooltip("How high above its final position the boat appears before settling.")]
+public float settleStartHeight = 1.5f;
+[Tooltip("How long the settle and fade-in animation takes.")]
+public float settleDuration = 0.6f;
+
+
+
     
     [Header("Movement System")]
     public int maxMovementPoints = 3;
@@ -112,6 +126,127 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         if (isMoving) return;
         if (!isSelected) SelectBoat();
         else DeselectBoat();
+    }
+    
+
+
+
+private void SetStateForBank(Transform bankSpawnPoint)
+{
+    // This method ONLY sets the internal state variables for being at a bank.
+    // It does NOT touch the transform's position or rotation, leaving that to the animation.
+    bankPosition = bankSpawnPoint;
+    isAtBank = true;
+    currentTile = null;
+    currentSnapPoint = -1;
+}
+
+
+
+
+
+
+    // This new public method will be called by GridManager.
+    public void AnimateToNewPositionAfterEjection(TileInstance tile, int snapPoint)
+    {
+        // The coroutine will handle the animation and then call the final placement logic.
+        StartCoroutine(SettleAndFadeInCoroutine(tile, snapPoint, null));
+    }
+
+    // Overload for moving to a bank.
+    public void AnimateToNewPositionAfterEjection(Transform bankSpawn)
+    {
+        StartCoroutine(SettleAndFadeInCoroutine(null, -1, bankSpawn));
+    }
+
+
+public void AnimateToNewPositionAfterEjection(RiverBankManager.BankSide side)
+{
+    // This method takes the BankSide enum...
+    if (riverBankManager == null)
+    {
+        Debug.LogError("[BoatController] Cannot animate to bank, RiverBankManager is missing!");
+        return;
+    }
+    
+    // ...finds the correct spawn point Transform...
+    Transform bankSpawn = riverBankManager.GetNearestSpawnPoint(side, transform.position);
+    
+    // ...and then calls the existing animation coroutine with that Transform.
+    if (bankSpawn != null)
+    {
+        AnimateToNewPositionAfterEjection(bankSpawn);
+    }
+}
+
+    private IEnumerator SettleAndFadeInCoroutine(TileInstance destinationTile, int snapPoint, Transform bankSpawn)
+    {
+            if (ejectionSettleDelay > 0)
+    {
+        yield return new WaitForSeconds(ejectionSettleDelay);
+    }
+        // --- 1. Setup ---
+        // Get the boat's renderer to control its material's alpha (transparency).
+        var boatRenderer = GetComponentInChildren<MeshRenderer>();
+        Color originalColor = boatRenderer.material.color;
+
+        // Make the boat fully transparent instantly.
+        boatRenderer.material.color = new Color(originalColor.r, originalColor.g, originalColor.b, 0f);
+
+        // --- 2. Determine Target Position & Rotation ---
+        Vector3 finalPos;
+        Quaternion finalRot;
+
+        if (destinationTile != null) // We are moving to a TILE
+        {
+            Vector3 snapPosition = destinationTile.snapPoints[snapPoint].position;
+            Vector3 tileCenter = destinationTile.transform.position;
+            Vector3 direction = (snapPosition - tileCenter).normalized;
+            finalPos = snapPosition - direction * snapOffset;
+            finalRot = GetSnapPointRotation(destinationTile, snapPoint);
+        }
+        else // We are moving to a BANK
+        {
+            finalPos = bankSpawn.position;
+            finalRot = bankSpawn.rotation;
+        }
+
+        // The animation will start from above the final position.
+        Vector3 startPos = finalPos + Vector3.up * settleStartHeight;
+        transform.position = startPos;
+        transform.rotation = finalRot; // Set rotation immediately.
+
+        // --- 3. Animate Over Time ---
+        float elapsed = 0f;
+        while (elapsed < settleDuration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = Mathf.Clamp01(elapsed / settleDuration);
+
+            // Animate position from high-start to final.
+            transform.position = Vector3.Lerp(startPos, finalPos, progress);
+
+            // Animate alpha from 0 (transparent) to 1 (opaque).
+            float newAlpha = Mathf.Lerp(0f, originalColor.a, progress);
+            boatRenderer.material.color = new Color(originalColor.r, originalColor.g, originalColor.b, newAlpha);
+
+            yield return null;
+        }
+
+        // --- 4. Finalize State ---
+        // Ensure final values are set perfectly.
+        transform.position = finalPos;
+        boatRenderer.material.color = originalColor;
+
+        // Call the original placement methods to correctly set the boat's internal state.
+        if (destinationTile != null)
+        {
+            PlaceOnTile(destinationTile, snapPoint);
+        }
+        else
+        {
+            SetStateForBank(bankSpawn);
+        }
     }
     
     void SelectBoat()
@@ -738,7 +873,7 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
             transform.rotation = Quaternion.Slerp(startRot, targetRot, easeProgress);
             yield return null;
         }
-        SetAtBank(targetSpawn);
+        SetStateForBank(targetSpawn);
         currentMovementPoints--;
         CompleteMovementTurn();
     }
