@@ -73,14 +73,14 @@ public float ejectionFadeOutDuration = 0.2f; // A quick fade
     private bool isAtBank = true;
     private bool isSelected = false;
     private bool isMoving = false;
+    
     // --- ADD THESE NEW FIELDS ---
-private MeshRenderer boatRenderer;
+    private MeshRenderer boatRenderer;
 private Color opaqueColor;
     
     private Vector3 originalBoatPosition;
     private bool isBobbing = false;
-    
-    private GridManager gridManager;
+    private BoatManager boatManager;    private GridManager gridManager;
     private RiverBankManager riverBankManager;
     private List<TileInstance> validMoves = new List<TileInstance>();
     private List<GameObject> highlightedTiles = new List<GameObject>();
@@ -95,6 +95,7 @@ private Color opaqueColor;
     
     void Start()
     {
+        boatManager = FindFirstObjectByType<BoatManager>();
         gridManager = FindFirstObjectByType<GridManager>();
         riverBankManager = FindFirstObjectByType<RiverBankManager>();
 
@@ -315,23 +316,25 @@ public void AnimateToNewPositionAfterEjection(RiverBankManager.BankSide side)
             SetStateForBank(bankSpawn);
         }
 }
-    void SelectBoat()
+    public void SelectBoat()
     {
+        if (boatManager != null) boatManager.SetSelectedBoat(this);
         isSelected = true;
         if (currentMovementPoints <= 0) currentMovementPoints = maxMovementPoints;
 
-        if (!isAtBank && currentTile != null)
-        {
-           HighlightTile(currentTile);
-        }
+        //if (!isAtBank && currentTile != null)
+        //{
+        //   HighlightTile(currentTile);
+        //}
         
         StartCoroutine(LiftAndBobBoat(true));
         FindValidMoves();
         StartCoroutine(HighlightValidMovesWithDelay());
     }
     
-    void DeselectBoat()
+    public void DeselectBoat()
     {
+        if (boatManager != null) boatManager.ClearSelectedBoat();
         isSelected = false;
         StopAllCoroutines();
         StartCoroutine(LiftAndBobBoat(false));
@@ -383,16 +386,18 @@ public void AnimateToNewPositionAfterEjection(RiverBankManager.BankSide side)
             if (tile != null) HighlightTile(tile);
         }
     }
-    
+
     void FindValidMoves()
     {
         validMoves.Clear();
         tileToSnapPoint.Clear();
         tileToReverseSnapPoint.Clear();
         reversedPathways.Clear(); // <<< ADD THIS LINE
-        
+
         if (isAtBank) FindBankEntryMoves();
         else if (currentTile != null) FindRiverPathMoves();
+        
+        if (currentTile != null) validMoves.Remove(currentTile);
     }
 
 void FindRiverPathMoves()

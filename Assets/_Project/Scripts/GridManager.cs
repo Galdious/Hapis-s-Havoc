@@ -253,7 +253,7 @@ public class GridManager : MonoBehaviour
     // 8.  Push implementation
     // ------------------------------------------------------------
 
-    private IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, bool showObstacleSide)
+    public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, bool showObstacleSide)
     {
         isPushingInProgress = true;
 

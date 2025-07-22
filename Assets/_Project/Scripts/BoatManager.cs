@@ -17,9 +17,14 @@ public class BoatManager : MonoBehaviour
     [Header("Testing")]
     public bool spawnTestBoats = true;
     public RiverBankManager.BankSide testBankSide = RiverBankManager.BankSide.Bottom;
+
+    public void SetSelectedBoat(BoatController boat) { selectedBoat = boat; }
+public void ClearSelectedBoat() { selectedBoat = null; }
+public BoatController GetSelectedBoat() { return selectedBoat; }
     
     private RiverBankManager bankManager;
     private List<BoatController> playerBoats = new List<BoatController>();
+    private BoatController selectedBoat;
     
     void Start()
     {

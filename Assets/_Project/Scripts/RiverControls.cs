@@ -8,12 +8,14 @@
  */
 
 using UnityEngine;
+using System.Collections;
 
 public class RiverControls : MonoBehaviour
 {
     [Header("References")]
     public GridManager gridManager;
     public Transform gridParent;  // same as GridManager's gridParent
+    public BoatManager boatManager;
 
     [Header("Arrow Settings")]
     public GameObject arrowPrefab;  // simple cube or arrow mesh
@@ -35,6 +37,7 @@ public class RiverControls : MonoBehaviour
 
     private void Start()
     {
+        if (boatManager == null) boatManager = FindFirstObjectByType<BoatManager>();
         if (gridManager == null)
         {
             gridManager = FindFirstObjectByType<GridManager>();
@@ -172,6 +175,45 @@ arrowButton.Initialize(row, fromLeft, isRed, this);
         if (gridManager != null && !gridManager.IsPushInProgress())
             gridManager.PushRowFromSide(row, false, redSide);
     }
+
+
+
+
+    public void OnArrowClicked(int row, bool fromLeft, bool isRed)
+{
+    if (gridManager.IsPushInProgress()) return;
+
+    BoatController selectedBoat = boatManager.GetSelectedBoat();
+
+    if (selectedBoat != null)
+    {
+        // A boat is selected, so start the special sequence
+        StartCoroutine(HandlePushWithReselect(selectedBoat, row, fromLeft, isRed));
+    }
+    else
+    {
+        // No boat is selected, just push the row normally
+        gridManager.PushRowFromSide(row, fromLeft, isRed);
+    }
+}
+
+private IEnumerator HandlePushWithReselect(BoatController boat, int row, bool fromLeft, bool isRed)
+{
+    // 1. Deselect the boat.
+    boat.DeselectBoat();
+    
+    // Give the game a moment to process the deselection visually
+    yield return new WaitForSeconds(0.2f); 
+
+    // 2. Start the push and WAIT for it to complete.
+    yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, isRed));
+    
+    // 3. Reselect the boat if it can still move.
+    if (boat.maxMovementPoints > 0) // Or whatever your condition is
+    {
+        boat.SelectBoat();
+    }
+}
     
     // Temporarily disable arrow colliders during pushes
     public void SetArrowCollidersEnabled(bool enabled)
