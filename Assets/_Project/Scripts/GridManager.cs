@@ -356,40 +356,7 @@ public class GridManager : MonoBehaviour
 
 
       
-    // --- START OF CORRECTED BLOCK ---
-    // BOAT STICKING LOGIC (Part 1: Find and Parent)
-    List<BoatController> boatsOnRow = new List<BoatController>();
-    if (boatManager != null)
-    {
-        // Get all tiles that are currently in the row that is about to move.
-        List<TileInstance> tilesInRow = new List<TileInstance>();
-        for(int x = 0; x < cols; x++) 
-        {
-            if(grid[x, rowIndex] != null)
-            {
-                tilesInRow.Add(grid[x, rowIndex]);
-            }
-        }
-
-        // Find all boats that are on one of those tiles.
-        foreach (var boat in boatManager.GetPlayerBoats())
-        {
-            if (boat != null && tilesInRow.Contains(boat.GetCurrentTile()))
-            {
-                boatsOnRow.Add(boat);
-            }
-        }
-
-        // Temporarily parent the found boats to their respective tiles.
-        foreach (var boat in boatsOnRow)
-        {
-            boat.transform.SetParent(boat.GetCurrentTile().transform, true);
-            // The 'if (showDebugInfo)' has been removed from the next line
-            Debug.Log($"[GridManager] Parenting {boat.name} to {boat.GetCurrentTile().name} for push.");
-        }
-    }
-    // --- END OF CORRECTED BLOCK ---
-
+    
     
 
 
@@ -453,7 +420,7 @@ public class GridManager : MonoBehaviour
       
 // --- START OF CORRECTED BLOCK ---
     // BOAT STICKING LOGIC (Part 2: Un-parent)
-    foreach (var boat in boatsOnRow)
+    foreach (var boat in boatsToParent)
     {
         if (boat != null) // Safety check in case the boat was on the ejected tile
         {
@@ -465,7 +432,7 @@ public class GridManager : MonoBehaviour
 
         //This logic places the saved boat back onto the grid or bank
         // --- START OF BLOCK TO ADD (Part 2) ---
-        if (ejectedBoat != null)
+if (ejectedBoat != null)
 {
     // 1. Prepare the boat and determine its initial target row.
     ejectedBoat.ResetStateAfterEjection();
@@ -474,12 +441,14 @@ public class GridManager : MonoBehaviour
     // 2. Handle immediate bank placement if the target is off the board.
     if (targetRow < 0)
     {
-        ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom);
+        // We now WAIT for this animation to finish.
+        yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom));
         ejectedBoat.enabled = true;
     }
     else if (targetRow >= rows)
     {
-        ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top);
+        // We now WAIT for this animation to finish.
+        yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top));
         ejectedBoat.enabled = true;
     }
     // 3. If the target is on the board, perform the search.
@@ -487,13 +456,12 @@ public class GridManager : MonoBehaviour
     {
         int landingCol = fromLeft ? cols - 1 : 0;
         int searchDirection = ejectedBoat.hasCargo ? 1 : -1;
-        int currentRow = targetRow; // Start searching from the calculated target row.
+        int currentRow = targetRow; 
         RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
 
         List<TileInstance> crossedReversedTiles = new List<TileInstance>();
         TileInstance finalLandingTile = null;
 
-        // Search the column until we go off the board or find a valid spot.
         while (currentRow >= 0 && currentRow < rows)
         {
             TileInstance tileToCheck = GetTileAt(landingCol, currentRow);
@@ -509,13 +477,11 @@ public class GridManager : MonoBehaviour
             }
         }
         
-        // Apply penalties for any tiles we skipped.
         if (crossedReversedTiles.Count > 0)
         {
             ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
         }
         
-        // Place the boat on the found tile or the fallback bank.
         if (finalLandingTile != null)
         {
             int targetSnapPoint = originalSnapPoint;
@@ -526,15 +492,18 @@ public class GridManager : MonoBehaviour
                 targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
             }
             
-            ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint);
+            // We now WAIT for this animation to finish.
+            yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint));
             ejectedBoat.enabled = true;
         }
         else
         {
-            ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank);
+            // We now WAIT for this animation to finish.
+            yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
             ejectedBoat.enabled = true;
         }
     }
+
 
         }
         // --- END OF BLOCK TO ADD (Part 2) ---

@@ -215,37 +215,38 @@ private void SetStateForBank(Transform bankSpawnPoint)
 
 
     // This new public method will be called by GridManager.
-    public void AnimateToNewPositionAfterEjection(TileInstance tile, int snapPoint)
+    public IEnumerator AnimateToNewPositionAfterEjection(TileInstance tile, int snapPoint)
     {
-        // The coroutine will handle the animation and then call the final placement logic.
-        StartCoroutine(SettleAndFadeInCoroutine(tile, snapPoint, null));
+        // CHANGE 2: We now "yield return" the coroutine so the calling script can wait for it.
+        yield return StartCoroutine(SettleAndFadeInCoroutine(tile, snapPoint, null));
     }
 
     // Overload for moving to a bank.
-    public void AnimateToNewPositionAfterEjection(Transform bankSpawn)
+    // CHANGE 1: The return type is now IEnumerator.
+    public IEnumerator AnimateToNewPositionAfterEjection(Transform bankSpawn)
     {
-        StartCoroutine(SettleAndFadeInCoroutine(null, -1, bankSpawn));
+        // CHANGE 2: We now "yield return" the coroutine.
+        yield return StartCoroutine(SettleAndFadeInCoroutine(null, -1, bankSpawn));
     }
 
 
-public void AnimateToNewPositionAfterEjection(RiverBankManager.BankSide side)
-{
-    // This method takes the BankSide enum...
-    if (riverBankManager == null)
+    // CHANGE 1: The return type is now IEnumerator.
+    public IEnumerator AnimateToNewPositionAfterEjection(RiverBankManager.BankSide side)
     {
-        Debug.LogError("[BoatController] Cannot animate to bank, RiverBankManager is missing!");
-        return;
+        if (riverBankManager == null)
+        {
+            Debug.LogError("[BoatController] Cannot animate to bank, RiverBankManager is missing!");
+            yield break; // Use yield break in an IEnumerator instead of return.
+        }
+        
+        Transform bankSpawn = riverBankManager.GetNearestSpawnPoint(side, transform.position);
+        
+        if (bankSpawn != null)
+        {
+            // CHANGE 2: We now "yield return" the call to the other overload.
+            yield return StartCoroutine(AnimateToNewPositionAfterEjection(bankSpawn));
+        }
     }
-    
-    // ...finds the correct spawn point Transform...
-    Transform bankSpawn = riverBankManager.GetNearestSpawnPoint(side, transform.position);
-    
-    // ...and then calls the existing animation coroutine with that Transform.
-    if (bankSpawn != null)
-    {
-        AnimateToNewPositionAfterEjection(bankSpawn);
-    }
-}
 
    private IEnumerator SettleAndFadeInCoroutine(TileInstance destinationTile, int snapPoint, Transform bankSpawn)
 {
@@ -316,21 +317,23 @@ public void AnimateToNewPositionAfterEjection(RiverBankManager.BankSide side)
             SetStateForBank(bankSpawn);
         }
 }
-    public void SelectBoat()
-    {
-        if (boatManager != null) boatManager.SetSelectedBoat(this);
-        isSelected = true;
-        if (currentMovementPoints <= 0) currentMovementPoints = maxMovementPoints;
+public void SelectBoat()
+{
+    // --- ADD THIS LINE ---
+    // First, clear any highlights that might exist from a previous state.
+    // This wipes the slate clean before we do anything else.
+    ClearHighlights();
 
-        //if (!isAtBank && currentTile != null)
-        //{
-        //   HighlightTile(currentTile);
-        //}
-        
-        StartCoroutine(LiftAndBobBoat(true));
-        FindValidMoves();
-        StartCoroutine(HighlightValidMovesWithDelay());
-    }
+    // --- The rest of the method is the same as before ---
+    if (boatManager != null) boatManager.SetSelectedBoat(this);
+
+    isSelected = true;
+    if (currentMovementPoints <= 0) currentMovementPoints = maxMovementPoints;
+    
+    StartCoroutine(LiftAndBobBoat(true));
+    FindValidMoves();
+    StartCoroutine(HighlightValidMovesWithDelay());
+}
     
     public void DeselectBoat()
     {
@@ -427,68 +430,95 @@ public void ApplyPenaltiesForForcedMove(List<TileInstance> crossedTiles)
     }
 }
 
-void FindMoveAtEndOfChain(TileInstance startTile, int exitSnap, bool isReverseMove)
-{
-    TileInstance currentSearchTile = startTile;
-    int currentExitSnap = exitSnap;
-    List<TileInstance> crossedReversedTiles = new List<TileInstance>();
-
-    for (int i = 0; i < gridManager.cols + 2; i++) // Safety break
+    void FindMoveAtEndOfChain(TileInstance startTile, int exitSnap, bool isReverseMove)
     {
-        TileInstance neighbor = FindConnectedTile_HorizontalOnly(currentSearchTile, currentExitSnap);
+        TileInstance currentSearchTile = startTile;
+        int currentExitSnap = exitSnap;
+        List<TileInstance> crossedReversedTiles = new List<TileInstance>();
 
-        if (neighbor == null)
+        for (int i = 0; i < gridManager.cols + 2; i++) // Safety break
         {
-            // --- NEW DIRECTIONAL LOGIC ---
-            var (x, y) = GetTileCoordinates(currentSearchTile);
+            TileInstance neighbor = FindConnectedTile_HorizontalOnly(currentSearchTile, currentExitSnap);
 
-            // Get the world-space direction vector from the tile's center to the exit snap point.
-            Vector3 exitDirection = (currentSearchTile.snapPoints[currentExitSnap].position - currentSearchTile.transform.position).normalized;
-
-            // To dock at the TOP bank, the boat must be on the top row AND the path must be exiting upwards (positive Z).
-            if (y == gridManager.rows - 1 && exitDirection.z > 0.1f) // Use a small threshold
+            if (neighbor == null)
             {
-                HighlightBankForDocking(RiverBankManager.BankSide.Top);
-            }
-            // To dock at the BOTTOM bank, the boat must be on the bottom row AND the path must be exiting downwards (negative Z).
-            else if (y == 0 && exitDirection.z < -0.1f) // Use a small threshold
-            {
-                HighlightBankForDocking(RiverBankManager.BankSide.Bottom);
-            }
-            // --- END OF NEW LOGIC ---
-            return;
-        }
+                // --- NEW DIRECTIONAL LOGIC ---
+                var (x, y) = GetTileCoordinates(currentSearchTile);
 
-        if (neighbor.IsReversed)
-        {
-            if (gridManager.reversedTileRule == GridManager.ReversedTileRule.Blocker) return;
+                // Get the world-space direction vector from the tile's center to the exit snap point.
+                Vector3 exitDirection = (currentSearchTile.snapPoints[currentExitSnap].position - currentSearchTile.transform.position).normalized;
 
-            crossedReversedTiles.Add(neighbor);
-            int entrySnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
-            currentExitSnap = GetOppositeSnapPoint(entrySnap);
-            currentSearchTile = neighbor;
-        }
-        else
-        {
-            int landingSnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
-            if (landingSnap != -1)
-            {
-                if (!validMoves.Contains(neighbor)) validMoves.Add(neighbor);
-
-                if (isReverseMove) tileToReverseSnapPoint[neighbor] = landingSnap;
-                else tileToSnapPoint[neighbor] = landingSnap;
-                
-                if (crossedReversedTiles.Count > 0)
+                // To dock at the TOP bank, the boat must be on the top row AND the path must be exiting upwards (positive Z).
+                if (y == gridManager.rows - 1 && exitDirection.z > 0.1f) // Use a small threshold
                 {
-                    reversedPathways[neighbor] = crossedReversedTiles;
+                    HighlightBankForDocking(RiverBankManager.BankSide.Top);
                 }
+                // To dock at the BOTTOM bank, the boat must be on the bottom row AND the path must be exiting downwards (negative Z).
+                else if (y == 0 && exitDirection.z < -0.1f) // Use a small threshold
+                {
+                    HighlightBankForDocking(RiverBankManager.BankSide.Bottom);
+                }
+                // --- END OF NEW LOGIC ---
+                return;
             }
-            return;
+
+            if (neighbor.IsReversed)
+            {
+                if (gridManager.reversedTileRule == GridManager.ReversedTileRule.Blocker) return;
+
+                crossedReversedTiles.Add(neighbor);
+                int entrySnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
+                currentExitSnap = GetOppositeSnapPoint(entrySnap);
+                currentSearchTile = neighbor;
+            }
+            else
+            {
+                int landingSnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
+                if (landingSnap != -1)
+                {
+                    if (!validMoves.Contains(neighbor)) validMoves.Add(neighbor);
+
+                    if (isReverseMove) tileToReverseSnapPoint[neighbor] = landingSnap;
+                    else tileToSnapPoint[neighbor] = landingSnap;
+
+                    if (crossedReversedTiles.Count > 0)
+                    {
+                        reversedPathways[neighbor] = crossedReversedTiles;
+                    }
+                }
+                return;
+            }
         }
     }
+
+
+
+
+/// Instantly stops animations and updates internal state for a forced move (like ejection).
+/// This does NOT animate the boat, leaving it frozen for another script to control.
+/// </summary>
+public void PrepareForForcedMove()
+{
+    if (boatManager != null) boatManager.ClearSelectedBoat();
+
+    isSelected = false;
+    isBobbing = false;
+    StopAllCoroutines();
+    
+    ClearHighlights();
+    
+    // We intentionally do NOT call LiftAndBobBoat or ClearHighlights here.
+        // We want the boat to remain visually where it is, and highlights will be
+        // cleared by the GridManager/ejection logic later.
+        Debug.Log($"[BoatController] {name} prepared for forced move.");
 }
-// Helper to find the opposite snap point for straight-line travel.
-int GetOppositeSnapPoint(int snap)
+
+
+
+
+
+    // Helper to find the opposite snap point for straight-line travel.
+    int GetOppositeSnapPoint(int snap)
 {
     switch (snap)
     {

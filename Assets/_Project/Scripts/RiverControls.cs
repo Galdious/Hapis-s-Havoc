@@ -200,10 +200,10 @@ arrowButton.Initialize(row, fromLeft, isRed, this);
 private IEnumerator HandlePushWithReselect(BoatController boat, int row, bool fromLeft, bool isRed)
 {
     // 1. Deselect the boat.
-    boat.DeselectBoat();
+    boat.PrepareForForcedMove();
     
     // Give the game a moment to process the deselection visually
-    yield return new WaitForSeconds(0.2f); 
+   // yield return new WaitForSeconds(0.2f); 
 
     // 2. Start the push and WAIT for it to complete.
     yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, isRed));
