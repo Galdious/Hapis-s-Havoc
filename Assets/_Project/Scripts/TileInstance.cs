@@ -9,6 +9,9 @@ public class TileInstance : MonoBehaviour
     public Transform[] snapPoints = new Transform[6];
     public bool IsReversed { get; private set; }
 
+    [System.NonSerialized] // Don't serialize this, it's runtime-only
+    public TileType originalTemplate;
+
     // 2) Connection struct  ---------------------------------------------
 
     // Simple value-type pair (integers), serialisable so Unity shows it.
@@ -35,16 +38,15 @@ public class TileInstance : MonoBehaviour
     /// GridManager will call this once, passing in the template
     /// connections from the TileLibrary.
     /// </summary>
-    public void Initialise(List<Connection> templateConnections, bool isReversed)
+    public void Initialise(List<Connection> templateConnections, bool isReversed, TileType template = null)
     {
-        // Make a fresh copy so editing this tile doesn't mutate the template.
-        connections = new List<Connection>(templateConnections);
-        IsReversed = isReversed; // <<< ADD THIS LINE to set the property
-
-        GetComponent<PathVisualizer>()?.DrawPaths();
-
+        // Store the original template so we can return it to the bag later
+        originalTemplate = template;
         
-        // In the future you'll call GenerateVisual() here.
+        // ... rest of existing code stays the same ...
+        connections = new List<Connection>(templateConnections);
+        IsReversed = isReversed;
+        GetComponent<PathVisualizer>()?.DrawPaths();
         Debug.Log($"{name} initialised with {connections.Count} connections.");
     }
 

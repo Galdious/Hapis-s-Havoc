@@ -535,12 +535,15 @@ if (ejectedBoat != null)
         // --- END OF CORRECTED BLOCK ---
 
         // Return ejected tile to bag (extract its template data)
-        if (ejectingTile != null)
-        {
-            // TODO: Extract tile template from ejectingTile to return to bag properly
-            // For now, we'll add it back as the same template
-            bagManager.ReturnTile(newTileTemplate); // Placeholder - should be ejectingTile's template
-        }
+    if (ejectingTile != null && ejectingTile.originalTemplate != null)
+    {
+        bagManager.ReturnTile(ejectingTile.originalTemplate);
+        Debug.Log($"[GridManager] Returned {ejectingTile.originalTemplate.displayName} to bag");
+    }
+    else if (ejectingTile != null)
+    {
+        Debug.LogWarning("[GridManager] Ejected tile had no originalTemplate - cannot return to bag!");
+    }
 
         // Re-enable arrow colliders after push is complete
         if (riverControls != null)
@@ -714,13 +717,13 @@ if (ejectedBoat != null)
     // 11. Tile initialization helper
     // ------------------------------------------------------------
 
-    private void InitializeTile(TileInstance tileInstance, TileType template, bool showObstacleSide)
+private void InitializeTile(TileInstance tileInstance, TileType template, bool showObstacleSide)
+{
+    if (showObstacleSide)
     {
-        if (showObstacleSide)
-        {
-            // Flip tile to show obstacle (red) side
-            tileInstance.transform.Rotate(180f, 0f, 0f); // Flip on X-axis to show bottom
-            
+        // Flip tile to show obstacle (red) side
+        tileInstance.transform.Rotate(180f, 0f, 0f);
+        
         var straightPaths = new List<TileInstance.Connection>
         {
             new TileInstance.Connection { from = 0, to = 2 },
@@ -731,14 +734,15 @@ if (ejectedBoat != null)
             new TileInstance.Connection { from = 5, to = 4 }
         };
         
-        tileInstance.Initialise(straightPaths, true);
-        }
-        else
-        {
-            // Show normal river paths (blue side) - no flip needed
-            tileInstance.Initialise(ConvertPaths(template.frontPaths), false); // Pass false for isReversed
-        }
+        // PASS THE TEMPLATE to the tile
+        tileInstance.Initialise(straightPaths, true, template);
     }
+    else
+    {
+        // PASS THE TEMPLATE to the tile
+        tileInstance.Initialise(ConvertPaths(template.frontPaths), false, template);
+    }
+}
 
     // ------------------------------------------------------------
     // 12. Helper methods
