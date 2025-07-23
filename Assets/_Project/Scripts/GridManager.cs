@@ -257,6 +257,29 @@ public class GridManager : MonoBehaviour
     {
         isPushingInProgress = true;
 
+
+
+    // === NEW: CLEAR ALL BOAT SELECTIONS AND LOWER ALL TILES FIRST ===
+    if (boatManager != null)
+    {
+        foreach (var boat in boatManager.GetPlayerBoats())
+        {
+            if (boat != null && boat.GetComponent<BoatController>().isSelected)
+            {
+                boat.GetComponent<BoatController>().PrepareForForcedMove();
+            }
+        }
+    }
+    
+    // Wait a brief moment for visual cleanup to complete
+    yield return new WaitForSeconds(0.3f);
+    // === END NEW SECTION ===
+
+
+
+
+
+
         // Disable arrow colliders during push to prevent interference
         RiverControls riverControls = FindFirstObjectByType<RiverControls>();
         if (riverControls != null)

@@ -637,7 +637,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &673400565
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -780,7 +780,7 @@ MonoBehaviour:
   arrowPrefab: {fileID: 0}
   blueMaterial: {fileID: 0}
   redMaterial: {fileID: 0}
-  arrowDistance: 7
+  arrowDistance: 0
   arrowHeight: 0.5
   arrowScale: 0.2
   arrowSpacing: 0.8

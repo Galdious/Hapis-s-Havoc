@@ -49,10 +49,11 @@ MonoBehaviour:
   snapOffset: 0.15
   moveSpeed: 2
   hoverHeight: 0.5
+  aboveTileHoverDistance: 0.1
   bobAmount: 0.1
   bobSpeed: 2
-  tileLiftDuration: 0.4
-  tileLiftDelay: 0.2
+  tileLiftDuration: 0.3
+  tileLiftDelay: 0.1
   tileLiftCurve:
     serializedVersion: 2
     m_Curve:
@@ -85,6 +86,7 @@ MonoBehaviour:
   hasCargo: 0
   selectedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   showDebugInfo: 1
+  isSelected: 0
 --- !u!1 &8313586836549718392
 GameObject:
   m_ObjectHideFlags: 0

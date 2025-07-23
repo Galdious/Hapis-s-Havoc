@@ -66,21 +66,24 @@ public class RiverControls : MonoBehaviour
         Debug.Log($"[RiverControls] Created {rows * 4} arrows for {rows} rows");
     }
     
-    private void CreateArrowsForRow(int row)
-    {
-        // Get row center position from grid
-        Vector3 rowCenter = GetRowCenterPosition(row);
-        
-        // Left side arrows: Red (far) - Blue (near grid) - elevated above tiles
-        Vector3 leftBasePos = rowCenter + Vector3.left * arrowDistance + Vector3.up * arrowHeight;
-        leftArrows[row, 1] = CreateSingleArrow(leftBasePos + Vector3.left * arrowSpacing * 0.5f, row, true, true);   // Red (farther)
-        leftArrows[row, 0] = CreateSingleArrow(leftBasePos + Vector3.right * arrowSpacing * 0.5f, row, true, false); // Blue (closer to grid)
-        
-        // Right side arrows: Blue (near grid) - Red (far) - elevated above tiles
-        Vector3 rightBasePos = rowCenter + Vector3.right * arrowDistance + Vector3.up * arrowHeight;
-        rightArrows[row, 0] = CreateSingleArrow(rightBasePos + Vector3.left * arrowSpacing * 0.5f, row, false, false); // Blue (closer to grid)
-        rightArrows[row, 1] = CreateSingleArrow(rightBasePos + Vector3.right * arrowSpacing * 0.5f, row, false, true);  // Red (farther)
-    }
+private void CreateArrowsForRow(int row)
+{
+    // Get row center position from grid
+    Vector3 rowCenter = GetRowCenterPosition(row);
+    
+    // FIXED: Use dynamic arrow distance that scales with grid size
+    float dynamicArrowDistance = GetDynamicArrowDistance();
+    
+    // Left side arrows: Red (far) - Blue (near grid) - elevated above tiles
+    Vector3 leftBasePos = rowCenter + Vector3.left * dynamicArrowDistance + Vector3.up * arrowHeight;
+    leftArrows[row, 1] = CreateSingleArrow(leftBasePos + Vector3.left * arrowSpacing * 0.5f, row, true, true);   // Red (farther)
+    leftArrows[row, 0] = CreateSingleArrow(leftBasePos + Vector3.right * arrowSpacing * 0.5f, row, true, false); // Blue (closer to grid)
+    
+    // Right side arrows: Blue (near grid) - Red (far) - elevated above tiles
+    Vector3 rightBasePos = rowCenter + Vector3.right * dynamicArrowDistance + Vector3.up * arrowHeight;
+    rightArrows[row, 0] = CreateSingleArrow(rightBasePos + Vector3.left * arrowSpacing * 0.5f, row, false, false); // Blue (closer to grid)
+    rightArrows[row, 1] = CreateSingleArrow(rightBasePos + Vector3.right * arrowSpacing * 0.5f, row, false, true);  // Red (farther)
+}
     
     private PointerArrowButton CreateSingleArrow(Vector3 position, int row, bool fromLeft, bool isRed)
     {
@@ -148,20 +151,34 @@ arrowButton.Initialize(row, fromLeft, isRed, this);
         return arrowButton;
     }
     
-    private Vector3 GetRowCenterPosition(int row)
-    {
-        // Calculate the center position of a row
-        // This mirrors the GridManager's position calculation
-        float totalWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX);
-        float totalHeight = (gridManager.rows - 1) * (gridManager.tileHeight + gridManager.gapZ);
-        
-        Vector3 boardOrigin = new Vector3(-totalWidth / 2f, 0f, -totalHeight / 2f);
-        
-        return boardOrigin + new Vector3(
-            totalWidth / 2f,  // center X
-            0f,
-            row * (gridManager.tileHeight + gridManager.gapZ));
-    }
+private Vector3 GetRowCenterPosition(int row)
+{
+    // FIXED: Calculate the center position of a row using ACTUAL GridManager values
+    // This mirrors the GridManager's position calculation exactly
+    float totalWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX);
+    float totalHeight = (gridManager.rows - 1) * (gridManager.tileHeight + gridManager.gapZ);
+    
+    Vector3 boardOrigin = new Vector3(-totalWidth / 2f, 0f, -totalHeight / 2f);
+    
+    return boardOrigin + new Vector3(
+        totalWidth / 2f,  // center X
+        0f,
+        row * (gridManager.tileHeight + gridManager.gapZ));
+}
+
+// Also add this method to dynamically calculate arrow distance based on grid size:
+private float GetDynamicArrowDistance()
+{
+    // FIXED: Scale arrow distance based on grid width, but ensure minimum clearance
+    float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
+    
+    // Use the original arrowDistance as base, then add proportional scaling
+    // This ensures arrows are always outside the grid regardless of size
+    float baseDistance = arrowDistance; // Use the Inspector value as minimum
+    float scaledDistance = gridWidth * 0.5f + 1f; // Half grid width + 1 unit clearance
+    
+    return Mathf.Max(baseDistance, scaledDistance);
+}
     
     // Public methods for manual control
     public void PushFromLeft(int row, bool redSide)
@@ -179,39 +196,34 @@ arrowButton.Initialize(row, fromLeft, isRed, this);
 
 
 
-    public void OnArrowClicked(int row, bool fromLeft, bool isRed)
+public void OnArrowClicked(int row, bool fromLeft, bool isRed)
 {
     if (gridManager.IsPushInProgress()) return;
 
     BoatController selectedBoat = boatManager.GetSelectedBoat();
+    bool hadSelectedBoat = selectedBoat != null;
 
-    if (selectedBoat != null)
-    {
-        // A boat is selected, so start the special sequence
-        StartCoroutine(HandlePushWithReselect(selectedBoat, row, fromLeft, isRed));
-    }
-    else
-    {
-        // No boat is selected, just push the row normally
-        gridManager.PushRowFromSide(row, fromLeft, isRed);
-    }
+    // Always push the row normally - GridManager now handles clearing selections internally
+    StartCoroutine(HandlePushWithReselect(hadSelectedBoat, row, fromLeft, isRed));
 }
 
-private IEnumerator HandlePushWithReselect(BoatController boat, int row, bool fromLeft, bool isRed)
+private IEnumerator HandlePushWithReselect(bool hadSelectedBoat, int row, bool fromLeft, bool isRed)
 {
-    // 1. Deselect the boat.
-    boat.PrepareForForcedMove();
-    
-    // Give the game a moment to process the deselection visually
-   // yield return new WaitForSeconds(0.2f); 
-
-    // 2. Start the push and WAIT for it to complete.
+    // 1. Start the push and WAIT for it to complete (GridManager handles deselection internally)
     yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, isRed));
     
-    // 3. Reselect the boat if it can still move.
-    if (boat.maxMovementPoints > 0) // Or whatever your condition is
+    // 2. If we had a selected boat before, try to find and reselect it
+    if (hadSelectedBoat && boatManager != null)
     {
-        boat.SelectBoat();
+        // Find the first boat that can still move and select it
+        foreach (var boat in boatManager.GetPlayerBoats())
+        {
+            if (boat != null && boat.maxMovementPoints > 0) // Or whatever your condition is
+            {
+                boat.SelectBoat();
+                break; // Only select the first available boat
+            }
+        }
     }
 }
     

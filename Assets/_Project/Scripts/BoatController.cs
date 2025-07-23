@@ -71,7 +71,7 @@ public float ejectionFadeOutDuration = 0.2f; // A quick fade
     private int currentSnapPoint = -1;
     private Transform bankPosition;
     private bool isAtBank = true;
-    private bool isSelected = false;
+    public bool isSelected = false;
     private bool isMoving = false;
     
     // --- ADD THESE NEW FIELDS ---

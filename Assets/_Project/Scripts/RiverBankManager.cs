@@ -145,19 +145,31 @@ public class RiverBankManager : MonoBehaviour
 
     void CreateSpawnPoints(Transform bankParent, BankSide side, List<Transform> spawnList)
     {
-        // Calculate spawn point positions along the bank (horizontally across the river)
-        float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
-        float totalSpacing = (spawnPointsPerSide - 1) * spawnPointSpacing;
+        // FIXED: Calculate spawn point positions based on ACTUAL grid dimensions
+        float riverWidth = (gridManager.cols * gridManager.tileWidth) + ((gridManager.cols - 1) * gridManager.gapX);
+        
+        // Adjust number of spawn points based on grid size - ensure we have enough but not too many
+        int actualSpawnPoints = Mathf.Max(2, Mathf.Min(spawnPointsPerSide, gridManager.cols + 1));
+        
+        float totalSpacing = (actualSpawnPoints - 1) * spawnPointSpacing;
+        
+        // Make sure spawn points fit within the river width
+        if (totalSpacing > riverWidth * 0.8f) // Leave 20% margin
+        {
+            spawnPointSpacing = (riverWidth * 0.8f) / (actualSpawnPoints - 1);
+            totalSpacing = (actualSpawnPoints - 1) * spawnPointSpacing;
+        }
+        
         float startX = -totalSpacing / 2f;
 
-        for (int i = 0; i < spawnPointsPerSide; i++)
+        for (int i = 0; i < actualSpawnPoints; i++)
         {
             // Create spawn point object
             GameObject spawnPoint = new GameObject($"{side}Spawn_{i}");
             spawnPoint.transform.SetParent(bankParent);
 
             // Position spawn point along X axis (across the river) at snap point height
-            Vector3 localPos = new Vector3(startX + (i * spawnPointSpacing), bankHeight * 0.5f, 0f); // Raised to snap point level
+            Vector3 localPos = new Vector3(startX + (i * spawnPointSpacing), bankHeight * 0.5f, 0f);
             spawnPoint.transform.localPosition = localPos;
 
             // Orient spawn point toward river center
@@ -190,6 +202,8 @@ public class RiverBankManager : MonoBehaviour
             // Add to spawn list
             spawnList.Add(spawnPoint.transform);
         }
+        
+        Debug.Log($"[RiverBankManager] Created {actualSpawnPoints} spawn points for {side} bank (riverWidth: {riverWidth:F1})");
     }
 
     // Public methods for boat spawning
