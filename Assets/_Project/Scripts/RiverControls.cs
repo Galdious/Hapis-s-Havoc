@@ -49,20 +49,47 @@ public class RiverControls : MonoBehaviour
             return;
         }
         
-        CreateArrows();
+        //CreateArrows();  // commented out for level editor mode
     }
+    
+    private void ClearArrows()
+{
+    if (leftArrows == null) return; // Nothing to clear
+
+    for (int row = 0; row < leftArrows.GetLength(0); row++)
+    {
+        // Check both blue (0) and red (1) arrows
+        if (leftArrows[row, 0] != null) Destroy(leftArrows[row, 0].gameObject);
+        if (leftArrows[row, 1] != null) Destroy(leftArrows[row, 1].gameObject);
+
+        if (rightArrows[row, 0] != null) Destroy(rightArrows[row, 0].gameObject);
+        if (rightArrows[row, 1] != null) Destroy(rightArrows[row, 1].gameObject);
+    }
+
+    leftArrows = null;
+    rightArrows = null;
+}
+
+/// <summary>
+/// Public method to be called by an external manager to generate arrows.
+/// </summary>
+public void GenerateArrowsForGrid()
+{
+    ClearArrows();
+    CreateArrows();
+}
 
     private void CreateArrows()
     {
         int rows = gridManager.rows;
         leftArrows = new PointerArrowButton[rows, 2];  // 2 = blue and red for each row
         rightArrows = new PointerArrowButton[rows, 2];
-        
+
         for (int row = 0; row < rows; row++)
         {
             CreateArrowsForRow(row);
         }
-        
+
         Debug.Log($"[RiverControls] Created {rows * 4} arrows for {rows} rows");
     }
     

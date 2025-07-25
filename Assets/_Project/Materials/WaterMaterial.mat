@@ -38,7 +38,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Alpha: 0.44
+    - _Alpha: 0.05
     - _FoamAlpha: 1
     - _FoamSoftness: 0.9
     - _FoamTreshold: 0.29
@@ -46,6 +46,7 @@ Material:
     - _QueueOffset: 1
     - _Smoothness: 0.86
     - _WaveAmplitude: 0.25
+    - _WaveFrequency: 20
     - _WaveScale: 15.13
     m_Colors:
     - _BaseColor: {r: 0, g: 0.6482525, b: 1, a: 1}

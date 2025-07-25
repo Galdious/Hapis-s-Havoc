@@ -45,8 +45,37 @@ public class RiverBankManager : MonoBehaviour
         }
 
         // Wait a frame for grid to be fully built
-        Invoke(nameof(CreateBanks), 0.1f);
+        //Invoke(nameof(CreateBanks), 0.1f); // commented out for level editor
     }
+
+
+/// <summary>
+/// Destroys existing bank GameObjects to prepare for regeneration.
+/// </summary>
+private void ClearBanks()
+{
+    if (topBankParent != null)
+    {
+        Destroy(topBankParent.gameObject);
+    }
+    if (bottomBankParent != null)
+    {
+        Destroy(bottomBankParent.gameObject);
+    }
+    topBankSpawns.Clear();
+    bottomBankSpawns.Clear();
+}
+
+/// <summary>
+/// Public method to be called by an external manager to generate the banks.
+/// </summary>
+public void GenerateBanksForGrid()
+{
+    ClearBanks();
+    CreateBanks();
+}
+
+
 
     void CreateBanks()
     {

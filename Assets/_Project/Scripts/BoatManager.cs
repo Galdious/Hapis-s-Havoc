@@ -33,12 +33,14 @@ public BoatController GetSelectedBoat() { return selectedBoat; }
         if (spawnTestBoats && boatPrefab != null)
         {
             // Wait for banks to be created
-            Invoke(nameof(SpawnTestBoats), 0.2f);
+           // Invoke(nameof(SpawnTestBoats), 0.2f); // commented out for level editor mode
+            
         }
     }
     
-    void SpawnTestBoats()
+    public void SpawnTestBoats()
     {
+        bankManager = FindFirstObjectByType<RiverBankManager>();
         if (bankManager == null)
         {
             Debug.LogError("[BoatManager] RiverBankManager not found!");
@@ -91,6 +93,23 @@ public BoatController GetSelectedBoat() { return selectedBoat; }
         SpawnTestBoats();
     }
     
+
+
+public void ClearAllBoats()
+{
+    foreach (BoatController boat in playerBoats)
+    {
+        if (boat != null)
+        {
+            Destroy(boat.gameObject);
+        }
+    }
+    playerBoats.Clear();
+}
+
+
+
+
     void Update()
     {
         // Test controls using new Input System

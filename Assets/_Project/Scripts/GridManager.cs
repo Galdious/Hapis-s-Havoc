@@ -120,7 +120,7 @@ public class GridManager : MonoBehaviour
         }
 
         bagManager.BuildBag();   // guarantees a fresh full bag
-        BuildGrid();
+        //BuildGrid();  // Build the grid of tiles - commenet out for lever editor mode
     }
     
 
@@ -157,6 +157,38 @@ public class GridManager : MonoBehaviour
 
         Debug.Log("[GridManager] River grid built successfully.");
     }
+
+
+    public void CreateGridFromEditor(int newCols, int newRows)
+    {
+        // First, clear any old grid objects if they exist
+        if (grid != null)
+        {
+            for (int x = 0; x < cols; x++)
+            {
+                for (int y = 0; y < rows; y++)
+                {
+                    if (grid[x, y] != null)
+                    {
+                        Destroy(grid[x, y].gameObject);
+                    }
+                }
+            }
+        }
+        // Update grid dimensions
+        cols = newCols;
+        rows = newRows;
+
+        // Now, call the original build logic
+        BuildGrid();
+        Debug.Log($"[GridManager] Created a new {cols}x{rows} grid from the editor.");
+    
+    }
+
+
+
+
+
 
     // ------------------------------------------------------------
     // 5.  Tile creation helper
