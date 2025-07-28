@@ -6,6 +6,10 @@ using System.Collections;
 
 public class LevelEditorManager : MonoBehaviour
 {
+    private enum EditorTool { Paint, Rotate, Flip }
+    private EditorTool currentTool = EditorTool.Paint; // Default to painting
+
+
     [Header("Scene References")]
     public GridManager gridManager;
     public RiverBankManager riverBankManager; // <-- ADD THIS
@@ -17,6 +21,13 @@ public class LevelEditorManager : MonoBehaviour
     public TMP_InputField widthInput;
     public TMP_InputField heightInput;
     public Button createGridButton;
+
+    [Header("Editor Tools")]
+    public Button paintToolButton;
+    public Button rotateToolButton;
+    public Button flipToolButton;
+    public Color toolSelectedColor = Color.yellow; // <-- ADD THIS
+    private Color toolDefaultColor;                // <-- ADD THIS
 
     [Header("3D Palette Settings")]
     public Transform paletteContainer; // The empty GameObject we created
@@ -64,9 +75,56 @@ public class LevelEditorManager : MonoBehaviour
         // Make sure the setup panel is visible at the start
         gridSetupPanel.SetActive(true);
 
-        widthInput.text = "6";
-        heightInput.text = "6";
+        widthInput.text = "3";
+        heightInput.text = "3";
+
+        if (paintToolButton != null) paintToolButton.onClick.AddListener(SelectPaintTool);
+        if (rotateToolButton != null) rotateToolButton.onClick.AddListener(SelectRotateTool);
+        if (flipToolButton != null) flipToolButton.onClick.AddListener(SelectFlipTool);
+
+        // Store the default color from one of the buttons at the start.
+        if (paintToolButton != null)
+        {
+            toolDefaultColor = paintToolButton.colors.normalColor;
+        }
+        else
+        {
+            toolDefaultColor = Color.white; // Failsafe
+        }
+
+        // Set the initial visual state
+        UpdateToolButtonVisuals();
+
     }
+
+
+    private void SelectPaintTool()
+    {
+        currentTool = EditorTool.Paint;
+        UpdateToolButtonVisuals();
+        Debug.Log("Switched to Paint tool.");
+    }
+
+    private void SelectRotateTool()
+    {
+        // If the rotate tool is already active, switch back to paint. Otherwise, activate it.
+        currentTool = (currentTool == EditorTool.Rotate) ? EditorTool.Paint : EditorTool.Rotate;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}");
+    }
+
+    private void SelectFlipTool()
+    {
+        // If the flip tool is already active, switch back to paint. Otherwise, activate it.
+        currentTool = (currentTool == EditorTool.Flip) ? EditorTool.Paint : EditorTool.Flip;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}");
+    }
+
+
+
+
+
 
     private void OnCreateGridClicked()
     {
@@ -194,6 +252,11 @@ public class LevelEditorManager : MonoBehaviour
 
     public void OnPaletteTileClicked(PaletteTile clickedTile)
     {
+
+                // Palette clicks should ALWAYS select a brush, so we force it to Paint mode.
+        // This is the most intuitive workflow.
+        SelectPaintTool();
+
         // 1. First, always clear any existing highlight. This handles deselection.
         ClearPaletteHighlight();
 
@@ -219,17 +282,40 @@ public class LevelEditorManager : MonoBehaviour
         HighlightPaletteTile(clickedTile.gameObject);
     }
 
-
-    // This is called by EditorGridTile.cs when a grid tile is clicked
-    public void OnGridTileClicked(TileInstance tileToPaint)
+    public void OnGridTileClicked(TileInstance tileToModify)
     {
+        if (tileToModify == null) return;
+
+        // Use a switch to decide what to do based on the current tool
+        switch (currentTool)
+        {
+            case EditorTool.Paint:
+                PaintTile(tileToModify);
+                break;
+                
+            case EditorTool.Rotate:
+                RotateTile(tileToModify);
+                break;
+                
+            case EditorTool.Flip:
+                FlipTile(tileToModify);
+                break;
+        }
+    }
+    // This is called by EditorGridTile.cs when a grid tile is clicked
+    private void PaintTile(TileInstance tileToPaint)
+    
+    {
+
+
+        
         if (currentBrush == null)
         {
             Debug.Log("No brush selected. Click a tile from the palette on the left.");
             return;
         }
 
-        if (tileToPaint == null) return;
+        // if (tileToPaint == null) return;
 
         Debug.Log($"Painting tile at ({tileToPaint.name}) with brush '{currentBrush.tileType.displayName}'");
 
@@ -243,6 +329,7 @@ public class LevelEditorManager : MonoBehaviour
 
         // 2. Re-Initialise the tile with the new data from our brush.
         //    This updates its internal logic and connections.
+        tileToPaint.transform.rotation = Quaternion.identity; 
         tileToPaint.Initialise(ConvertPaths(currentBrush.tileType.frontPaths), false, currentBrush.tileType);
 
         // 3. Tell the PathVisualizer to draw the NEW paths.
@@ -343,14 +430,98 @@ public class LevelEditorManager : MonoBehaviour
     } 
 
 
+    private void RotateTile(TileInstance tileToRotate)
+    {
+        Debug.Log($"Rotating tile {tileToRotate.name}");
+
+        // Apply the visual rotation
+        tileToRotate.transform.Rotate(0, 180f, 0);
+
+        // The paths are defined in local space, so we just need to tell the
+        // visualizer to clean up and redraw in the new rotated orientation.
+        var visualizer = tileToRotate.GetComponent<PathVisualizer>();
+        if (visualizer != null)
+        {
+            visualizer.CleanUpPaths();
+            visualizer.DrawPaths();
+        }
+    }
+
+
+    private void FlipTile(TileInstance tileToFlip)
+    {
+        Debug.Log($"Flipping tile {tileToFlip.name}");
+
+        // Get the visualizer
+        var visualizer = tileToFlip.GetComponent<PathVisualizer>();
+        if (visualizer != null)
+        {
+            visualizer.CleanUpPaths();
+        }
+
+        // We need to know which way to flip it
+        bool willBeReversed = !tileToFlip.IsReversed;
+
+        // Apply visual rotation on X-axis
+        tileToFlip.transform.Rotate(180f, 0, 0);
+
+        if (willBeReversed)
+        {
+            // FLIPPING TO RED (OBSTACLE) SIDE
+            // Obstacle sides have standard straight paths
+            var straightPaths = new List<TileInstance.Connection>
+            {
+                new TileInstance.Connection { from = 0, to = 2 },
+                new TileInstance.Connection { from = 1, to = 3 },
+                new TileInstance.Connection { from = 4, to = 5 },
+            };
+            tileToFlip.Initialise(straightPaths, true, tileToFlip.originalTemplate);
+        }
+        else
+        {
+            // FLIPPING BACK TO BLUE (PATH) SIDE
+            // Restore the original paths from its template
+            tileToFlip.Initialise(ConvertPaths(tileToFlip.originalTemplate.frontPaths), false, tileToFlip.originalTemplate);
+        }
+
+        // Redraw the new paths
+        if (visualizer != null)
+        {
+            visualizer.DrawPaths();
+        }
+    }
 
 
 
+    private void UpdateToolButtonVisuals()
+    {
+        // This is how you change a button's color via script.
+        // You must get its ColorBlock, modify it, and then assign it back.
+        
+        // Paint Button
+        if (paintToolButton != null)
+        {
+            var colors = paintToolButton.colors;
+            colors.normalColor = (currentTool == EditorTool.Paint) ? toolSelectedColor : toolDefaultColor;
+            paintToolButton.colors = colors;
+        }
 
+        // Rotate Button
+        if (rotateToolButton != null)
+        {
+            var colors = rotateToolButton.colors;
+            colors.normalColor = (currentTool == EditorTool.Rotate) ? toolSelectedColor : toolDefaultColor;
+            rotateToolButton.colors = colors;
+        }
 
-
-
-
+        // Flip Button
+        if (flipToolButton != null)
+        {
+            var colors = flipToolButton.colors;
+            colors.normalColor = (currentTool == EditorTool.Flip) ? toolSelectedColor : toolDefaultColor;
+            flipToolButton.colors = colors;
+        }
+    }
 
 
 
