@@ -113,11 +113,11 @@ public class GridManager : MonoBehaviour
 
 
 
-        // Create physical floor under the grid if requested
-        if (createGameFloor)
-        {
-            CreateGameFloor();
-        }
+        // // Create physical floor under the grid if requested
+        // if (createGameFloor)
+        // {
+        //     CreateGameFloor();
+        // }
 
         bagManager.BuildBag();   // guarantees a fresh full bag
         //BuildGrid();  // Build the grid of tiles - commenet out for lever editor mode
@@ -161,6 +161,17 @@ public class GridManager : MonoBehaviour
 
     public void CreateGridFromEditor(int newCols, int newRows)
     {
+
+        // 1. Find and destroy the old floor to make way for the new one.
+        if (gridParent != null)
+        {
+            Transform oldFloor = gridParent.Find("GameFloor");
+            if (oldFloor != null)
+            {
+                Destroy(oldFloor.gameObject);
+            }
+        }
+
         // First, clear any old grid objects if they exist
         if (grid != null)
         {
@@ -181,8 +192,14 @@ public class GridManager : MonoBehaviour
 
         // Now, call the original build logic
         BuildGrid();
+
+
+        if (createGameFloor)
+        {
+        CreateGameFloor();
+        }
+
         Debug.Log($"[GridManager] Created a new {cols}x{rows} grid from the editor.");
-    
     }
 
 
