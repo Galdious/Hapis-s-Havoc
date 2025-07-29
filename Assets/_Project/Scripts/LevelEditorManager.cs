@@ -316,54 +316,71 @@ public class LevelEditorManager : MonoBehaviour
         //AdjustCameraView();
     }
 
-    public void OnPaletteTileClicked(PaletteTile clickedTile)
+public void OnPaletteTileClicked(PaletteTile clickedTile)
+{
+    // The behavior depends on the selected tool.
+    switch (currentTool)
     {
-                // If we are in "Add to Hand" mode, we add the tile to the hand.
-        if (currentTool == EditorTool.AddToHand)
-        {
+        case EditorTool.Rotate:
+            RotateTile(clickedTile.GetComponent<TileInstance>());
+            break;
+
+        case EditorTool.Flip:
+            FlipTile(clickedTile.GetComponent<TileInstance>());
+            break;
+            
+        case EditorTool.AddToHand:
             AddToHand(clickedTile.myTileType);
-            return; // Exit here, we don't want to select a brush.
-        }
+            break;
 
+        // The default behavior (and for Paint mode) is to select a brush.
+        case EditorTool.Paint:
+        default:
+            SelectPaintTool(); // Ensure we're in paint mode visually
+            ClearPaletteHighlight();
 
+            if (currentBrush != null && currentBrush.sourcePaletteTile == clickedTile)
+            {
+                currentBrush = null;
+                Debug.Log("Brush deselected.");
+                return;
+            }
 
-        // Palette clicks should ALWAYS select a brush, so we force it to Paint mode.
-        // This is the most intuitive workflow.
-        SelectPaintTool();
-
-        // 1. First, always clear any existing highlight. This handles deselection.
-        ClearPaletteHighlight();
-
-        // 2. Check if we are clicking the tile that was already selected.
-        // If so, the user wants to deselect the brush. We've already cleared the
-        // highlight, so we can just set the brush to null and exit.
-        if (currentBrush != null && currentBrush.sourcePaletteTile == clickedTile)
-        {
-            currentBrush = null;
-            Debug.Log("Brush deselected.");
-            return;
-        }
-
-        // 3. If we're here, it's a new selection.
-        currentBrush = new EditorBrush
-        {
-            tileType = clickedTile.myTileType,
-            sourcePaletteTile = clickedTile
-        };
-        Debug.Log($"Selected Brush: {currentBrush.tileType.displayName}");
-
-        // 4. Apply the highlight to the newly clicked tile.
-        HighlightPaletteTile(clickedTile.gameObject);
+            currentBrush = new EditorBrush
+            {
+                tileType = clickedTile.myTileType,
+                sourcePaletteTile = clickedTile
+            };
+            Debug.Log($"Selected Brush: {currentBrush.tileType.displayName}");
+            HighlightPaletteTile(clickedTile.gameObject);
+            break;
     }
+}
 
 
-    public void OnHandPaletteTileClicked(HandPaletteTile clickedTile)
+public void OnHandPaletteTileClicked(HandPaletteTile clickedTile)
+{
+    // The behavior depends on the selected tool.
+    switch (currentTool)
     {
-        if (currentTool == EditorTool.RemoveFromHand)
-        {
+        case EditorTool.Rotate:
+            RotateTile(clickedTile.GetComponent<TileInstance>());
+            break;
+
+        case EditorTool.Flip:
+            FlipTile(clickedTile.GetComponent<TileInstance>());
+            break;
+
+        case EditorTool.RemoveFromHand:
             RemoveFromHand(clickedTile.myTileType);
-        }
+            break;
+        
+        // Clicks with other tools do nothing to the hand palette.
+        default:
+            Debug.Log("Switch to 'Remove From Hand' tool to remove tiles.");
+            break;
     }
+}
 
     // --- ADD the core hand logic methods ---
     private void AddToHand(TileType type)
