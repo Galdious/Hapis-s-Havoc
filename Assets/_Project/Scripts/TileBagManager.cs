@@ -130,4 +130,37 @@ public class TileBagManager : MonoBehaviour
             (list[i], list[rand]) = (list[rand], list[i]);  // tuple swap
         }
     }
+
+
+public void BuildBagFromHand(Dictionary<TileType, int> hand)
+{
+    bag.Clear();
+
+    if (hand == null) return;
+
+    foreach (var pair in hand)
+    {
+        TileType type = pair.Key;
+        int quantity = pair.Value;
+        
+        for (int i = 0; i < quantity; i++)
+        {
+            bag.Add(type);
+        }
+    }
+
+    Shuffle(bag);
+    Debug.Log($"[TileBagManager] Bag built from player hand with {bag.Count} tiles.");
+}
+
+
+
+
+
+
+
+
+
+
+
 }

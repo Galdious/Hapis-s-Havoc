@@ -3,10 +3,11 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using System.Collections;
+using System.Linq;
 
 public class LevelEditorManager : MonoBehaviour
 {
-    private enum EditorTool { Paint, Rotate, Flip }
+    private enum EditorTool { Paint, Rotate, Flip, AddToHand, RemoveFromHand }
     private EditorTool currentTool = EditorTool.Paint; // Default to painting
 
 
@@ -26,6 +27,10 @@ public class LevelEditorManager : MonoBehaviour
     public Button paintToolButton;
     public Button rotateToolButton;
     public Button flipToolButton;
+    public Button addToHandButton;      // <-- ADD
+    public Button removeFromHandButton;
+    public Button applyHandBagButton;     // <-- ADD
+    public Button applySandboxBagButton;
     public Color toolSelectedColor = Color.yellow; // <-- ADD THIS
     private Color toolDefaultColor;                // <-- ADD THIS
 
@@ -41,6 +46,14 @@ public class LevelEditorManager : MonoBehaviour
     [Tooltip("How long the lift animation takes.")]
     public float tileLiftDuration = 0.3f;
     public AnimationCurve tileLiftCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f); // Re-using the curve logic
+
+
+    [Header("Puzzle Hand Setup")]
+    public Transform handPaletteContainer; // The 3D container on the right
+    public GameObject countIndicatorPrefab; // The TextMeshPro prefab for the "x2" counter
+
+    private Dictionary<TileType, int> playerHand = new Dictionary<TileType, int>();
+
 
 
     // This class holds our "brush" information
@@ -78,9 +91,13 @@ public class LevelEditorManager : MonoBehaviour
         widthInput.text = "3";
         heightInput.text = "3";
 
+        if (addToHandButton != null) addToHandButton.onClick.AddListener(SelectAddToHandTool);
+        if (removeFromHandButton != null) removeFromHandButton.onClick.AddListener(SelectRemoveFromHandTool);
         if (paintToolButton != null) paintToolButton.onClick.AddListener(SelectPaintTool);
         if (rotateToolButton != null) rotateToolButton.onClick.AddListener(SelectRotateTool);
         if (flipToolButton != null) flipToolButton.onClick.AddListener(SelectFlipTool);
+        if (applyHandBagButton != null) applyHandBagButton.onClick.AddListener(ApplyHandToBag);
+        if (applySandboxBagButton != null) applySandboxBagButton.onClick.AddListener(ApplySandboxBag);
 
         // Store the default color from one of the buttons at the start.
         if (paintToolButton != null)
@@ -96,6 +113,24 @@ public class LevelEditorManager : MonoBehaviour
         UpdateToolButtonVisuals();
 
     }
+
+    private void SelectAddToHandTool()
+    {
+        currentTool = (currentTool == EditorTool.AddToHand) ? EditorTool.Paint : EditorTool.AddToHand;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}. Click a tile from the LEFT palette.");
+    }
+
+    private void SelectRemoveFromHandTool()
+    {
+        currentTool = (currentTool == EditorTool.RemoveFromHand) ? EditorTool.Paint : EditorTool.RemoveFromHand;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}. Click a tile from the RIGHT hand palette to remove.");
+    }
+
+
+
+
 
 
     private void SelectPaintTool()
@@ -139,8 +174,15 @@ public class LevelEditorManager : MonoBehaviour
         int width = int.Parse(widthInput.text);
         int height = int.Parse(heightInput.text);
 
+
+
+
+        ApplySandboxBag();
+
+
         // 2. Generate the core grid first
         gridManager.CreateGridFromEditor(width, height);
+        // TUTAJ
 
 
         // After creating the grid, add the clickable component to each tile.
@@ -175,6 +217,30 @@ public class LevelEditorManager : MonoBehaviour
         // 5. Finally, hide the setup panel
         gridSetupPanel.SetActive(false);
     }
+
+    public void ApplyHandToBag()
+    {
+        if (playerHand.Count > 0)
+        {
+            gridManager.bagManager.BuildBagFromHand(playerHand);
+            gridManager.isPuzzleMode = true;
+            Debug.LogWarning($"PUZZLE MODE ACTIVATED. Bag now contains {gridManager.bagManager.TilesRemaining} tiles from the hand. Ejected tiles will NOT be returned.");
+        }
+        else
+        {
+            Debug.LogError("Cannot apply hand to bag: The hand is empty! Define a hand first.");
+        }
+    }
+
+        public void ApplySandboxBag()
+    {
+        gridManager.bagManager.BuildBag(); // The original method
+        gridManager.isPuzzleMode = false;
+        Debug.LogWarning($"SANDBOX MODE ACTIVATED. Bag reset to full library ({gridManager.bagManager.TilesRemaining} tiles). Ejected tiles WILL be returned.");
+    }
+
+
+
 
 
 
@@ -252,8 +318,16 @@ public class LevelEditorManager : MonoBehaviour
 
     public void OnPaletteTileClicked(PaletteTile clickedTile)
     {
+                // If we are in "Add to Hand" mode, we add the tile to the hand.
+        if (currentTool == EditorTool.AddToHand)
+        {
+            AddToHand(clickedTile.myTileType);
+            return; // Exit here, we don't want to select a brush.
+        }
 
-                // Palette clicks should ALWAYS select a brush, so we force it to Paint mode.
+
+
+        // Palette clicks should ALWAYS select a brush, so we force it to Paint mode.
         // This is the most intuitive workflow.
         SelectPaintTool();
 
@@ -282,6 +356,107 @@ public class LevelEditorManager : MonoBehaviour
         HighlightPaletteTile(clickedTile.gameObject);
     }
 
+
+    public void OnHandPaletteTileClicked(HandPaletteTile clickedTile)
+    {
+        if (currentTool == EditorTool.RemoveFromHand)
+        {
+            RemoveFromHand(clickedTile.myTileType);
+        }
+    }
+
+    // --- ADD the core hand logic methods ---
+    private void AddToHand(TileType type)
+    {
+        if (playerHand.ContainsKey(type))
+        {
+            playerHand[type]++; // Increment count
+        }
+        else
+        {
+            playerHand[type] = 1; // Add new entry
+        }
+        Debug.Log($"Added {type.displayName} to hand. New count: {playerHand[type]}");
+        RedrawHandPalette();
+    }
+
+    private void RemoveFromHand(TileType type)
+    {
+        if (playerHand.ContainsKey(type))
+        {
+            playerHand[type]--; // Decrement count
+            Debug.Log($"Removed {type.displayName} from hand. New count: {playerHand[type]}");
+            if (playerHand[type] <= 0)
+            {
+                playerHand.Remove(type); // Remove if count is zero or less
+            }
+            RedrawHandPalette();
+        }
+    }
+
+    private void RedrawHandPalette()
+    {
+        foreach (Transform child in handPaletteContainer)
+        {
+            Destroy(child.gameObject);
+        }
+
+
+
+    // 1. Calculate the X position, mirroring the main palette's logic.
+    float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
+    // The grid is centered, so its rightmost edge is at +(gridWidth / 2)
+    float gridRightEdgeX = gridWidth / 2f;
+    // Use the same buffer space as the other palette.
+    float arrowSpaceBuffer = 4f; 
+    // Set the final X position for our container, but on the positive side.
+    float paletteX = gridRightEdgeX + arrowSpaceBuffer;
+
+    // 2. Set the final position of our container object
+    handPaletteContainer.position = new Vector3(paletteX, 0, 0);
+
+
+
+
+
+        // Use the same positioning logic as the main palette
+        float startZ = (playerHand.Count - 1) * paletteSpacing / 2f;
+        int index = 0;
+
+        foreach (var pair in playerHand.OrderBy(p => p.Key.displayName)) // Order alphabetically for consistency
+        {
+            TileType type = pair.Key;
+            int count = pair.Value;
+
+            Vector3 spawnPos = new Vector3(0, 0, startZ - (index * paletteSpacing));
+            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.identity);
+            tileGO.transform.SetParent(handPaletteContainer, false);
+            tileGO.name = "HandPalette_" + type.displayName;
+
+            var tileInstance = tileGO.GetComponent<TileInstance>();
+            tileInstance.Initialise(ConvertPaths(type.frontPaths), false, type);
+
+            // Add the clickable component for removal
+            var handTile = tileGO.AddComponent<HandPaletteTile>();
+            handTile.editorManager = this;
+            handTile.myTileType = type;
+
+            // Add the count indicator if needed
+            if (count > 1 && countIndicatorPrefab != null)
+            {
+                GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
+                indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f); // Position it top-right-ish
+                var text = indicatorGO.GetComponentInChildren<TMP_Text>();
+                if (text) text.text = $"x{count}";
+            }
+            index++;
+        }
+    }
+
+
+
+
+
     public void OnGridTileClicked(TileInstance tileToModify)
     {
         if (tileToModify == null) return;
@@ -292,11 +467,11 @@ public class LevelEditorManager : MonoBehaviour
             case EditorTool.Paint:
                 PaintTile(tileToModify);
                 break;
-                
+
             case EditorTool.Rotate:
                 RotateTile(tileToModify);
                 break;
-                
+
             case EditorTool.Flip:
                 FlipTile(tileToModify);
                 break;
@@ -498,32 +673,20 @@ public class LevelEditorManager : MonoBehaviour
         // This is how you change a button's color via script.
         // You must get its ColorBlock, modify it, and then assign it back.
         
-        // Paint Button
-        if (paintToolButton != null)
-        {
-            var colors = paintToolButton.colors;
-            colors.normalColor = (currentTool == EditorTool.Paint) ? toolSelectedColor : toolDefaultColor;
-            paintToolButton.colors = colors;
-        }
-
-        // Rotate Button
-        if (rotateToolButton != null)
-        {
-            var colors = rotateToolButton.colors;
-            colors.normalColor = (currentTool == EditorTool.Rotate) ? toolSelectedColor : toolDefaultColor;
-            rotateToolButton.colors = colors;
-        }
-
-        // Flip Button
-        if (flipToolButton != null)
-        {
-            var colors = flipToolButton.colors;
-            colors.normalColor = (currentTool == EditorTool.Flip) ? toolSelectedColor : toolDefaultColor;
-            flipToolButton.colors = colors;
-        }
+        SetButtonColor(paintToolButton, EditorTool.Paint);
+        SetButtonColor(rotateToolButton, EditorTool.Rotate);
+        SetButtonColor(flipToolButton, EditorTool.Flip);
+        SetButtonColor(addToHandButton, EditorTool.AddToHand);
+        SetButtonColor(removeFromHandButton, EditorTool.RemoveFromHand);
     }
 
-
+    private void SetButtonColor(Button btn, EditorTool tool)
+    {
+        if (btn == null) return;
+        var colors = btn.colors;
+        colors.normalColor = (currentTool == tool) ? toolSelectedColor : toolDefaultColor;
+        btn.colors = colors;
+    }
 
 
 

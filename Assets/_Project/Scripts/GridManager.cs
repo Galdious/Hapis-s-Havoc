@@ -26,13 +26,14 @@ public class GridManager : MonoBehaviour
     public BoatManager    boatManager;   // link our BoatManager for spawning boats
 
 
-        [Header("Seeding")]
+    [Header("Seeding")]
     [Tooltip("Check this to use the specific integer seed below. Uncheck for a new random river each time.")]
     public bool useSpecificSeed = false;
     [Tooltip("The specific seed to use for river generation when the box above is checked.")]
     public int gridSeed = 12345;
 
-
+    [HideInInspector] // Hide from Inspector, let LevelEditorManager control it.
+    public bool isPuzzleMode = false;
 
 
     public enum ReversedTileRule { Blocker, PushYourLuck }
@@ -584,11 +585,20 @@ if (ejectedBoat != null)
         // --- END OF CORRECTED BLOCK ---
 
         // Return ejected tile to bag (extract its template data)
-    if (ejectingTile != null && ejectingTile.originalTemplate != null)
-    {
-        bagManager.ReturnTile(ejectingTile.originalTemplate);
-        Debug.Log($"[GridManager] Returned {ejectingTile.originalTemplate.displayName} to bag");
-    }
+        if (ejectingTile != null && ejectingTile.originalTemplate != null)
+        {
+            // --- THIS IS THE CHANGE ---
+            // Only return the tile if we are NOT in puzzle mode.
+            if (!isPuzzleMode)
+            {
+                bagManager.ReturnTile(ejectingTile.originalTemplate);
+                Debug.Log($"[GridManager] Returned {ejectingTile.originalTemplate.displayName} to bag");
+            }
+            else
+            {
+                Debug.Log($"[GridManager] Puzzle Mode: Did NOT return {ejectingTile.originalTemplate.displayName} to bag.");
+            }
+        }
     else if (ejectingTile != null)
     {
         Debug.LogWarning("[GridManager] Ejected tile had no originalTemplate - cannot return to bag!");
