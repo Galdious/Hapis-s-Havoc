@@ -53,6 +53,7 @@ public class LevelEditorManager : MonoBehaviour
     public GameObject countIndicatorPrefab; // The TextMeshPro prefab for the "x2" counter
 
     private Dictionary<TileType, int> playerHand = new Dictionary<TileType, int>();
+    private Dictionary<TileType, TMP_Text> handCounters = new Dictionary<TileType, TMP_Text>();
 
 
 
@@ -225,6 +226,7 @@ public class LevelEditorManager : MonoBehaviour
             gridManager.bagManager.BuildBagFromHand(playerHand);
             gridManager.isPuzzleMode = true;
             Debug.LogWarning($"PUZZLE MODE ACTIVATED. Bag now contains {gridManager.bagManager.TilesRemaining} tiles from the hand. Ejected tiles will NOT be returned.");
+            UpdateHandCounters();
         }
         else
         {
@@ -232,11 +234,12 @@ public class LevelEditorManager : MonoBehaviour
         }
     }
 
-        public void ApplySandboxBag()
+    public void ApplySandboxBag()
     {
         gridManager.bagManager.BuildBag(); // The original method
         gridManager.isPuzzleMode = false;
         Debug.LogWarning($"SANDBOX MODE ACTIVATED. Bag reset to full library ({gridManager.bagManager.TilesRemaining} tiles). Ejected tiles WILL be returned.");
+        UpdateHandCounters();
     }
 
 
@@ -418,7 +421,7 @@ public void OnHandPaletteTileClicked(HandPaletteTile clickedTile)
             Destroy(child.gameObject);
         }
 
-
+    handCounters.Clear();
 
     // 1. Calculate the X position, mirroring the main palette's logic.
     float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
@@ -464,13 +467,44 @@ public void OnHandPaletteTileClicked(HandPaletteTile clickedTile)
                 GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
                 indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f); // Position it top-right-ish
                 var text = indicatorGO.GetComponentInChildren<TMP_Text>();
-                if (text) text.text = $"x{count}";
+
+                if (text)
+                {
+                    // Set initial text
+                    int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
+                    text.text = $"x{count} ({currentAmountInBag} left)";
+                    handCounters[type] = text; // <-- STORE the reference to the text component
+                }
+            
+
             }
             index++;
         }
     }
 
+public void UpdateHandCounters()
+{
+    // Loop through our dictionary of active counters
+    foreach (var pair in handCounters)
+    {
+        TileType type = pair.Key;
+        TMP_Text counterText = pair.Value;
 
+        if (type != null && counterText != null)
+        {
+            // Find the original total count from our hand definition
+            int initialCount = playerHand.ContainsKey(type) ? playerHand[type] : 0;
+            // Ask the bag how many are ACTUALLY left
+            int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
+
+            // Update the text
+            counterText.text = $"x{initialCount} ({currentAmountInBag} left)";
+            
+            // Optional: Grey out if none are left
+            counterText.color = (currentAmountInBag > 0) ? Color.white : Color.grey;
+        }
+    }
+}
 
 
 

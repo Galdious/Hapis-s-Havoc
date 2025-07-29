@@ -76,6 +76,7 @@ public class GridManager : MonoBehaviour
     private TileInstance[,] grid;        // 2-D array for grid management
     private Vector3 boardOrigin;         // calculated board center offset
     private bool isPushingInProgress = false;  // prevent multiple pushes
+    private LevelEditorManager levelEditorManager;
 
     private int currentSeed;             // stores the seed actually used for generation
 
@@ -85,6 +86,9 @@ public class GridManager : MonoBehaviour
 
     private void Start()
     {
+
+        levelEditorManager = FindFirstObjectByType<LevelEditorManager>();
+
         if (bagManager == null || tilePrefab == null)
         {
             Debug.LogError("[GridManager] Missing references!");
@@ -339,6 +343,13 @@ public class GridManager : MonoBehaviour
 
         // Get new tile from bag
         TileType newTileTemplate = bagManager.DrawRandomTile();
+
+        if (isPuzzleMode && levelEditorManager != null)
+        {
+            levelEditorManager.UpdateHandCounters();
+        }
+
+
         if (newTileTemplate == null)
         {
             Debug.LogError("[GridManager] No tiles left in bag!");

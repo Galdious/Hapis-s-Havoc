@@ -155,7 +155,18 @@ public void BuildBagFromHand(Dictionary<TileType, int> hand)
 
 
 
-
+public int GetCountOfTileType(TileType type)
+{
+    int count = 0;
+    foreach (TileType tileInBag in bag)
+    {
+        if (tileInBag == type)
+        {
+            count++;
+        }
+    }
+    return count;
+}
 
 
 
