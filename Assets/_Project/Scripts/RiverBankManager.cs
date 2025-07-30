@@ -156,6 +156,18 @@ public void GenerateBanksForGrid()
             bankVisual.name = $"{side}BankVisual";
         }
 
+
+
+            LevelEditorManager editorManager = FindFirstObjectByType<LevelEditorManager>();
+            if (editorManager != null)
+            {
+                // We can re-use the BankClickHandler meant for the boat,
+                // but we'll have it call the editor instead.
+                var clicker = bankVisual.AddComponent<EditorBankClickHandler>(); // We will create this new script
+                clicker.editorManager = editorManager;
+                clicker.bankSide = side;
+            }
+
         // Size and position the bank visual - span full river width including gaps
         float riverWidth = (gridManager.cols * gridManager.tileWidth) + ((gridManager.cols - 1) * gridManager.gapX);
         bankVisual.transform.localPosition = Vector3.zero;

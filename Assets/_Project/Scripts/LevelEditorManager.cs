@@ -5,13 +5,26 @@ using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem; 
 
 public class LevelEditorManager : MonoBehaviour
 {
-    private enum EditorTool { Paint, Rotate, Flip, AddToHand, RemoveFromHand }
+    private enum EditorTool { Paint, Rotate, Flip, AddToHand, RemoveFromHand, SetStart, SetEnd }
     private EditorTool currentTool = EditorTool.Paint; // Default to painting
     private enum EditorBagMode { Sandbox, Hand }
     private EditorBagMode currentBagMode = EditorBagMode.Sandbox;
+
+
+    [Header("Goal Settings")]
+    public GameObject startMarkerPrefab; // A green flag/cone you create
+    private GameObject activeStartMarker;
+    private TileInstance startTile;
+    private int startSnapPointIndex = -1;
+    private RiverBankManager.BankSide? startBank = null;
+    public GameObject endMarkerPrefab; // A red flag/cone you create
+    private GameObject activeEndMarker;
+    private TileInstance endTile;
+    private RiverBankManager.BankSide? endBank = null; // A nullable enum to store bank side
 
 
     [Header("Scene References")]
@@ -34,6 +47,8 @@ public class LevelEditorManager : MonoBehaviour
     public Button removeFromHandButton;
     public Button applyHandBagButton;     // <-- ADD
     public Button applySandboxBagButton;
+    public Button setStartToolButton;
+    public Button setEndToolButton;
     public Color toolSelectedColor = Color.yellow; // <-- ADD THIS
     private Color toolDefaultColor;                // <-- ADD THIS
 
@@ -103,6 +118,8 @@ public class LevelEditorManager : MonoBehaviour
         if (flipToolButton != null) flipToolButton.onClick.AddListener(SelectFlipTool);
         if (applyHandBagButton != null) applyHandBagButton.onClick.AddListener(ApplyHandToBag);
         if (applySandboxBagButton != null) applySandboxBagButton.onClick.AddListener(ApplySandboxBag);
+        if (setStartToolButton != null) setStartToolButton.onClick.AddListener(SelectSetStartTool);
+        if (setEndToolButton != null) setEndToolButton.onClick.AddListener(SelectSetEndTool);
 
         // Store the default color from one of the buttons at the start.
         if (paintToolButton != null)
@@ -125,6 +142,19 @@ public class LevelEditorManager : MonoBehaviour
 
     }
 
+    private void SelectSetStartTool()
+    {
+        currentTool = (currentTool == EditorTool.SetStart) ? EditorTool.Paint : EditorTool.SetStart;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}. Click near a snap point to set the start position.");
+    }
+
+    private void SelectSetEndTool()
+    {
+        currentTool = (currentTool == EditorTool.SetEnd) ? EditorTool.Paint : EditorTool.SetEnd;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}. Click a tile or bank to set the end position.");
+    }
 
     private void OnDestroy()
     {
@@ -597,8 +627,128 @@ private void SelectFlipTool()
             case EditorTool.Flip:
                 FlipTile(tileToModify);
                 break;
+
+            case EditorTool.SetStart:
+                SetStartPosition(tileToModify);
+                break;
+
+            case EditorTool.SetEnd:
+                SetEndPosition(tileToModify); // Pass the tile instance
+                break;
         }
     }
+
+
+    public void OnBankClicked(RiverBankManager.BankSide side)
+    {
+        // This can only be called if a tool is active that cares about banks.
+        if (currentTool == EditorTool.SetEnd)
+        {
+            SetEndPosition(null, side); // Pass the bank side
+        }
+
+        // We can add SetStart here later if we want to allow starting on a bank.
+        else if (currentTool == EditorTool.SetStart)
+        {
+            // Tell the SetStartPosition method that a bank was clicked.
+            SetStartPosition(null, side);
+        }
+    
+}
+
+// And finally, the logic to place the end marker.
+private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide? side = null)
+{
+    if (activeEndMarker != null) Destroy(activeEndMarker);
+
+    if (tile != null)
+    {
+        endTile = tile;
+        endBank = null;
+        activeEndMarker = Instantiate(endMarkerPrefab, tile.transform.position, Quaternion.identity);
+        Debug.Log($"End point set on tile {tile.name}.");
+    }
+    else if (side.HasValue)
+    {
+        endTile = null;
+        endBank = side.Value;
+        Transform bankTransform = riverBankManager.GetBankGameObject(side.Value).transform;
+        activeEndMarker = Instantiate(endMarkerPrefab, bankTransform.position, Quaternion.identity);
+        Debug.Log($"End point set on {side.Value} bank.");
+    }
+}
+
+
+
+private void SetStartPosition(TileInstance tile = null, RiverBankManager.BankSide? side = null)
+{
+    // Clear the old marker first
+    if (activeStartMarker != null) Destroy(activeStartMarker);
+
+    // Scenario 1: A TILE was clicked
+    if (tile != null)
+    {
+        // Find the closest snap point on the clicked tile (this logic is still needed for tiles)
+        Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
+        if (Physics.Raycast(ray, out RaycastHit hit))
+        {
+            Vector3 clickWorldPos = hit.point;
+            float minDistance = float.MaxValue;
+            int closestSnapIndex = -1;
+
+            for (int i = 0; i < tile.snapPoints.Length; i++)
+            {
+                if (tile.snapPoints[i] != null)
+                {
+                    float distance = Vector3.Distance(clickWorldPos, tile.snapPoints[i].position);
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        closestSnapIndex = i;
+                    }
+                }
+            }
+
+            if (closestSnapIndex != -1)
+            {
+                // Update state for a TILE start
+                startTile = tile;
+                startSnapPointIndex = closestSnapIndex;
+                startBank = null;
+
+                // Place marker on the specific snap point
+                activeStartMarker = Instantiate(startMarkerPrefab, tile.snapPoints[closestSnapIndex]);
+                Debug.Log($"Start point set on TILE {tile.name}, snap point {closestSnapIndex}.");
+            }
+        }
+    }
+    // Scenario 2: A BANK was clicked
+    else if (side.HasValue)
+    {
+        // Update state for a BANK start
+        startTile = null;
+        startSnapPointIndex = -1;
+        startBank = side.Value;
+        // We can just store the BankSide. The PuzzleGameManager will figure out the spawn point later.
+            // For the visual marker, we'll place it in the middle of the bank.
+            Transform bankTransform = riverBankManager.GetBankGameObject(side.Value).transform;
+        
+        activeStartMarker = Instantiate(startMarkerPrefab, bankTransform.position, Quaternion.identity);
+        Debug.Log($"Start point set on BANK {side.Value}.");
+        
+        // Storing the actual spawn transform isn't necessary for the editor,
+        // but we can store the side for when we save the level.
+        // Let's modify the class variable to store the side instead of the transform.
+        // startBankSpawn = bankTransform; <--- We can improve this.
+    }
+}
+
+
+
+
+
+
+
     // This is called by EditorGridTile.cs when a grid tile is clicked
     private void PaintTile(TileInstance tileToPaint)
 
@@ -831,6 +981,10 @@ private void SelectFlipTool()
         SetButtonColor(flipToolButton, EditorTool.Flip);
         SetButtonColor(addToHandButton, EditorTool.AddToHand);
         SetButtonColor(removeFromHandButton, EditorTool.RemoveFromHand);
+        SetButtonColor(setStartToolButton, EditorTool.SetStart); 
+        SetButtonColor(setEndToolButton, EditorTool.SetEnd);
+
+        EventSystem.current.SetSelectedGameObject(null);
     }
 
     private void SetButtonColor(Button btn, EditorTool tool)
