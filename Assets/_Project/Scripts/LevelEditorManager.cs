@@ -52,26 +52,27 @@ public class LevelEditorManager : MonoBehaviour
     public Transform handPaletteContainer; // The 3D container on the right
     public GameObject countIndicatorPrefab; // The TextMeshPro prefab for the "x2" counter
 
-    private Dictionary<TileType, int> playerHand = new Dictionary<TileType, int>();
+    private List<PuzzleHandTile> playerHand = new List<PuzzleHandTile>();
     private Dictionary<TileType, TMP_Text> handCounters = new Dictionary<TileType, TMP_Text>();
 
-
+    private GameObject currentlyHighlightedHandTile; 
 
     // This class holds our "brush" information
     private class EditorBrush
     {
         public TileType tileType;
-        public float currentRotationY = 0f;
+        // public float currentRotationY = 0f;
         public PaletteTile sourcePaletteTile;
     }
     private EditorBrush currentBrush;
+    private PuzzleHandTile selectedHandTileForPush = null;
 
 
     // This will store the original material of the highlighted palette tile
     private Dictionary<Renderer, Material> originalPaletteMaterial = new Dictionary<Renderer, Material>();
     // This will keep a reference to the GameObject we highlighted
     private GameObject currentlyHighlightedPaletteTile;
-
+    private Dictionary<TileType, int> initialHandBlueprint = new Dictionary<TileType, int>();
 
 
 
@@ -113,6 +114,20 @@ public class LevelEditorManager : MonoBehaviour
         // Set the initial visual state
         UpdateToolButtonVisuals();
 
+                if (gridManager != null)
+        {
+            gridManager.OnTileConsumed += UpdateHandCounters;
+        }
+
+    }
+
+
+    private void OnDestroy()
+    {
+        if (gridManager != null)
+        {
+            gridManager.OnTileConsumed -= UpdateHandCounters;
+        }
     }
 
     private void SelectAddToHandTool()
@@ -223,22 +238,27 @@ public class LevelEditorManager : MonoBehaviour
     {
         if (playerHand.Count > 0)
         {
-            gridManager.bagManager.BuildBagFromHand(playerHand);
+            initialHandBlueprint.Clear();
+            var handAsDictionary = playerHand.GroupBy(t => t.tileType).ToDictionary(g => g.Key, g => g.Count());
+            initialHandBlueprint = new Dictionary<TileType, int>(handAsDictionary);
+            
+            gridManager.bagManager.BuildBagFromHand(handAsDictionary);
             gridManager.isPuzzleMode = true;
-            Debug.LogWarning($"PUZZLE MODE ACTIVATED. Bag now contains {gridManager.bagManager.TilesRemaining} tiles from the hand. Ejected tiles will NOT be returned.");
-            UpdateHandCounters();
+            Debug.LogWarning($"PUZZLE MODE ACTIVATED. Blueprint set.");
+            UpdateHandCounters(); // Update counters to the initial state
         }
         else
         {
-            Debug.LogError("Cannot apply hand to bag: The hand is empty! Define a hand first.");
+            Debug.LogError("Cannot apply hand to bag: The hand is empty!");
         }
     }
 
     public void ApplySandboxBag()
     {
-        gridManager.bagManager.BuildBag(); // The original method
+        initialHandBlueprint.Clear(); // No blueprint in sandbox mode
+        gridManager.bagManager.BuildBag();
         gridManager.isPuzzleMode = false;
-        Debug.LogWarning($"SANDBOX MODE ACTIVATED. Bag reset to full library ({gridManager.bagManager.TilesRemaining} tiles). Ejected tiles WILL be returned.");
+        Debug.LogWarning($"SANDBOX MODE ACTIVATED. Bag reset to full library.");
         UpdateHandCounters();
     }
 
@@ -305,7 +325,7 @@ public class LevelEditorManager : MonoBehaviour
             tileGO.name = "Palette_" + type.displayName;
 
             var tileInstance = tileGO.GetComponent<TileInstance>();
-            tileInstance.Initialise(ConvertPaths(type.frontPaths), false, type);
+            tileInstance.Initialise(gridManager.ConvertPaths(type.frontPaths), false, type);
 
             PaletteTile paletteTile = tileGO.AddComponent<PaletteTile>();
             paletteTile.editorManager = this;
@@ -319,192 +339,233 @@ public class LevelEditorManager : MonoBehaviour
         //AdjustCameraView();
     }
 
-public void OnPaletteTileClicked(PaletteTile clickedTile)
-{
-    // The behavior depends on the selected tool.
-    switch (currentTool)
+    public void OnPaletteTileClicked(PaletteTile clickedTile)
     {
-        case EditorTool.Rotate:
-            RotateTile(clickedTile.GetComponent<TileInstance>());
-            break;
+        // The behavior depends on the selected tool.
+        switch (currentTool)
+        {
+            case EditorTool.Rotate:
+                RotateTile(clickedTile.GetComponent<TileInstance>());
+                break;
 
-        case EditorTool.Flip:
-            FlipTile(clickedTile.GetComponent<TileInstance>());
-            break;
-            
-        case EditorTool.AddToHand:
-            AddToHand(clickedTile.myTileType);
-            break;
+            case EditorTool.Flip:
+                FlipTile(clickedTile.GetComponent<TileInstance>());
+                break;
 
-        // The default behavior (and for Paint mode) is to select a brush.
-        case EditorTool.Paint:
-        default:
-            SelectPaintTool(); // Ensure we're in paint mode visually
-            ClearPaletteHighlight();
+            case EditorTool.AddToHand:
+                AddToHand(clickedTile.myTileType);
+                break;
 
-            if (currentBrush != null && currentBrush.sourcePaletteTile == clickedTile)
+            // The default behavior (and for Paint mode) is to select a brush.
+            case EditorTool.Paint:
+            default:
+                SelectPaintTool(); // Ensure we're in paint mode visually
+                ClearPaletteHighlight();
+
+                if (currentBrush != null && currentBrush.sourcePaletteTile == clickedTile)
+                {
+                    currentBrush = null;
+                    Debug.Log("Brush deselected.");
+                    return;
+                }
+
+                currentBrush = new EditorBrush
+                {
+                    tileType = clickedTile.myTileType,
+                    sourcePaletteTile = clickedTile
+                };
+                Debug.Log($"Selected Brush: {currentBrush.tileType.displayName}");
+                HighlightPaletteTile(clickedTile.gameObject);
+                break;
+        }
+    }
+
+
+    public void OnHandPaletteTileClicked(HandPaletteTile clickedTile)
+    {
+        // The behavior depends on the selected tool.
+        switch (currentTool)
+        {
+            case EditorTool.Rotate:
+                RotateTile(clickedTile.GetComponent<TileInstance>());
+                break;
+
+            case EditorTool.Flip:
+                FlipTile(clickedTile.GetComponent<TileInstance>());
+                break;
+
+            case EditorTool.RemoveFromHand:
+                ClearHandHighlight();
+                RemoveFromHand(clickedTile.myTileType);
+                break;
+
+            case EditorTool.Paint:
+            default:
+            // 1. Always clear any previous selection first.
+            ClearHandHighlight();
+
+            // 2. Find the specific instance in our hand data.
+            selectedHandTileForPush = playerHand.FirstOrDefault(t => t.tileType == clickedTile.myTileType);
+
+            if (selectedHandTileForPush != null)
             {
-                currentBrush = null;
-                Debug.Log("Brush deselected.");
-                return;
+                Debug.Log($"SELECTED '{clickedTile.myTileType.displayName}' for the next push.");
+                // 3. Apply the highlight to the visual tile we just clicked.
+                HighlightPaletteTile(clickedTile.gameObject); 
+                // And store a reference to it for clearing later.
+                currentlyHighlightedHandTile = clickedTile.gameObject;
             }
-
-            currentBrush = new EditorBrush
-            {
-                tileType = clickedTile.myTileType,
-                sourcePaletteTile = clickedTile
-            };
-            Debug.Log($"Selected Brush: {currentBrush.tileType.displayName}");
-            HighlightPaletteTile(clickedTile.gameObject);
             break;
+        }
     }
-}
-
-
-public void OnHandPaletteTileClicked(HandPaletteTile clickedTile)
-{
-    // The behavior depends on the selected tool.
-    switch (currentTool)
-    {
-        case EditorTool.Rotate:
-            RotateTile(clickedTile.GetComponent<TileInstance>());
-            break;
-
-        case EditorTool.Flip:
-            FlipTile(clickedTile.GetComponent<TileInstance>());
-            break;
-
-        case EditorTool.RemoveFromHand:
-            RemoveFromHand(clickedTile.myTileType);
-            break;
-        
-        // Clicks with other tools do nothing to the hand palette.
-        default:
-            Debug.Log("Switch to 'Remove From Hand' tool to remove tiles.");
-            break;
-    }
-}
 
     // --- ADD the core hand logic methods ---
     private void AddToHand(TileType type)
     {
-        if (playerHand.ContainsKey(type))
-        {
-            playerHand[type]++; // Increment count
-        }
-        else
-        {
-            playerHand[type] = 1; // Add new entry
-        }
-        Debug.Log($"Added {type.displayName} to hand. New count: {playerHand[type]}");
+        // Add a new instance of our data class to the list.
+        playerHand.Add(new PuzzleHandTile(type));
+        Debug.Log($"Added {type.displayName} to hand. Hand now contains {playerHand.Count} total tiles.");
         RedrawHandPalette();
     }
 
     private void RemoveFromHand(TileType type)
     {
-        if (playerHand.ContainsKey(type))
+        // Find the last tile of this type in the list and remove it.
+        PuzzleHandTile tileToRemove = playerHand.LastOrDefault(t => t.tileType == type);
+        if (tileToRemove != null)
         {
-            playerHand[type]--; // Decrement count
-            Debug.Log($"Removed {type.displayName} from hand. New count: {playerHand[type]}");
-            if (playerHand[type] <= 0)
-            {
-                playerHand.Remove(type); // Remove if count is zero or less
-            }
-            RedrawHandPalette();
+            playerHand.Remove(tileToRemove);
+            Debug.Log($"Removed {type.displayName} from hand.");
+            UpdateSingleCounter(type);
         }
     }
 
+
+/// <summary>
+/// Updates the text for a single tile type in the hand palette.
+/// </summary>
+    private void UpdateSingleCounter(TileType type)
+    {
+        if (handCounters.ContainsKey(type))
+        {
+            TMP_Text counterText = handCounters[type];
+            if (counterText != null)
+            {
+                int initialCount = initialHandBlueprint.ContainsKey(type) ? initialHandBlueprint[type] : 0;
+                int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
+                
+                counterText.text = $"x{initialCount} ({currentAmountInBag} left)";
+                counterText.color = (currentAmountInBag > 0) ? Color.white : Color.grey;
+            }
+        }
+    }
+
+
+
+
+
+
     private void RedrawHandPalette()
     {
+        // Get a list of all UNIQUE tile types currently in the hand.
+        var uniqueTypesInHand = playerHand.Select(t => t.tileType).Distinct().ToList();
+
+
         foreach (Transform child in handPaletteContainer)
         {
             Destroy(child.gameObject);
         }
 
-    handCounters.Clear();
+        handCounters.Clear();
 
-    // 1. Calculate the X position, mirroring the main palette's logic.
-    float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
-    // The grid is centered, so its rightmost edge is at +(gridWidth / 2)
-    float gridRightEdgeX = gridWidth / 2f;
-    // Use the same buffer space as the other palette.
-    float arrowSpaceBuffer = 4f; 
-    // Set the final X position for our container, but on the positive side.
-    float paletteX = gridRightEdgeX + arrowSpaceBuffer;
+        // 1. Calculate the X position, mirroring the main palette's logic.
+        float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
+        // The grid is centered, so its rightmost edge is at +(gridWidth / 2)
+        float gridRightEdgeX = gridWidth / 2f;
+        // Use the same buffer space as the other palette.
+        float arrowSpaceBuffer = 4f;
+        // Set the final X position for our container, but on the positive side.
+        float paletteX = gridRightEdgeX + arrowSpaceBuffer;
 
-    // 2. Set the final position of our container object
-    handPaletteContainer.position = new Vector3(paletteX, 0, 0);
-
-
+        // 2. Set the final position of our container object
+        handPaletteContainer.position = new Vector3(paletteX, 0, 0);
 
 
 
+
+        // czy usuwac var?
         // Use the same positioning logic as the main palette
-        float startZ = (playerHand.Count - 1) * paletteSpacing / 2f;
+        var groupedHand = playerHand.GroupBy(t => t.tileType);
+        float startZ = (groupedHand.Count() - 1) * paletteSpacing / 2f;
         int index = 0;
 
-        foreach (var pair in playerHand.OrderBy(p => p.Key.displayName)) // Order alphabetically for consistency
-        {
-            TileType type = pair.Key;
-            int count = pair.Value;
-
-            Vector3 spawnPos = new Vector3(0, 0, startZ - (index * paletteSpacing));
-            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.identity);
-            tileGO.transform.SetParent(handPaletteContainer, false);
-            tileGO.name = "HandPalette_" + type.displayName;
-
-            var tileInstance = tileGO.GetComponent<TileInstance>();
-            tileInstance.Initialise(ConvertPaths(type.frontPaths), false, type);
-
-            // Add the clickable component for removal
-            var handTile = tileGO.AddComponent<HandPaletteTile>();
-            handTile.editorManager = this;
-            handTile.myTileType = type;
-
-            // Add the count indicator if needed
-            if (count > 1 && countIndicatorPrefab != null)
-            {
-                GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
-                indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f); // Position it top-right-ish
-                var text = indicatorGO.GetComponentInChildren<TMP_Text>();
-
-                if (text)
-                {
-                    // Set initial text
-                    int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
-                    text.text = $"x{count} ({currentAmountInBag} left)";
-                    handCounters[type] = text; // <-- STORE the reference to the text component
-                }
-            
-
-            }
-            index++;
-        }
-    }
-
-public void UpdateHandCounters()
-{
-    // Loop through our dictionary of active counters
-    foreach (var pair in handCounters)
+            foreach (TileType type in uniqueTypesInHand.OrderBy(t => t.displayName))
     {
-        TileType type = pair.Key;
-        TMP_Text counterText = pair.Value;
+        // Find the first data object for this type to use as our visual model.
+        // This ensures the visual shows the rotation/flip of at least one of the tiles of this type.
+        PuzzleHandTile representativeTile = playerHand.First(t => t.tileType == type);
 
-        if (type != null && counterText != null)
+        // Calculate the spawn position for this tile in the column.
+        Vector3 spawnPos = new Vector3(0, 0, startZ - (index * paletteSpacing));
+        
+        // Instantiate the tile prefab and set its state from our data model.
+        GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
+        tileGO.transform.SetParent(handPaletteContainer, false);
+        tileGO.name = "HandPalette_" + type.displayName;
+
+        // Initialize its paths based on its current flip state.
+        var tileInstance = tileGO.GetComponent<TileInstance>();
+        gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
+
+        // Add the component that makes it clickable.
+        var handTile = tileGO.AddComponent<HandPaletteTile>();
+        handTile.editorManager = this;
+        handTile.myTileType = type;
+        
+        // Add the text counter.
+        if (countIndicatorPrefab != null)
         {
-            // Find the original total count from our hand definition
-            int initialCount = playerHand.ContainsKey(type) ? playerHand[type] : 0;
-            // Ask the bag how many are ACTUALLY left
-            int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
-
-            // Update the text
-            counterText.text = $"x{initialCount} ({currentAmountInBag} left)";
-            
-            // Optional: Grey out if none are left
-            counterText.color = (currentAmountInBag > 0) ? Color.white : Color.grey;
+            GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
+            indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
+            var text = indicatorGO.GetComponentInChildren<TMP_Text>();
+            if (text)
+            {
+                // Count how many of this type are in our data list.
+                int countInHand = playerHand.Count(t => t.tileType == type);
+                text.text = $"x{countInHand}";
+                
+                // Store a reference to this text component so we can update it later
+                // without having to redraw everything.
+                handCounters[type] = text;
+            }
+        }
+        
+        index++;
         }
     }
-}
+
+    public void UpdateHandCounters()
+    {
+        if (gridManager.isPuzzleMode)
+        {
+            // In puzzle mode, we update all counters based on the blueprint.
+            foreach (var pair in handCounters)
+            {
+                UpdateSingleCounter(pair.Key);
+            }
+        }
+        else
+        {
+            // In sandbox mode, all counters should just show their hand definition.
+            foreach (var pair in handCounters)
+            {
+                TMP_Text counterText = pair.Value;
+                int countInHand = playerHand.Count(t => t.tileType == pair.Key);
+                counterText.text = $"x{countInHand}";
+                counterText.color = Color.white;
+            }
+        }
+    }
 
 
 
@@ -530,11 +591,11 @@ public void UpdateHandCounters()
     }
     // This is called by EditorGridTile.cs when a grid tile is clicked
     private void PaintTile(TileInstance tileToPaint)
-    
+
     {
 
 
-        
+
         if (currentBrush == null)
         {
             Debug.Log("No brush selected. Click a tile from the palette on the left.");
@@ -555,8 +616,8 @@ public void UpdateHandCounters()
 
         // 2. Re-Initialise the tile with the new data from our brush.
         //    This updates its internal logic and connections.
-        tileToPaint.transform.rotation = Quaternion.identity; 
-        tileToPaint.Initialise(ConvertPaths(currentBrush.tileType.frontPaths), false, currentBrush.tileType);
+        tileToPaint.transform.rotation = Quaternion.identity;
+        tileToPaint.Initialise(gridManager.ConvertPaths(currentBrush.tileType.frontPaths), false, currentBrush.tileType);
 
         // 3. Tell the PathVisualizer to draw the NEW paths.
         if (visualizer != null)
@@ -575,14 +636,7 @@ public void UpdateHandCounters()
     //     Camera.main.transform.rotation = Quaternion.Euler(60, 0, 0);
     // }
 
-    // Helper method to convert paths
-    private List<TileInstance.Connection> ConvertPaths(List<Vector2Int> src)
-    {
-        var list = new List<TileInstance.Connection>();
-        foreach (Vector2Int v in src)
-            list.Add(new TileInstance.Connection { from = v.x, to = v.y });
-        return list;
-    }
+
 
     /// Applies the color and lift highlight to a given palette tile.
     /// </summary>
@@ -653,12 +707,31 @@ public void UpdateHandCounters()
         {
             tileTransform.localPosition = targetPos;
         }
-    } 
+    }
 
 
     private void RotateTile(TileInstance tileToRotate)
     {
         Debug.Log($"Rotating tile {tileToRotate.name}");
+
+
+    // We need to check if the tile we clicked is in the hand palette.
+    HandPaletteTile handTileComponent = tileToRotate.GetComponent<HandPaletteTile>();
+    if (handTileComponent != null)
+    {
+        // It's a hand tile! Find the first matching data object in our list.
+        PuzzleHandTile tileData = playerHand.FirstOrDefault(t => t.tileType == handTileComponent.myTileType);
+        if (tileData != null)
+        {
+            // Update the rotation in our DATA object.
+            // The % 360 ensures the value stays within 0-359.
+            tileData.rotationY = (tileData.rotationY + 180f) % 360f;
+            Debug.Log($"Updated hand data for {tileData.tileType.displayName}, new rotation: {tileData.rotationY} degrees.");
+        }
+    }
+
+
+
 
         // Apply the visual rotation
         tileToRotate.transform.Rotate(0, 180f, 0);
@@ -677,6 +750,25 @@ public void UpdateHandCounters()
     private void FlipTile(TileInstance tileToFlip)
     {
         Debug.Log($"Flipping tile {tileToFlip.name}");
+
+
+        // Check if the tile we clicked is in the hand palette.
+        HandPaletteTile handTileComponent = tileToFlip.GetComponent<HandPaletteTile>();
+        if (handTileComponent != null)
+        {
+            // It's a hand tile! Find its corresponding data object.
+            PuzzleHandTile tileData = playerHand.FirstOrDefault(t => t.tileType == handTileComponent.myTileType);
+            if (tileData != null)
+            {
+                // Update the flipped state in our DATA object.
+                tileData.isFlipped = !tileData.isFlipped;
+                Debug.Log($"Updated hand data for {tileData.tileType.displayName}, IsFlipped is now: {tileData.isFlipped}.");
+            }
+        }
+
+
+
+
 
         // Get the visualizer
         var visualizer = tileToFlip.GetComponent<PathVisualizer>();
@@ -707,7 +799,7 @@ public void UpdateHandCounters()
         {
             // FLIPPING BACK TO BLUE (PATH) SIDE
             // Restore the original paths from its template
-            tileToFlip.Initialise(ConvertPaths(tileToFlip.originalTemplate.frontPaths), false, tileToFlip.originalTemplate);
+            tileToFlip.Initialise(gridManager.ConvertPaths(tileToFlip.originalTemplate.frontPaths), false, tileToFlip.originalTemplate);
         }
 
         // Redraw the new paths
@@ -723,7 +815,7 @@ public void UpdateHandCounters()
     {
         // This is how you change a button's color via script.
         // You must get its ColorBlock, modify it, and then assign it back.
-        
+
         SetButtonColor(paintToolButton, EditorTool.Paint);
         SetButtonColor(rotateToolButton, EditorTool.Rotate);
         SetButtonColor(flipToolButton, EditorTool.Flip);
@@ -738,6 +830,118 @@ public void UpdateHandCounters()
         colors.normalColor = (currentTool == tool) ? toolSelectedColor : toolDefaultColor;
         btn.colors = colors;
     }
+
+
+    public IEnumerator HandleArrowPush(int row, bool fromLeft, bool isForObstacleSide)
+    {
+        // --- THE NEW, SIMPLIFIED LOGIC ---
+        
+        // Step 1: Are we in Puzzle Mode?
+        if (gridManager.isPuzzleMode)
+        {
+            // We are in puzzle mode. A hand tile MUST be selected.
+            if (selectedHandTileForPush == null)
+            {
+                Debug.LogError("PUZZLE MODE: Cannot push. No tile selected from the hand. Please select a tile first.");
+                yield break; // STOP. Do absolutely nothing.
+            }
+            
+            // A hand tile IS selected. Proceed with the puzzle push.
+            Debug.Log($"PUZZLE MODE: Pushing selected hand tile: {selectedHandTileForPush.tileType.displayName}");
+            
+            // Immediately consume the tile from our local data. This prevents re-use.
+            PuzzleHandTile tileToPush = new PuzzleHandTile(selectedHandTileForPush.tileType)
+            {
+                rotationY = selectedHandTileForPush.rotationY,
+                isFlipped = isForObstacleSide,
+                id = selectedHandTileForPush.id
+            };
+            playerHand.RemoveAll(t => t.id == selectedHandTileForPush.id);
+            ClearHandHighlight();
+            selectedHandTileForPush = null; // Deselect immediately
+            
+            // Now, tell GridManager to push this specific tile and wait for it to finish.
+            // GridManager will announce OnTileConsumed, which triggers the UI update.
+            yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileToPush));
+        }
+        else // Step 2: We are NOT in puzzle mode.
+        {
+            // We must be in Sandbox mode. Perform a normal push using the infinite bag.
+            Debug.Log("SANDBOX MODE: Pushing random tile from bag.");
+            yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, isForObstacleSide));
+        }
+    }
+
+
+    // should we leave it?
+    // public bool UseSelectedHandTile(int row, bool fromLeft, bool isForObstacleSide)
+    // {
+    //     // Check if a tile has been selected from the hand.
+    //     if (selectedHandTileForPush == null)
+    //     {
+    //         Debug.LogWarning("Arrow clicked, but no hand tile was selected. Performing default action.");
+    //         return false; // Tells RiverControls to do its normal push.
+    //     }
+
+    //     Debug.Log($"Pushing selected hand tile: {selectedHandTileForPush.tileType.displayName}");
+
+    //     // Here, we decide the flip state. If the RED arrow is clicked, we override the tile's saved flip state.
+    //     bool pushAsObstacle = isForObstacleSide;
+
+    //     // We create a temporary data object to send to the GridManager.
+    //     // This allows the red arrow to override the flip state for one push.
+    //     PuzzleHandTile tileToPush = new PuzzleHandTile(selectedHandTileForPush.tileType)
+    //     {
+    //         rotationY = selectedHandTileForPush.rotationY,
+    //         isFlipped = pushAsObstacle, // Use the state from the arrow click
+    //         id = selectedHandTileForPush.id
+    //     };
+
+    //     // ???
+    //     ClearHandHighlight();
+
+
+    //     // Tell the GridManager to perform the special push.
+    //     StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileToPush));
+
+    //     // Consume the tile from our data list by finding its unique ID.
+    //     var tileDataToRemove = playerHand.FirstOrDefault(t => t.id == selectedHandTileForPush.id);
+    //     if (tileDataToRemove != null)
+    //     {
+    //         playerHand.Remove(tileDataToRemove);
+    //     }
+
+    //     // Update the counter text for the tile type we just used.
+    //     UpdateSingleCounter(selectedHandTileForPush.tileType);
+
+    //     // Clear the selection state so you can't push the same tile twice.
+    //     selectedHandTileForPush = null;
+
+    //     // Tell RiverControls that we handled the push successfully.
+    //     return true;
+    // }
+
+
+private void ClearHandHighlight()
+{
+    if (currentlyHighlightedHandTile == null) return;
+
+    var renderer = currentlyHighlightedHandTile.GetComponentInChildren<MeshRenderer>();
+    if (renderer != null && originalPaletteMaterial.ContainsKey(renderer))
+    {
+        // Restore the original material.
+        renderer.sharedMaterial = originalPaletteMaterial[renderer];
+        
+        // Lower the tile.
+        StartCoroutine(LiftTileSmooth(currentlyHighlightedHandTile.transform, false));
+
+        // Clean up our tracking variables.
+        originalPaletteMaterial.Remove(renderer);
+        currentlyHighlightedHandTile = null;
+    }
+}
+
+
 
 
 

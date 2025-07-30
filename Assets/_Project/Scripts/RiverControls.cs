@@ -16,6 +16,7 @@ public class RiverControls : MonoBehaviour
     public GridManager gridManager;
     public Transform gridParent;  // same as GridManager's gridParent
     public BoatManager boatManager;
+    public LevelEditorManager levelEditorManager;
 
     [Header("Arrow Settings")]
     public GameObject arrowPrefab;  // simple cube or arrow mesh
@@ -30,6 +31,8 @@ public class RiverControls : MonoBehaviour
     public bool showHoverEffect = true;
     public Color hoverColor = Color.yellow;
 
+    
+
     private PointerArrowButton[,] leftArrows;   // [row, side] 0=blue, 1=red
     private PointerArrowButton[,] rightArrows;  // [row, side] 0=blue, 1=red
 
@@ -37,6 +40,7 @@ public class RiverControls : MonoBehaviour
 
     private void Start()
     {
+        if (levelEditorManager == null) levelEditorManager = FindFirstObjectByType<LevelEditorManager>();
         if (boatManager == null) boatManager = FindFirstObjectByType<BoatManager>();
         if (gridManager == null)
         {
@@ -223,16 +227,21 @@ private float GetDynamicArrowDistance()
 
 
 
-public void OnArrowClicked(int row, bool fromLeft, bool isRed)
-{
-    if (gridManager.IsPushInProgress()) return;
+    public void OnArrowClicked(int row, bool fromLeft, bool isRed)
+    {
+        if (gridManager.IsPushInProgress()) return;
 
-    BoatController selectedBoat = boatManager.GetSelectedBoat();
-    bool hadSelectedBoat = selectedBoat != null;
-
-    // Always push the row normally - GridManager now handles clearing selections internally
-    StartCoroutine(HandlePushWithReselect(hadSelectedBoat, row, fromLeft, isRed));
-}
+        // If the editor is present, it is the BOSS. It handles EVERYTHING.
+        if (levelEditorManager != null)
+        {
+            StartCoroutine(levelEditorManager.HandleArrowPush(row, fromLeft, isRed));
+        }
+        // If there's no editor (e.g., in a final game scene), fall back to the basic sandbox behavior.
+        else
+        {
+            StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, isRed));
+        }
+    }
 
 private IEnumerator HandlePushWithReselect(bool hadSelectedBoat, int row, bool fromLeft, bool isRed)
 {
