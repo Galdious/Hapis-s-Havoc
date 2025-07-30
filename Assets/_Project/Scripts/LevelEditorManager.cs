@@ -4,11 +4,14 @@ using TMPro;
 using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
+using UnityEngine.EventSystems;
 
 public class LevelEditorManager : MonoBehaviour
 {
     private enum EditorTool { Paint, Rotate, Flip, AddToHand, RemoveFromHand }
     private EditorTool currentTool = EditorTool.Paint; // Default to painting
+    private enum EditorBagMode { Sandbox, Hand }
+    private EditorBagMode currentBagMode = EditorBagMode.Sandbox;
 
 
     [Header("Scene References")]
@@ -113,6 +116,7 @@ public class LevelEditorManager : MonoBehaviour
 
         // Set the initial visual state
         UpdateToolButtonVisuals();
+        UpdateBagButtonVisuals(); 
 
                 if (gridManager != null)
         {
@@ -130,47 +134,47 @@ public class LevelEditorManager : MonoBehaviour
         }
     }
 
-    private void SelectAddToHandTool()
-    {
-        currentTool = (currentTool == EditorTool.AddToHand) ? EditorTool.Paint : EditorTool.AddToHand;
-        UpdateToolButtonVisuals();
-        Debug.Log($"Tool is now: {currentTool}. Click a tile from the LEFT palette.");
-    }
+private void SelectAddToHandTool()
+{
+    currentTool = (currentTool == EditorTool.AddToHand) ? EditorTool.Paint : EditorTool.AddToHand;
+    UpdateToolButtonVisuals();
+    Debug.Log($"Tool is now: {currentTool}. Click a tile from the LEFT palette.");
+}
 
-    private void SelectRemoveFromHandTool()
-    {
-        currentTool = (currentTool == EditorTool.RemoveFromHand) ? EditorTool.Paint : EditorTool.RemoveFromHand;
-        UpdateToolButtonVisuals();
-        Debug.Log($"Tool is now: {currentTool}. Click a tile from the RIGHT hand palette to remove.");
-    }
-
-
+private void SelectRemoveFromHandTool()
+{
+    currentTool = (currentTool == EditorTool.RemoveFromHand) ? EditorTool.Paint : EditorTool.RemoveFromHand;
+    UpdateToolButtonVisuals();
+    Debug.Log($"Tool is now: {currentTool}. Click a tile from the RIGHT hand palette to remove.");
+}
 
 
 
 
-    private void SelectPaintTool()
-    {
-        currentTool = EditorTool.Paint;
-        UpdateToolButtonVisuals();
-        Debug.Log("Switched to Paint tool.");
-    }
 
-    private void SelectRotateTool()
-    {
-        // If the rotate tool is already active, switch back to paint. Otherwise, activate it.
-        currentTool = (currentTool == EditorTool.Rotate) ? EditorTool.Paint : EditorTool.Rotate;
-        UpdateToolButtonVisuals();
-        Debug.Log($"Tool is now: {currentTool}");
-    }
 
-    private void SelectFlipTool()
-    {
-        // If the flip tool is already active, switch back to paint. Otherwise, activate it.
-        currentTool = (currentTool == EditorTool.Flip) ? EditorTool.Paint : EditorTool.Flip;
-        UpdateToolButtonVisuals();
-        Debug.Log($"Tool is now: {currentTool}");
-    }
+private void SelectPaintTool()
+{
+    currentTool = EditorTool.Paint;
+    UpdateToolButtonVisuals();
+    Debug.Log("Switched to Paint tool.");
+}
+
+private void SelectRotateTool()
+{
+    // If the rotate tool is already active, switch back to paint. Otherwise, activate it.
+    currentTool = (currentTool == EditorTool.Rotate) ? EditorTool.Paint : EditorTool.Rotate;
+    UpdateToolButtonVisuals();
+    Debug.Log($"Tool is now: {currentTool}");
+}
+
+private void SelectFlipTool()
+{
+    // If the flip tool is already active, switch back to paint. Otherwise, activate it.
+    currentTool = (currentTool == EditorTool.Flip) ? EditorTool.Paint : EditorTool.Flip;
+    UpdateToolButtonVisuals();
+    Debug.Log($"Tool is now: {currentTool}");
+}
 
 
 
@@ -241,11 +245,14 @@ public class LevelEditorManager : MonoBehaviour
             initialHandBlueprint.Clear();
             var handAsDictionary = playerHand.GroupBy(t => t.tileType).ToDictionary(g => g.Key, g => g.Count());
             initialHandBlueprint = new Dictionary<TileType, int>(handAsDictionary);
-            
+
             gridManager.bagManager.BuildBagFromHand(handAsDictionary);
             gridManager.isPuzzleMode = true;
             Debug.LogWarning($"PUZZLE MODE ACTIVATED. Blueprint set.");
             UpdateHandCounters(); // Update counters to the initial state
+
+            currentBagMode = EditorBagMode.Hand;
+            UpdateBagButtonVisuals();
         }
         else
         {
@@ -260,6 +267,9 @@ public class LevelEditorManager : MonoBehaviour
         gridManager.isPuzzleMode = false;
         Debug.LogWarning($"SANDBOX MODE ACTIVATED. Bag reset to full library.");
         UpdateHandCounters();
+
+        currentBagMode = EditorBagMode.Sandbox;
+        UpdateBagButtonVisuals();
     }
 
 
@@ -829,6 +839,8 @@ public class LevelEditorManager : MonoBehaviour
         var colors = btn.colors;
         colors.normalColor = (currentTool == tool) ? toolSelectedColor : toolDefaultColor;
         btn.colors = colors;
+
+        if (currentTool == tool) EventSystem.current.SetSelectedGameObject(null);
     }
 
 
@@ -943,7 +955,23 @@ private void ClearHandHighlight()
     }
 }
 
+private void UpdateBagButtonVisuals()
+{
+    // This function will set the colors based on the currentBagMode state.
+    SetBagButtonColor(applySandboxBagButton, EditorBagMode.Sandbox);
+    SetBagButtonColor(applyHandBagButton, EditorBagMode.Hand);
+}
 
+    private void SetBagButtonColor(Button btn, EditorBagMode mode)
+    {
+        if (btn == null) return;
+        var colors = btn.colors;
+        // Compare against the currentBagMode to decide the color
+        colors.normalColor = (currentBagMode == mode) ? toolSelectedColor : toolDefaultColor;
+        btn.colors = colors;
+    
+        if (currentBagMode == mode) EventSystem.current.SetSelectedGameObject(null);
+}
 
 
 
