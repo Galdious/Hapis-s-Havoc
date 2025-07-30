@@ -859,6 +859,8 @@ public class LevelEditorManager : MonoBehaviour
             playerHand.RemoveAll(t => t.id == selectedHandTileForPush.id);
             ClearHandHighlight();
             selectedHandTileForPush = null; // Deselect immediately
+
+            ApplyHandToBag();
             
             // Now, tell GridManager to push this specific tile and wait for it to finish.
             // GridManager will announce OnTileConsumed, which triggers the UI update.
