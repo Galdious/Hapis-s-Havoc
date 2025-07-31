@@ -9,6 +9,7 @@
 
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class RiverControls : MonoBehaviour
 {
@@ -20,8 +21,11 @@ public class RiverControls : MonoBehaviour
 
     [Header("Arrow Settings")]
     public GameObject arrowPrefab;  // simple cube or arrow mesh
+    public GameObject lockPrefab; // prefab for lock toggle buttons
     public Material blueMaterial;   // for blue/river arrows
     public Material redMaterial;    // for red/obstacle arrows
+    public Material lockMaterial;   // <<< ADD (Default unlocked material)
+    public Material lockedMaterial; // <<< ADD (Grayed-out locked material)
     public float arrowDistance = 4f; // how far from grid edge (back to original)
     public float arrowHeight = 4f;   // how high above tiles
     public float arrowScale = 0.3f;  // size of arrow cubes (made smaller)
@@ -35,6 +39,8 @@ public class RiverControls : MonoBehaviour
 
     private PointerArrowButton[,] leftArrows;   // [row, side] 0=blue, 1=red
     private PointerArrowButton[,] rightArrows;  // [row, side] 0=blue, 1=red
+    private bool[] rowLockStates; // <<< ADD
+    private Dictionary<Renderer, Material> originalArrowMaterials = new Dictionary<Renderer, Material>(); // <<< ADD
 
     // ArrowButton class removed - now using PointerArrowButton
 
@@ -46,13 +52,13 @@ public class RiverControls : MonoBehaviour
         {
             gridManager = FindFirstObjectByType<GridManager>();
         }
-        
+
         if (gridManager == null)
         {
             Debug.LogError("[RiverControls] GridManager not found!");
             return;
         }
-        
+
         //CreateArrows();  // commented out for level editor mode
     }
     
@@ -88,6 +94,7 @@ public void GenerateArrowsForGrid()
         int rows = gridManager.rows;
         leftArrows = new PointerArrowButton[rows, 2];  // 2 = blue and red for each row
         rightArrows = new PointerArrowButton[rows, 2];
+        rowLockStates = new bool[rows];
 
         for (int row = 0; row < rows; row++)
         {
@@ -96,25 +103,48 @@ public void GenerateArrowsForGrid()
 
         Debug.Log($"[RiverControls] Created {rows * 4} arrows for {rows} rows");
     }
-    
-private void CreateArrowsForRow(int row)
-{
-    // Get row center position from grid
-    Vector3 rowCenter = GetRowCenterPosition(row);
-    
-    // FIXED: Use dynamic arrow distance that scales with grid size
-    float dynamicArrowDistance = GetDynamicArrowDistance();
-    
-    // Left side arrows: Red (far) - Blue (near grid) - elevated above tiles
-    Vector3 leftBasePos = rowCenter + Vector3.left * dynamicArrowDistance + Vector3.up * arrowHeight;
-    leftArrows[row, 1] = CreateSingleArrow(leftBasePos + Vector3.left * arrowSpacing * 0.5f, row, true, true);   // Red (farther)
-    leftArrows[row, 0] = CreateSingleArrow(leftBasePos + Vector3.right * arrowSpacing * 0.5f, row, true, false); // Blue (closer to grid)
-    
-    // Right side arrows: Blue (near grid) - Red (far) - elevated above tiles
-    Vector3 rightBasePos = rowCenter + Vector3.right * dynamicArrowDistance + Vector3.up * arrowHeight;
-    rightArrows[row, 0] = CreateSingleArrow(rightBasePos + Vector3.left * arrowSpacing * 0.5f, row, false, false); // Blue (closer to grid)
-    rightArrows[row, 1] = CreateSingleArrow(rightBasePos + Vector3.right * arrowSpacing * 0.5f, row, false, true);  // Red (farther)
-}
+
+    private void CreateArrowsForRow(int row)
+    {
+        // Get row center position from grid
+        Vector3 rowCenter = GetRowCenterPosition(row);
+
+        // FIXED: Use dynamic arrow distance that scales with grid size
+        float dynamicArrowDistance = GetDynamicArrowDistance();
+
+        // Left side arrows: Red (far) - Blue (near grid) - elevated above tiles
+        Vector3 leftBasePos = rowCenter + Vector3.left * dynamicArrowDistance + Vector3.up * arrowHeight;
+        leftArrows[row, 1] = CreateSingleArrow(leftBasePos + Vector3.left * arrowSpacing * 0.5f, row, true, true);   // Red (farther)
+        leftArrows[row, 0] = CreateSingleArrow(leftBasePos + Vector3.right * arrowSpacing * 0.5f, row, true, false); // Blue (closer to grid)
+
+        // Right side arrows: Blue (near grid) - Red (far) - elevated above tiles
+        Vector3 rightBasePos = rowCenter + Vector3.right * dynamicArrowDistance + Vector3.up * arrowHeight;
+        rightArrows[row, 0] = CreateSingleArrow(rightBasePos + Vector3.left * arrowSpacing * 0.5f, row, false, false); // Blue (closer to grid)
+        rightArrows[row, 1] = CreateSingleArrow(rightBasePos + Vector3.right * arrowSpacing * 0.5f, row, false, true);  // Red (farther)
+
+        // Position the lock to the right of the red arrow
+        Vector3 lockPos = rightBasePos + Vector3.right * (arrowSpacing * 1.5f); 
+        if (lockPrefab != null)
+        {
+            GameObject lockGO = Instantiate(lockPrefab, lockPos, Quaternion.identity, gridParent);
+            lockGO.transform.localScale = Vector3.one * arrowScale;
+            lockGO.name = $"Lock_Row{row}";
+
+            var lockButton = lockGO.AddComponent<LockToggleButton>();
+            lockButton.controller = this;
+            lockButton.row = row;
+
+            // Set its initial material
+            Renderer lockRenderer = lockGO.GetComponent<Renderer>();
+            if (lockRenderer != null && lockMaterial != null)
+            {
+                lockRenderer.material = lockMaterial;
+            }
+        }
+
+
+
+    }
     
     private PointerArrowButton CreateSingleArrow(Vector3 position, int row, bool fromLeft, bool isRed)
     {
@@ -179,6 +209,14 @@ arrowButton.Initialize(row, fromLeft, isRed, this);
         // Debug the arrow creation
         Debug.Log($"Created arrow: {arrow.name} at position {position} with collider: {arrow.GetComponent<Collider>() != null}");
         
+        // Store the original material so we can restore it later when unlocking
+        if (renderer != null && !originalArrowMaterials.ContainsKey(renderer))
+        {
+            originalArrowMaterials[renderer] = renderer.material;
+        }
+
+
+
         return arrowButton;
     }
     
@@ -224,11 +262,66 @@ private float GetDynamicArrowDistance()
             gridManager.PushRowFromSide(row, false, redSide);
     }
 
+    // This is called by LockToggleButton when a lock is clicked.
+    public void OnLockButtonClicked(int row)
+    {
+        if (row < 0 || row >= rowLockStates.Length) return;
 
+        // Flip the boolean state for the given row.
+        rowLockStates[row] = !rowLockStates[row];
+        Debug.Log($"Row {row} lock state is now: {(rowLockStates[row] ? "LOCKED" : "UNLOCKED")}");
 
+        // Update the visuals to reflect the new state.
+        UpdateRowLockVisuals(row);
+    }
+    
+    // This updates the materials for all controls on a specific row.
+private void UpdateRowLockVisuals(int row)
+{
+    bool isLocked = rowLockStates[row];
+    Material materialToApply = isLocked ? lockedMaterial : null; // Use null to signal restoration
+
+    // Find all controls for this row
+    var leftBlueArrow = leftArrows[row, 0]?.GetComponent<Renderer>();
+    var leftRedArrow = leftArrows[row, 1]?.GetComponent<Renderer>();
+    var rightBlueArrow = rightArrows[row, 0]?.GetComponent<Renderer>();
+    var rightRedArrow = rightArrows[row, 1]?.GetComponent<Renderer>();
+    
+    // Find the lock button's renderer
+    // Note: This relies on the lock's name being consistent from when we spawned it.
+    var lockRenderer = gridParent.Find($"Lock_Row{row}")?.GetComponent<Renderer>();
+
+    // An array to easily loop through all arrow renderers for this row
+    Renderer[] rowArrows = { leftBlueArrow, leftRedArrow, rightBlueArrow, rightRedArrow };
+
+    foreach (var arrowRenderer in rowArrows)
+    {
+        if (arrowRenderer != null)
+        {
+            // If we are locking, apply the gray locked material.
+            // If we are unlocking, restore the original material we saved in the dictionary.
+            arrowRenderer.material = isLocked ? materialToApply : originalArrowMaterials[arrowRenderer];
+        }
+    }
+
+    if (lockRenderer != null)
+    {
+        // The lock button itself also toggles between locked and unlocked materials.
+        lockRenderer.material = isLocked ? lockedMaterial : lockMaterial;
+    }
+
+    // Toggle the colliders as well
+    SetArrowCollidersEnabled(!isLocked, row);
+}
 
     public void OnArrowClicked(int row, bool fromLeft, bool isRed)
     {
+        if (rowLockStates[row])
+        {
+        Debug.Log($"Row {row} is locked. Push ignored.");
+        return;
+        }
+
         if (gridManager.IsPushInProgress()) return;
 
         // If the editor is present, it is the BOSS. It handles EVERYTHING.
@@ -264,26 +357,34 @@ private IEnumerator HandlePushWithReselect(bool hadSelectedBoat, int row, bool f
 }
     
     // Temporarily disable arrow colliders during pushes
-    public void SetArrowCollidersEnabled(bool enabled)
+public void SetArrowCollidersEnabled(bool enabled, int specificRow = -1)
+{
+    if (leftArrows == null) return;
+
+    // If a specific row is given, only iterate for that one row.
+    int startRow = (specificRow == -1) ? 0 : specificRow;
+    int endRow = (specificRow == -1) ? leftArrows.GetLength(0) : specificRow + 1;
+
+    for (int row = startRow; row < endRow; row++)
     {
-        if (leftArrows != null)
+        // vvv ADD THIS CHECK vvv
+        // Even if we're asked to enable them, if the row is locked, KEEP them disabled.
+        bool finalEnabledState = enabled && !rowLockStates[row];
+        // ^^^ END OF ADDED CHECK ^^^
+
+        for (int side = 0; side < 2; side++)
         {
-            for (int row = 0; row < leftArrows.GetLength(0); row++)
+            if (leftArrows[row, side]?.gameObject != null)
             {
-                for (int side = 0; side < 2; side++)
-                {
-                    if (leftArrows[row, side]?.gameObject != null)
-                    {
-                        var collider = leftArrows[row, side].GetComponent<Collider>();
-                        if (collider != null) collider.enabled = enabled;
-                    }
-                    if (rightArrows[row, side]?.gameObject != null)
-                    {
-                        var collider = rightArrows[row, side].GetComponent<Collider>();
-                        if (collider != null) collider.enabled = enabled;
-                    }
-                }
+                var collider = leftArrows[row, side].GetComponent<Collider>();
+                if (collider != null) collider.enabled = finalEnabledState; // Use the new final state
+            }
+            if (rightArrows[row, side]?.gameObject != null)
+            {
+                var collider = rightArrows[row, side].GetComponent<Collider>();
+                if (collider != null) collider.enabled = finalEnabledState; // Use the new final state
             }
         }
     }
+}
 }

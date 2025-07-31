@@ -317,21 +317,25 @@ public class GridManager : MonoBehaviour
 
 
 
-    // === NEW: CLEAR ALL BOAT SELECTIONS AND LOWER ALL TILES FIRST ===
+    // vvv THIS IS THE CORRECTED LOGIC vvv
+
+    // STEP 1: Find the selected boat and store it, if it exists.
+    BoatController previouslySelectedBoat = null;
     if (boatManager != null)
     {
-        foreach (var boat in boatManager.GetPlayerBoats())
-        {
-            if (boat != null && boat.GetComponent<BoatController>().isSelected)
-            {
-                boat.GetComponent<BoatController>().PrepareForForcedMove();
-            }
-        }
+        // GetSelectedBoat() is a cleaner way to do this.
+        previouslySelectedBoat = boatManager.GetSelectedBoat();
+    }
+
+    // STEP 2: If a boat was selected, call the correct DeselectBoat() method.
+    if (previouslySelectedBoat != null)
+    {
+        previouslySelectedBoat.DeselectBoat();
+        // Wait a moment for the boat's deselection animation (lowering) to play.
+        yield return new WaitForSeconds(0.3f);
     }
     
-    // Wait a brief moment for visual cleanup to complete
-    yield return new WaitForSeconds(0.3f);
-    // === END NEW SECTION ===
+    // ^^^ END OF CORRECTED LOGIC ^^^
 
 
 
@@ -632,6 +636,17 @@ if (ejectedBoat != null)
             riverControls.SetArrowCollidersEnabled(true);
         }
 
+
+        // vvv ADD THIS FINAL STEP vvv
+        // STEP 3: If we had a boat selected at the start, re-select it now.
+        if (previouslySelectedBoat != null)
+        {
+            // This will lift it and find its new valid moves automatically.
+            previouslySelectedBoat.SelectBoat();
+        }
+        // ^^^ END OF FINAL STEP ^^^
+
+
         isPushingInProgress = false;
         
         string sideText = showObstacleSide ? "Red (Obstacle)" : "Blue (River)";
@@ -651,18 +666,24 @@ public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile 
 
 
 
-    // === Section 1: Pre-Push Cleanup (Identical to original) ===
+
+    // STEP 1: Find the selected boat and store it, if it exists.
+    BoatController previouslySelectedBoat = null;
     if (boatManager != null)
     {
-        foreach (var boat in boatManager.GetPlayerBoats())
-        {
-            if (boat != null && boat.GetComponent<BoatController>().isSelected)
-            {
-                boat.GetComponent<BoatController>().PrepareForForcedMove();
-            }
-        }
+        // GetSelectedBoat() is a cleaner way to do this.
+        previouslySelectedBoat = boatManager.GetSelectedBoat();
     }
-    yield return new WaitForSeconds(0.3f);
+
+    // STEP 2: If a boat was selected, call the correct DeselectBoat() method.
+    if (previouslySelectedBoat != null)
+    {
+        previouslySelectedBoat.DeselectBoat();
+        // Wait a moment for the boat's deselection animation (lowering) to play.
+        yield return new WaitForSeconds(0.3f);
+    }
+    
+    // ^^^ END OF CORRECTED LOGIC ^^^
 
 
     RiverControls riverControls = FindFirstObjectByType<RiverControls>();
@@ -931,6 +952,18 @@ if (ejectedBoat != null)
         {
             riverControls.SetArrowCollidersEnabled(true);
         }
+
+        // vvv ADD THIS FINAL STEP vvv
+        // STEP 3: If we had a boat selected at the start, re-select it now.
+        if (previouslySelectedBoat != null)
+        {
+            // This will lift it and find its new valid moves automatically.
+            previouslySelectedBoat.SelectBoat();
+        }
+        // ^^^ END OF FINAL STEP ^^^
+
+
+
 
         isPushingInProgress = false;
         

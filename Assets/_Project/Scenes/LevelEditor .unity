@@ -4002,8 +4002,11 @@ MonoBehaviour:
   boatManager: {fileID: 0}
   levelEditorManager: {fileID: 0}
   arrowPrefab: {fileID: 0}
+  lockPrefab: {fileID: 2311842975052856536, guid: 43eec1e5240224bc7bf647d3e0d375e1, type: 3}
   blueMaterial: {fileID: 0}
   redMaterial: {fileID: 0}
+  lockMaterial: {fileID: 2100000, guid: 450823a37bde345b1a2ff9f8d708c9aa, type: 2}
+  lockedMaterial: {fileID: 2100000, guid: d97412744fa4d44d988ba5145f6f076e, type: 2}
   arrowDistance: 0
   arrowHeight: 0.5
   arrowScale: 0.2
