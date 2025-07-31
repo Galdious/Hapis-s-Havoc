@@ -40,9 +40,9 @@ public class GridManager : MonoBehaviour
     public bool isPuzzleMode = false;
 
 
-    public enum ReversedTileRule { Blocker, PushYourLuck }
+    //public enum ReversedTileRule { Blocker, PushYourLuck }
     [Header("Gameplay Rules")]
-    public ReversedTileRule reversedTileRule = ReversedTileRule.PushYourLuck;
+    //public ReversedTileRule reversedTileRule = ReversedTileRule.PushYourLuck;
 
     [Header("Grid Size")]
     public int   rows = 6;

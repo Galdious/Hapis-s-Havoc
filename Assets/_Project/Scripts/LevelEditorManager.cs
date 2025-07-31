@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
 
 public class LevelEditorManager : MonoBehaviour
 {
-    private enum EditorTool { Paint, Rotate, Flip, AddToHand, RemoveFromHand, SetStart, SetEnd }
+    private enum EditorTool { Paint, Rotate, Flip, AddToHand, RemoveFromHand, SetStart, SetEnd, ToggleBlocker }
     private EditorTool currentTool = EditorTool.Paint; // Default to painting
     private enum EditorBagMode { Sandbox, Hand }
     private EditorBagMode currentBagMode = EditorBagMode.Sandbox;
@@ -44,6 +44,7 @@ public class LevelEditorManager : MonoBehaviour
     public Button paintToolButton;
     public Button rotateToolButton;
     public Button flipToolButton;
+    public Button toggleBlockerToolButton; 
     public Button addToHandButton;      // <-- ADD
     public Button removeFromHandButton;
     public Button applyHandBagButton;     // <-- ADD
@@ -58,6 +59,7 @@ public class LevelEditorManager : MonoBehaviour
     public float paletteSpacing = 1.5f; // How far apart to space the palette tiles
 
     [Header("Editor Visuals")]
+    public GameObject blockerMarkerPrefab; 
     [Tooltip("The color to apply to the selected palette tile.")]
     public Color paletteSelectionColor = Color.cyan; // You can change this in the Inspector
     [Tooltip("How high to lift the selected palette tile.")]
@@ -123,6 +125,7 @@ public class LevelEditorManager : MonoBehaviour
         if (applySandboxBagButton != null) applySandboxBagButton.onClick.AddListener(ApplySandboxBag);
         if (setStartToolButton != null) setStartToolButton.onClick.AddListener(SelectSetStartTool);
         if (setEndToolButton != null) setEndToolButton.onClick.AddListener(SelectSetEndTool);
+        if (toggleBlockerToolButton != null) toggleBlockerToolButton.onClick.AddListener(SelectToggleBlockerTool);
 
         // Store the default color from one of the buttons at the start.
         if (paintToolButton != null)
@@ -145,30 +148,40 @@ public class LevelEditorManager : MonoBehaviour
 
     }
 
-
-public int GetCurrentMaxMoves()
+private void SelectToggleBlockerTool()
 {
-    // If the input field exists and we can parse its text into a number, return that number.
-    if (maxMovesInput != null && int.TryParse(maxMovesInput.text, out int moves))
-    {
-        return moves;
-    }
+    currentTool = (currentTool == EditorTool.ToggleBlocker) ? EditorTool.Paint : EditorTool.ToggleBlocker;
+    UpdateToolButtonVisuals();
+    Debug.Log($"Tool is now: {currentTool}. Click a RED tile to toggle its blocker status.");
+}
 
-    if (boatManager != null && boatManager.boatPrefab != null)
+
+
+
+
+    public int GetCurrentMaxMoves()
     {
-        // Get the BoatController component directly from the prefab asset.
-        BoatController prefabController = boatManager.boatPrefab.GetComponent<BoatController>();
-        if (prefabController != null)
+        // If the input field exists and we can parse its text into a number, return that number.
+        if (maxMovesInput != null && int.TryParse(maxMovesInput.text, out int moves))
         {
-            // Return the default value set on the prefab.
-            return prefabController.maxMovementPoints;
+            return moves;
         }
-    }
+
+        if (boatManager != null && boatManager.boatPrefab != null)
+        {
+            // Get the BoatController component directly from the prefab asset.
+            BoatController prefabController = boatManager.boatPrefab.GetComponent<BoatController>();
+            if (prefabController != null)
+            {
+                // Return the default value set on the prefab.
+                return prefabController.maxMovementPoints;
+            }
+        }
 
 
         // Otherwise, return a safe default value.
         return 3;
-}
+    }
 
 
 
@@ -669,8 +682,50 @@ private void SelectFlipTool()
             case EditorTool.SetEnd:
                 SetEndPosition(tileToModify); // Pass the tile instance
                 break;
+
+            case EditorTool.ToggleBlocker: // <<< ADD THIS CASE
+                ToggleTileBlocker(tileToModify);
+                break;
         }
     }
+
+private void ToggleTileBlocker(TileInstance tile)
+{
+    // Safety check: We can only toggle blockers on reversed (red) tiles.
+    if (!tile.IsReversed)
+    {
+        Debug.LogWarning($"Cannot set blocker status on a non-reversed (blue) tile: {tile.name}");
+        return;
+    }
+
+    // Flip the state
+    tile.IsHardBlocker = !tile.IsHardBlocker;
+    Debug.Log($"Tile {tile.name} IsHardBlocker set to: {tile.IsHardBlocker}");
+
+    // Update the visual marker
+    string markerName = "BlockerMarker";
+    Transform existingMarker = tile.transform.Find(markerName);
+
+    if (tile.IsHardBlocker)
+    {
+        // If it's now a blocker and doesn't have a marker, add one.
+        if (existingMarker == null && blockerMarkerPrefab != null)
+        {
+            GameObject marker = Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform);
+            marker.name = markerName;
+        }
+    }
+    else
+    {
+        // If it's not a blocker and has a marker, remove it.
+        if (existingMarker != null)
+        {
+            Destroy(existingMarker.gameObject);
+        }
+    }
+}
+
+
 
 
     public void OnBankClicked(RiverBankManager.BankSide side)
@@ -687,8 +742,8 @@ private void SelectFlipTool()
             // Tell the SetStartPosition method that a bank was clicked.
             SetStartPosition(null, side);
         }
-    
-}
+
+    }
 
 // And finally, the logic to place the end marker.
 private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide? side = null)
@@ -1017,6 +1072,7 @@ private void SetStartPosition(TileInstance tile = null, RiverBankManager.BankSid
         SetButtonColor(removeFromHandButton, EditorTool.RemoveFromHand);
         SetButtonColor(setStartToolButton, EditorTool.SetStart); 
         SetButtonColor(setEndToolButton, EditorTool.SetEnd);
+        SetButtonColor(toggleBlockerToolButton, EditorTool.ToggleBlocker); 
 
         EventSystem.current.SetSelectedGameObject(null);
     }

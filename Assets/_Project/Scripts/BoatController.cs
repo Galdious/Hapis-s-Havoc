@@ -479,7 +479,7 @@ public void ApplyPenaltiesForForcedMove(List<TileInstance> crossedTiles)
 
             if (neighbor.IsReversed)
             {
-                if (gridManager.reversedTileRule == GridManager.ReversedTileRule.Blocker) return;
+                if (neighbor.IsHardBlocker) return; 
 
                 crossedReversedTiles.Add(neighbor);
                 int entrySnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
@@ -894,30 +894,36 @@ void FindBankEntryMoves()
                 // This column has a gap, stop searching here.
                 break;
             }
-
-            if (tile.IsReversed)
+            
+            if (tile.IsHardBlocker)
             {
-                // This is a reversed tile. Log it and continue searching.
-                crossedReversedTiles.Add(tile);
-                currentRow += searchDirection;
+                // This is a wall. Stop searching this column immediately.
+                break; 
             }
-            else
-            {
-                // This is a valid, non-obstacle tile. Add it as a potential move.
-                if (!validMoves.Contains(tile))
-                {
-                    validMoves.Add(tile);
-                }
 
-                // If we crossed any reversed tiles to get here, store that path.
-                if (crossedReversedTiles.Count > 0)
+            else if (tile.IsReversed)
                 {
-                    reversedPathways[tile] = crossedReversedTiles;
+                    // This is a reversed tile. Log it and continue searching.
+                    crossedReversedTiles.Add(tile);
+                    currentRow += searchDirection;
                 }
+                else
+                {
+                    // This is a valid, non-obstacle tile. Add it as a potential move.
+                    if (!validMoves.Contains(tile))
+                    {
+                        validMoves.Add(tile);
+                    }
 
-                foundLandingTile = true;
-                break; // Found our landing spot for this column, so we can stop searching it.
-            }
+                    // If we crossed any reversed tiles to get here, store that path.
+                    if (crossedReversedTiles.Count > 0)
+                    {
+                        reversedPathways[tile] = crossedReversedTiles;
+                    }
+
+                    foundLandingTile = true;
+                    break; // Found our landing spot for this column, so we can stop searching it.
+                }
         }
 
         // If we searched the entire column and only found reversed tiles,

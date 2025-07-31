@@ -8,6 +8,7 @@ public class TileInstance : MonoBehaviour
     // 0=TopL  1=TopR  2=DownL  3=DownR  4=L  5=R
     public Transform[] snapPoints = new Transform[6];
     public bool IsReversed { get; private set; }
+    public bool IsHardBlocker { get; set; } = false;
 
     [System.NonSerialized] // Don't serialize this, it's runtime-only
     public TileType originalTemplate;
