@@ -1091,23 +1091,48 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
     
 Quaternion GetSnapPointRotation(TileInstance tile, int snapPointIndex)
 {
-    // The only change is using the 'tile' parameter instead of 'currentTile'
-    if (tile != null && snapPointIndex >= 0 && snapPointIndex < tile.snapPoints.Length)
-    {
-        Vector3 snapPos = tile.snapPoints[snapPointIndex].position;
-        Vector3 tileCenter = tile.transform.position;
-        Vector3 directionToCenter = (tileCenter - snapPos).normalized;
-        if (directionToCenter != Vector3.zero)
-        {
-            Quaternion lookRotation = Quaternion.LookRotation(directionToCenter);
-            Vector3 euler = lookRotation.eulerAngles;
-            float roundedY = Mathf.Round(euler.y / 90f) * 90f;
-            return Quaternion.Euler(0f, roundedY, 0f);
-        }
-    }
-    return Quaternion.identity;
+    if (tile == null) return Quaternion.identity;
 
+    // --- STEP 1: Determine the BASE rotation using the reliable switch statement ---
+    float targetYRotation = 0f;
+    switch (snapPointIndex)
+    {
+        case 0: // Top-Left faces down
+        case 1: // Top-Right faces down
+            targetYRotation = 180f;
+            break;
+
+        case 2: // Down-Left faces up
+        case 3: // Down-Right faces up
+            targetYRotation = 0f;
+            break;
+            
+        case 4: // Right side faces left
+            targetYRotation = 270f;
+            break;
+            
+        case 5: // Left side faces right
+            targetYRotation = 90f;
+            break;
+
+        default:
+            return transform.rotation; // Failsafe
     }
+
+    // --- STEP 2: Check if the TILE itself is rotated ---
+    // We use Mathf.RoundToInt to avoid floating point comparison issues.
+    // This will correctly identify a rotation of 179.999 as 180.
+    bool tileIsRotated = Mathf.RoundToInt(tile.transform.eulerAngles.y) == 180;
+
+    // --- STEP 3: If the tile is rotated, flip the boat's rotation ---
+    if (tileIsRotated)
+    {
+        targetYRotation = (targetYRotation + 180f) % 360f;
+    }
+    
+    // --- STEP 4: Return the final, correct rotation ---
+    return Quaternion.Euler(0f, targetYRotation, 0f);
+}
 
 
     
