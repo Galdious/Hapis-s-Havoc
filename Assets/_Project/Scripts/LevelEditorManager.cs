@@ -16,6 +16,7 @@ public class LevelEditorManager : MonoBehaviour
 
 
     [Header("Goal Settings")]
+    public TMP_InputField maxMovesInput;
     public GameObject startMarkerPrefab; // A green flag/cone you create
     private GameObject activeStartMarker;
     private TileInstance startTile;
@@ -108,6 +109,8 @@ public class LevelEditorManager : MonoBehaviour
         // Make sure the setup panel is visible at the start
         gridSetupPanel.SetActive(true);
 
+
+        maxMovesInput.text = "3";
         widthInput.text = "3";
         heightInput.text = "3";
 
@@ -141,6 +144,37 @@ public class LevelEditorManager : MonoBehaviour
         }
 
     }
+
+
+public int GetCurrentMaxMoves()
+{
+    // If the input field exists and we can parse its text into a number, return that number.
+    if (maxMovesInput != null && int.TryParse(maxMovesInput.text, out int moves))
+    {
+        return moves;
+    }
+
+    if (boatManager != null && boatManager.boatPrefab != null)
+    {
+        // Get the BoatController component directly from the prefab asset.
+        BoatController prefabController = boatManager.boatPrefab.GetComponent<BoatController>();
+        if (prefabController != null)
+        {
+            // Return the default value set on the prefab.
+            return prefabController.maxMovementPoints;
+        }
+    }
+
+
+        // Otherwise, return a safe default value.
+        return 3;
+}
+
+
+
+
+
+
 
     private void SelectSetStartTool()
     {

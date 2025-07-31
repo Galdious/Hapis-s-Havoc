@@ -51,7 +51,7 @@ public float ejectionFadeOutDuration = 0.2f; // A quick fade
     
     [Header("Movement System")]
     public int maxMovementPoints = 3;
-    private int currentMovementPoints = 3;
+    public int currentMovementPoints = 3;
 
     [Header("Gameplay State")]
     public bool hasCargo = false; // Placeholder for inventory logic
@@ -192,6 +192,13 @@ private IEnumerator FadeOutCoroutine()
     public void OnPointerClick(PointerEventData eventData)
     {
         if (isMoving) return;
+
+        if (gridManager != null && gridManager.isPuzzleMode && currentMovementPoints <= 0)
+        {
+            Debug.Log("Out of moves. Cannot select boat.");
+            return; // Exit the method immediately.
+        }
+
         if (!isSelected) SelectBoat();
         else DeselectBoat();
     }
@@ -328,7 +335,15 @@ public void SelectBoat()
     if (boatManager != null) boatManager.SetSelectedBoat(this);
 
     isSelected = true;
-    if (currentMovementPoints <= 0) currentMovementPoints = maxMovementPoints;
+
+
+    if (gridManager == null || !gridManager.isPuzzleMode)
+    {
+        if (currentMovementPoints <= 0)
+        {
+            currentMovementPoints = maxMovementPoints;
+        }
+    }
     
     StartCoroutine(LiftAndBobBoat(true));
     FindValidMoves();
@@ -670,21 +685,36 @@ void RefreshMovementOptions()
 {
     isMoving = false;
     
-    // --- THIS IS THE NEW LOGIC BLOCK ---
+    // Check if we are in puzzle mode before doing anything else.
+    if (gridManager != null && gridManager.isPuzzleMode)
+    {
+        // In Puzzle Mode, running out of points is final.
+        if (currentMovementPoints <= 0)
+        {
+            Debug.Log("PUZZLE MODE: Out of moves!");
+            DeselectBoat(); // Deselect to provide feedback
+            // Here, a future PuzzleGameManager would trigger the "You Lose" screen.
+            // For now, the boat is just stuck, which is correct.
+            return; // Stop the method here.
+        }
+    }
+
+
+
     // After a move, check if we are out of points.
-    if (currentMovementPoints <= 0)
-    {
-        // If we have no points left, automatically end the turn.
-        // DeselectBoat() will handle lowering the boat and clearing highlights.
-        DeselectBoat();
-    }
-    else
-    {
-        // If we still have points, find and show the next set of moves.
-        ClearHighlights();
-        FindValidMoves();
-        StartCoroutine(HighlightValidMovesWithDelay());
-    }
+        if (currentMovementPoints <= 0)
+        {
+            // If we have no points left, automatically end the turn.
+            // DeselectBoat() will handle lowering the boat and clearing highlights.
+            DeselectBoat();
+        }
+        else
+        {
+            // If we still have points, find and show the next set of moves.
+            ClearHighlights();
+            FindValidMoves();
+            StartCoroutine(HighlightValidMovesWithDelay());
+        }
 }
 
 
@@ -1036,6 +1066,15 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
 
     public void ResetMovementPoints()
     {
+        // In Puzzle Mode, turns do not reset. Ignore this call.
+        if (gridManager != null && gridManager.isPuzzleMode)
+        {
+        Debug.Log("Cannot reset movement points in Puzzle Mode.");
+        return;
+
+        }
+
+
         currentMovementPoints = maxMovementPoints;
         if (isSelected)
         {

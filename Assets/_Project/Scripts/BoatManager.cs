@@ -19,12 +19,13 @@ public class BoatManager : MonoBehaviour
     public RiverBankManager.BankSide testBankSide = RiverBankManager.BankSide.Bottom;
 
     public void SetSelectedBoat(BoatController boat) { selectedBoat = boat; }
-public void ClearSelectedBoat() { selectedBoat = null; }
-public BoatController GetSelectedBoat() { return selectedBoat; }
+    public void ClearSelectedBoat() { selectedBoat = null; }
+    public BoatController GetSelectedBoat() { return selectedBoat; }
     
     private RiverBankManager bankManager;
     private List<BoatController> playerBoats = new List<BoatController>();
     private BoatController selectedBoat;
+    private LevelEditorManager editorManager;
     
     void Start()
     {
@@ -41,6 +42,9 @@ public BoatController GetSelectedBoat() { return selectedBoat; }
     public void SpawnTestBoats()
     {
         bankManager = FindFirstObjectByType<RiverBankManager>();
+        editorManager = FindFirstObjectByType<LevelEditorManager>();
+
+
         if (bankManager == null)
         {
             Debug.LogError("[BoatManager] RiverBankManager not found!");
@@ -64,10 +68,23 @@ public BoatController GetSelectedBoat() { return selectedBoat; }
         boatGO.name = $"Boat_{boatIndex}";
         
         BoatController boat = boatGO.GetComponent<BoatController>();
+
         if (boat == null)
         {
             boat = boatGO.AddComponent<BoatController>();
         }
+
+        if (editorManager != null)
+        {
+            // Ask the editor for the correct number of moves.
+            int maxMoves = editorManager.GetCurrentMaxMoves();
+
+            // Apply these settings to the newly created boat.
+            boat.maxMovementPoints = maxMoves;
+            boat.currentMovementPoints = maxMoves;
+        }
+
+
         
         // Initialize boat at bank (not on a tile yet)
         boat.SetAtBank(spawnPoint);
