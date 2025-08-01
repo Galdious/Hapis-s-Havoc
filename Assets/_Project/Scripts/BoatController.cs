@@ -582,7 +582,7 @@ public void PrepareForForcedMove()
                 highlightedBanks.Add(bankGO);
             }
 
-            var clicker = bankGO.AddComponent<BankClickHandler>();
+            var clicker = renderer.gameObject.AddComponent<BankClickHandler>();
             clicker.targetBoat = this;
             clicker.bankSide = side;
         }
