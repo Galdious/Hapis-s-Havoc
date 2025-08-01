@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
 
 public class LevelEditorManager : MonoBehaviour
 {
-    private enum EditorTool { Paint, Rotate, Flip, AddToHand, RemoveFromHand, SetStart, SetEnd, ToggleBlocker }
+    private enum EditorTool { Paint, Rotate, Flip, AddToHand, RemoveFromHand, SetStart, SetEnd, ToggleBlocker, PlaceCollectible }
     private EditorTool currentTool = EditorTool.Paint; // Default to painting
     private enum EditorBagMode { Sandbox, Hand }
     private EditorBagMode currentBagMode = EditorBagMode.Sandbox;
@@ -39,12 +39,14 @@ public class LevelEditorManager : MonoBehaviour
     public TMP_InputField widthInput;
     public TMP_InputField heightInput;
     public Button createGridButton;
+    public TMP_Dropdown collectibleDropdown;
 
     [Header("Editor Tools")]
     public Button paintToolButton;
     public Button rotateToolButton;
     public Button flipToolButton;
     public Button toggleBlockerToolButton; 
+    public Button placeCollectibleToolButton;
     public Button addToHandButton;      // <-- ADD
     public Button removeFromHandButton;
     public Button applyHandBagButton;     // <-- ADD
@@ -60,6 +62,8 @@ public class LevelEditorManager : MonoBehaviour
 
     [Header("Editor Visuals")]
     public GameObject blockerMarkerPrefab; 
+    public GameObject starCollectiblePrefab; 
+    public GameObject extraMoveCollectiblePrefab; 
     [Tooltip("The color to apply to the selected palette tile.")]
     public Color paletteSelectionColor = Color.cyan; // You can change this in the Inspector
     [Tooltip("How high to lift the selected palette tile.")]
@@ -126,6 +130,16 @@ public class LevelEditorManager : MonoBehaviour
         if (setStartToolButton != null) setStartToolButton.onClick.AddListener(SelectSetStartTool);
         if (setEndToolButton != null) setEndToolButton.onClick.AddListener(SelectSetEndTool);
         if (toggleBlockerToolButton != null) toggleBlockerToolButton.onClick.AddListener(SelectToggleBlockerTool);
+        if (placeCollectibleToolButton != null) placeCollectibleToolButton.onClick.AddListener(SelectPlaceCollectibleTool);
+
+        if (collectibleDropdown != null)
+        {
+            collectibleDropdown.ClearOptions();
+            // Get the names of all items in our enum and add them to the dropdown
+            string[] collectibleNames = System.Enum.GetNames(typeof(CollectibleType));
+            collectibleDropdown.AddOptions(new List<string>(collectibleNames));
+        }
+
 
         // Store the default color from one of the buttons at the start.
         if (paintToolButton != null)
@@ -148,14 +162,19 @@ public class LevelEditorManager : MonoBehaviour
 
     }
 
-private void SelectToggleBlockerTool()
-{
-    currentTool = (currentTool == EditorTool.ToggleBlocker) ? EditorTool.Paint : EditorTool.ToggleBlocker;
-    UpdateToolButtonVisuals();
-    Debug.Log($"Tool is now: {currentTool}. Click a RED tile to toggle its blocker status.");
-}
+    private void SelectToggleBlockerTool()
+    {
+        currentTool = (currentTool == EditorTool.ToggleBlocker) ? EditorTool.Paint : EditorTool.ToggleBlocker;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}. Click a RED tile to toggle its blocker status.");
+    }
 
-
+    private void SelectPlaceCollectibleTool()
+    {
+        currentTool = (currentTool == EditorTool.PlaceCollectible) ? EditorTool.Paint : EditorTool.PlaceCollectible;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}. Select a type from the dropdown and click a tile.");
+    }
 
 
 
@@ -686,44 +705,98 @@ private void SelectFlipTool()
             case EditorTool.ToggleBlocker: // <<< ADD THIS CASE
                 ToggleTileBlocker(tileToModify);
                 break;
+
+            case EditorTool.PlaceCollectible: // <<< ADD THIS CASE
+                PlaceOrRemoveCollectible(tileToModify);
+                break;
         }
     }
 
-private void ToggleTileBlocker(TileInstance tile)
-{
-    // Safety check: We can only toggle blockers on reversed (red) tiles.
-    if (!tile.IsReversed)
+    private void PlaceOrRemoveCollectible(TileInstance tile)
     {
-        Debug.LogWarning($"Cannot set blocker status on a non-reversed (blue) tile: {tile.name}");
-        return;
-    }
+        // First, check if a collectible already exists on this tile
+        var existingCollectible = tile.GetComponentInChildren<CollectibleInstance>();
 
-    // Flip the state
-    tile.IsHardBlocker = !tile.IsHardBlocker;
-    Debug.Log($"Tile {tile.name} IsHardBlocker set to: {tile.IsHardBlocker}");
-
-    // Update the visual marker
-    string markerName = "BlockerMarker";
-    Transform existingMarker = tile.transform.Find(markerName);
-
-    if (tile.IsHardBlocker)
-    {
-        // If it's now a blocker and doesn't have a marker, add one.
-        if (existingMarker == null && blockerMarkerPrefab != null)
+        if (existingCollectible != null)
         {
-            GameObject marker = Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform);
-            marker.name = markerName;
+            // If one exists, destroy it. This makes the tool a toggle.
+            Destroy(existingCollectible.gameObject);
+            Debug.Log($"Removed collectible from tile {tile.name}");
         }
-    }
-    else
-    {
-        // If it's not a blocker and has a marker, remove it.
-        if (existingMarker != null)
+        else
         {
-            Destroy(existingMarker.gameObject);
+            // If none exists, create a new one based on the dropdown selection.
+            if (collectibleDropdown == null) return;
+
+            CollectibleType selectedType = (CollectibleType)collectibleDropdown.value;
+            GameObject prefabToSpawn = null;
+
+            switch (selectedType)
+            {
+                case CollectibleType.Star:
+                    prefabToSpawn = starCollectiblePrefab;
+                    break;
+                case CollectibleType.ExtraMove:
+                    prefabToSpawn = extraMoveCollectiblePrefab;
+                    break;
+            }
+
+            if (prefabToSpawn != null)
+            {
+                // Position it slightly above the tile surface
+                Vector3 spawnPos = tile.transform.position + Vector3.up * 0.25f; 
+                GameObject collectibleGO = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity, tile.transform);
+                
+                var collectibleInstance = collectibleGO.GetComponent<CollectibleInstance>();
+                if (collectibleInstance != null)
+                {
+                    collectibleInstance.type = selectedType;
+                }
+                Debug.Log($"Placed {selectedType} on tile {tile.name}");
+            }
         }
     }
-}
+
+
+
+
+
+
+    private void ToggleTileBlocker(TileInstance tile)
+    {
+        // Safety check: We can only toggle blockers on reversed (red) tiles.
+        if (!tile.IsReversed)
+        {
+            Debug.LogWarning($"Cannot set blocker status on a non-reversed (blue) tile: {tile.name}");
+            return;
+        }
+
+        // Flip the state
+        tile.IsHardBlocker = !tile.IsHardBlocker;
+        Debug.Log($"Tile {tile.name} IsHardBlocker set to: {tile.IsHardBlocker}");
+
+        // Update the visual marker
+        string markerName = "BlockerMarker";
+        Transform existingMarker = tile.transform.Find(markerName);
+
+        if (tile.IsHardBlocker)
+        {
+            // If it's now a blocker and doesn't have a marker, add one.
+            if (existingMarker == null && blockerMarkerPrefab != null)
+            {
+                GameObject marker = Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform);
+                marker.name = markerName;
+            }
+        }
+        else
+        {
+            // If it's not a blocker and has a marker, remove it.
+            if (existingMarker != null)
+            {
+                Destroy(existingMarker.gameObject);
+            }
+        }
+    }
 
 
 
@@ -1073,6 +1146,7 @@ private void SetStartPosition(TileInstance tile = null, RiverBankManager.BankSid
         SetButtonColor(setStartToolButton, EditorTool.SetStart); 
         SetButtonColor(setEndToolButton, EditorTool.SetEnd);
         SetButtonColor(toggleBlockerToolButton, EditorTool.ToggleBlocker); 
+        SetButtonColor(placeCollectibleToolButton, EditorTool.PlaceCollectible);
 
         EventSystem.current.SetSelectedGameObject(null);
     }

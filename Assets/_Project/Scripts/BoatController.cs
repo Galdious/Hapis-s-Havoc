@@ -16,6 +16,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using System.Linq;
+using TMPro;
 
 public class BoatController : MonoBehaviour, IPointerClickHandler
 {
@@ -37,14 +38,14 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
 
     [Header("Ejection Animation")]
-[Tooltip("A short delay before the boat begins its settle animation after being ejected.")]
-public float ejectionSettleDelay = 0.2f; // You can adjust this value
-[Tooltip("How high above its final position the boat appears before settling.")]
-public float settleStartHeight = 1.5f;
+    [Tooltip("A short delay before the boat begins its settle animation after being ejected.")]
+    public float ejectionSettleDelay = 0.2f; // You can adjust this value
+    [Tooltip("How high above its final position the boat appears before settling.")]
+    public float settleStartHeight = 1.5f;
     [Tooltip("How long the settle and fade-in animation takes.")]
     public float settleDuration = 0.6f;
-[Tooltip("How long the boat's fade-out takes when it is ejected from a falling tile.")]
-public float ejectionFadeOutDuration = 0.2f; // A quick fade
+    [Tooltip("How long the boat's fade-out takes when it is ejected from a falling tile.")]
+    public float ejectionFadeOutDuration = 0.2f; // A quick fade
 
 
 
@@ -54,10 +55,11 @@ public float ejectionFadeOutDuration = 0.2f; // A quick fade
     public int currentMovementPoints = 3;
 
     [Header("Gameplay State")]
-    public bool hasCargo = false; // Placeholder for inventory logic
+    public int starsCollected { get; private set; } = 0; // inventory logic
     
     [Header("Visual Feedback")]
     public Color selectedColor = Color.magenta;
+    public TMP_Text starCounterText;
     
     [Header("Debug")]
     public bool showDebugInfo = true;
@@ -76,7 +78,7 @@ public float ejectionFadeOutDuration = 0.2f; // A quick fade
     
     // --- ADD THESE NEW FIELDS ---
     private MeshRenderer boatRenderer;
-private Color opaqueColor;
+    private Color opaqueColor;
     
     private Vector3 originalBoatPosition;
     private bool isBobbing = false;
@@ -107,6 +109,7 @@ private Color opaqueColor;
             opaqueColor = boatRenderer.material.color;
         }
 
+        UpdateStarCounterUI();
 
         if (gridManager == null) Debug.LogError("[BoatController] GridManager not found!");
         if (riverBankManager == null) Debug.LogError("[BoatController] RiverBankManager not found!");
@@ -117,7 +120,13 @@ private Color opaqueColor;
         if (Keyboard.current.eKey.wasPressedThisFrame) EndMovementTurn();
         if (Keyboard.current.rKey.wasPressedThisFrame) ResetMovementPoints();
     }
-
+    private void UpdateStarCounterUI()
+    {
+        if (starCounterText != null)
+        {
+            starCounterText.text = $"Stars: {starsCollected}";
+        }
+    }
 
 
 public IEnumerator FadeOutForEjection()
@@ -255,67 +264,67 @@ private void SetStateForBank(Transform bankSpawnPoint)
         }
     }
 
-   private IEnumerator SettleAndFadeInCoroutine(TileInstance destinationTile, int snapPoint, Transform bankSpawn)
-{
-    // 1. Wait for the settle delay if there is one.
-    if (ejectionSettleDelay > 0)
+    private IEnumerator SettleAndFadeInCoroutine(TileInstance destinationTile, int snapPoint, Transform bankSpawn)
     {
-        yield return new WaitForSeconds(ejectionSettleDelay);
-    }
+        // 1. Wait for the settle delay if there is one.
+        if (ejectionSettleDelay > 0)
+        {
+            yield return new WaitForSeconds(ejectionSettleDelay);
+        }
 
-    // Safety check
-    if (boatRenderer == null) yield break;
-    
-    // 2. Make sure the boat is fully transparent before we start.
-    // Use the cached 'opaqueColor' to maintain the correct RGB values.
-    boatRenderer.material.color = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
+        // Safety check
+        if (boatRenderer == null) yield break;
 
-    // 3. Determine the final destination position and rotation.
-    Vector3 finalPos;
-    Quaternion finalRot;
+        // 2. Make sure the boat is fully transparent before we start.
+        // Use the cached 'opaqueColor' to maintain the correct RGB values.
+        boatRenderer.material.color = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
 
-    if (destinationTile != null)
-    {
-        Vector3 snapPosition = destinationTile.snapPoints[snapPoint].position;
-        Vector3 tileCenter = destinationTile.transform.position;
-        Vector3 direction = (snapPosition - tileCenter).normalized;
-        finalPos = snapPosition - direction * snapOffset;
-        finalRot = GetSnapPointRotation(destinationTile, snapPoint);
-    }
-    else
-    {
-        finalPos = bankSpawn.position;
-        finalRot = bankSpawn.rotation;
-    }
-    
-    // 4. Set the starting position for the animation (above the final spot).
-    Vector3 startPos = finalPos + Vector3.up * settleStartHeight;
-    transform.position = startPos;
-    transform.rotation = finalRot;
+        // 3. Determine the final destination position and rotation.
+        Vector3 finalPos;
+        Quaternion finalRot;
 
-    // 5. Animate the movement and fade-in over time.
-    float elapsed = 0f;
-    while (elapsed < settleDuration)
-    {
-        elapsed += Time.deltaTime;
-        float progress = Mathf.Clamp01(elapsed / settleDuration);
-        
-        // Animate position from the start point to the final point.
-        transform.position = Vector3.Lerp(startPos, finalPos, progress);
-        
-        // Animate the material color from its current state towards the fully opaque color.
-        boatRenderer.material.color = Color.Lerp(boatRenderer.material.color, opaqueColor, progress);
+        if (destinationTile != null)
+        {
+            Vector3 snapPosition = destinationTile.snapPoints[snapPoint].position;
+            Vector3 tileCenter = destinationTile.transform.position;
+            Vector3 direction = (snapPosition - tileCenter).normalized;
+            finalPos = snapPosition - direction * snapOffset;
+            finalRot = GetSnapPointRotation(destinationTile, snapPoint);
+        }
+        else
+        {
+            finalPos = bankSpawn.position;
+            finalRot = bankSpawn.rotation;
+        }
 
-        yield return null;
-    }
+        // 4. Set the starting position for the animation (above the final spot).
+        Vector3 startPos = finalPos + Vector3.up * settleStartHeight;
+        transform.position = startPos;
+        transform.rotation = finalRot;
 
-    // 6. Finalize the state to ensure perfect placement and appearance.
-    transform.position = finalPos;
-    boatRenderer.material.color = opaqueColor;
-    
-    boatRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+        // 5. Animate the movement and fade-in over time.
+        float elapsed = 0f;
+        while (elapsed < settleDuration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = Mathf.Clamp01(elapsed / settleDuration);
 
-    if (destinationTile != null)
+            // Animate position from the start point to the final point.
+            transform.position = Vector3.Lerp(startPos, finalPos, progress);
+
+            // Animate the material color from its current state towards the fully opaque color.
+            boatRenderer.material.color = Color.Lerp(boatRenderer.material.color, opaqueColor, progress);
+
+            yield return null;
+        }
+
+        // 6. Finalize the state to ensure perfect placement and appearance.
+        transform.position = finalPos;
+        boatRenderer.material.color = opaqueColor;
+
+        boatRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+
+        if (destinationTile != null)
         {
             PlaceOnTile(destinationTile, snapPoint);
         }
@@ -323,6 +332,9 @@ private void SetStateForBank(Transform bankSpawnPoint)
         {
             SetStateForBank(bankSpawn);
         }
+        
+    
+
 }
 public void SelectBoat()
 {
@@ -358,6 +370,33 @@ public void SelectBoat()
         StartCoroutine(LiftAndBobBoat(false));
         ClearHighlights();
     }
+
+    public void CheckForCollectibleOnCurrentTile()
+    {
+        // Only run if the boat is actually on a tile.
+        if (isAtBank || currentTile == null) return;
+
+        var collectible = currentTile.GetComponentInChildren<CollectibleInstance>();
+        if (collectible != null)
+        {
+            Debug.Log($"Landed on a {collectible.type}!");
+            switch (collectible.type)
+            {
+                case CollectibleType.Star:
+                    starsCollected++;
+                    UpdateStarCounterUI();
+                    Debug.Log($"Collected a Star! Total stars: {starsCollected}");
+                    break;
+                case CollectibleType.ExtraMove:
+                    currentMovementPoints += collectible.value;
+                    Debug.Log($"Collected an Extra Move! Value: {collectible.value}. Current moves: {currentMovementPoints}");
+                    break;
+            }
+            // Destroy the collectible from the scene after pickup
+            Destroy(collectible.gameObject);
+        }
+    }
+
     
     IEnumerator LiftAndBobBoat(bool lift)
     {
@@ -1016,6 +1055,29 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
     PlaceOnTile(targetTile, snapPoint);
     currentMovementPoints--;
     
+
+    var collectible = targetTile.GetComponentInChildren<CollectibleInstance>();
+    if (collectible != null)
+    {
+        Debug.Log($"Found a {collectible.type} on tile {targetTile.name}!");
+        switch (collectible.type)
+        {
+            case CollectibleType.Star:
+                starsCollected++;
+                UpdateStarCounterUI();
+                Debug.Log($"Collected a Star! Total stars: {starsCollected}");
+                break;
+            case CollectibleType.ExtraMove:
+                currentMovementPoints += collectible.value;
+                Debug.Log($"Collected an Extra Move! Value: {collectible.value}. Current moves: {currentMovementPoints}");
+                break;
+        }
+        // Destroy the collectible from the scene after pickup
+        Destroy(collectible.gameObject);
+    }
+
+
+
     RefreshMovementOptions();
 }
     
@@ -1059,6 +1121,15 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
     isSelected = false;
     isBobbing = false;
     StopAllCoroutines();
+
+        // Reset collected stars when ejected
+        if (starsCollected > 0)
+        {
+            Debug.Log($"Ejected! Lost {starsCollected} stars.");
+            starsCollected = 0; // WE CAN CHANGE THIS LATER TO -1 IF WE WANT TO KEEP SOME OF THE STARS
+            UpdateStarCounterUI();
+    }
+
     
     // Ensure the boat is visually lowered to its base position,
     // as if it were never selected.

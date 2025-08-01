@@ -535,73 +535,75 @@ if (ejectedBoat != null)
 {
     // 1. Prepare the boat and determine its initial target row.
     ejectedBoat.ResetStateAfterEjection();
-    int targetRow = rowIndex + (ejectedBoat.hasCargo ? 1 : -1);
+    int targetRow = rowIndex + (ejectedBoat.starsCollected > 0 ? 1 : -1);
+    
 
     // 2. Handle immediate bank placement if the target is off the board.
-    if (targetRow < 0)
-    {
-        // We now WAIT for this animation to finish.
-        yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom));
-        ejectedBoat.enabled = true;
-    }
-    else if (targetRow >= rows)
-    {
-        // We now WAIT for this animation to finish.
-        yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top));
-        ejectedBoat.enabled = true;
-    }
-    // 3. If the target is on the board, perform the search.
-    else 
-    {
-        int landingCol = fromLeft ? cols - 1 : 0;
-        int searchDirection = ejectedBoat.hasCargo ? 1 : -1;
-        int currentRow = targetRow; 
-        RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
-
-        List<TileInstance> crossedReversedTiles = new List<TileInstance>();
-        TileInstance finalLandingTile = null;
-
-        while (currentRow >= 0 && currentRow < rows)
-        {
-            TileInstance tileToCheck = GetTileAt(landingCol, currentRow);
-            if (tileToCheck != null && tileToCheck.IsReversed)
+            if (targetRow < 0)
             {
-                crossedReversedTiles.Add(tileToCheck);
-                currentRow += searchDirection;
+                // We now WAIT for this animation to finish.
+                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom));
+                ejectedBoat.enabled = true;
             }
+            else if (targetRow >= rows)
+            {
+                // We now WAIT for this animation to finish.
+                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top));
+                ejectedBoat.enabled = true;
+            }
+            // 3. If the target is on the board, perform the search.
             else
             {
-                finalLandingTile = tileToCheck;
-                break;
-            }
-        }
-        
-        if (crossedReversedTiles.Count > 0)
-        {
-            ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
-        }
-        
-        if (finalLandingTile != null)
-        {
-            int targetSnapPoint = originalSnapPoint;
-            float newTileRotation = finalLandingTile.transform.eulerAngles.y;
+                int landingCol = fromLeft ? cols - 1 : 0;
+                int searchDirection = (ejectedBoat.starsCollected > 0) ? 1 : -1;
+                int currentRow = targetRow;
+                RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
 
-            if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
-            {
-                targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
+                List<TileInstance> crossedReversedTiles = new List<TileInstance>();
+                TileInstance finalLandingTile = null;
+
+                while (currentRow >= 0 && currentRow < rows)
+                {
+                    TileInstance tileToCheck = GetTileAt(landingCol, currentRow);
+                    if (tileToCheck != null && tileToCheck.IsReversed)
+                    {
+                        crossedReversedTiles.Add(tileToCheck);
+                        currentRow += searchDirection;
+                    }
+                    else
+                    {
+                        finalLandingTile = tileToCheck;
+                        break;
+                    }
+                }
+
+                if (crossedReversedTiles.Count > 0)
+                {
+                    ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
+                }
+
+                if (finalLandingTile != null)
+                {
+                    int targetSnapPoint = originalSnapPoint;
+                    float newTileRotation = finalLandingTile.transform.eulerAngles.y;
+
+                    if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
+                    {
+                        targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
+                    }
+
+                    // We now WAIT for this animation to finish.
+                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint));
+                    ejectedBoat.enabled = true;
+                    ejectedBoat.CheckForCollectibleOnCurrentTile();
+                }
+                else
+                {
+                    // We now WAIT for this animation to finish.
+                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
+                    ejectedBoat.enabled = true;
+                }
             }
-            
-            // We now WAIT for this animation to finish.
-            yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint));
-            ejectedBoat.enabled = true;
-        }
-        else
-        {
-            // We now WAIT for this animation to finish.
-            yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
-            ejectedBoat.enabled = true;
-        }
-    }
 
 
         }
@@ -852,7 +854,7 @@ if (ejectedBoat != null)
 {
     // 1. Prepare the boat and determine its initial target row.
     ejectedBoat.ResetStateAfterEjection();
-    int targetRow = rowIndex + (ejectedBoat.hasCargo ? 1 : -1);
+    int targetRow = rowIndex + (ejectedBoat.starsCollected > 0 ? 1 : -1);
 
     // 2. Handle immediate bank placement if the target is off the board.
     if (targetRow < 0)
@@ -871,7 +873,7 @@ if (ejectedBoat != null)
     else 
     {
         int landingCol = fromLeft ? cols - 1 : 0;
-        int searchDirection = ejectedBoat.hasCargo ? 1 : -1;
+        int searchDirection = (ejectedBoat.starsCollected > 0) ? 1 : -1;
         int currentRow = targetRow; 
         RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
 
@@ -897,27 +899,28 @@ if (ejectedBoat != null)
         {
             ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
         }
-        
-        if (finalLandingTile != null)
-        {
-            int targetSnapPoint = originalSnapPoint;
-            float newTileRotation = finalLandingTile.transform.eulerAngles.y;
 
-            if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
-            {
-                targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
-            }
-            
-            // We now WAIT for this animation to finish.
-            yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint));
-            ejectedBoat.enabled = true;
+                if (finalLandingTile != null)
+                {
+                    int targetSnapPoint = originalSnapPoint;
+                    float newTileRotation = finalLandingTile.transform.eulerAngles.y;
+
+                    if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
+                    {
+                        targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
+                    }
+
+                    // We now WAIT for this animation to finish.
+                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint));
+                    ejectedBoat.enabled = true;
+                    ejectedBoat.CheckForCollectibleOnCurrentTile();
         }
-        else
-        {
-            // We now WAIT for this animation to finish.
-            yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
-            ejectedBoat.enabled = true;
-        }
+                else
+                {
+                    // We now WAIT for this animation to finish.
+                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
+                    ejectedBoat.enabled = true;
+                }
     }
 
 

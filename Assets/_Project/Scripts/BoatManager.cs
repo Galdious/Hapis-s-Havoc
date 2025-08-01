@@ -8,12 +8,16 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using TMPro;
 public class BoatManager : MonoBehaviour
 {
     [Header("Boat Settings")]
     public GameObject boatPrefab;
-    public int boatsPerPlayer = 2;        // from rulebook: 2 River-runners per player
+    public int boatsPerPlayer = 2;    
     
+    [Header("UI References")] // <<< ADD THIS HEADER AND FIELD
+    public TMP_Text starCounterText;    
+
     [Header("Testing")]
     public bool spawnTestBoats = true;
     public RiverBankManager.BankSide testBankSide = RiverBankManager.BankSide.Bottom;
@@ -84,7 +88,10 @@ public class BoatManager : MonoBehaviour
             boat.currentMovementPoints = maxMoves;
         }
 
-
+        if (boat != null && starCounterText != null)
+        {
+            boat.starCounterText = this.starCounterText;
+        }
         
         // Initialize boat at bank (not on a tile yet)
         boat.SetAtBank(spawnPoint);
