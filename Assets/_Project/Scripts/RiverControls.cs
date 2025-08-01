@@ -80,14 +80,27 @@ public class RiverControls : MonoBehaviour
     rightArrows = null;
 }
 
-/// <summary>
-/// Public method to be called by an external manager to generate arrows.
-/// </summary>
-public void GenerateArrowsForGrid()
-{
-    ClearArrows();
-    CreateArrows();
-}
+
+    public bool[] GetLockStates()
+    {
+        return rowLockStates;
+    }
+
+
+
+
+
+
+
+
+    /// <summary>
+    /// Public method to be called by an external manager to generate arrows.
+    /// </summary>
+    public void GenerateArrowsForGrid()
+    {
+        ClearArrows();
+        CreateArrows();
+    }
 
     private void CreateArrows()
     {

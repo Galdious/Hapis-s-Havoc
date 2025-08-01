@@ -6,6 +6,7 @@ using System.Collections;
 using System.Linq;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem; 
+using System.IO;
 
 public class LevelEditorManager : MonoBehaviour
 {
@@ -14,6 +15,10 @@ public class LevelEditorManager : MonoBehaviour
     private enum EditorBagMode { Sandbox, Hand }
     private EditorBagMode currentBagMode = EditorBagMode.Sandbox;
 
+    [Header("Save & Load")]
+    public TMP_InputField filenameInput;
+    public Button saveLevelButton;
+    public Button loadLevelButton;
 
     [Header("Goal Settings")]
     public TMP_InputField maxMovesInput;
@@ -131,6 +136,8 @@ public class LevelEditorManager : MonoBehaviour
         if (setEndToolButton != null) setEndToolButton.onClick.AddListener(SelectSetEndTool);
         if (toggleBlockerToolButton != null) toggleBlockerToolButton.onClick.AddListener(SelectToggleBlockerTool);
         if (placeCollectibleToolButton != null) placeCollectibleToolButton.onClick.AddListener(SelectPlaceCollectibleTool);
+        if (saveLevelButton != null) saveLevelButton.onClick.AddListener(SaveLevel);
+        if (loadLevelButton != null) loadLevelButton.onClick.AddListener(LoadLevel);
 
         if (collectibleDropdown != null)
         {
@@ -161,6 +168,18 @@ public class LevelEditorManager : MonoBehaviour
         }
 
     }
+
+
+
+
+
+
+
+
+
+
+
+
 
     private void SelectToggleBlockerTool()
     {
@@ -1291,7 +1310,157 @@ private void UpdateBagButtonVisuals()
         if (currentBagMode == mode) EventSystem.current.SetSelectedGameObject(null);
 }
 
+    /// <summary>
+    /// Gathers all the current level data from the editor, converts it to JSON,
+    /// and saves it to a file in the persistent data path.
+    /// </summary>
+    public void SaveLevel()
+    {
+        // 1. Get the filename from the input field. If it's empty, do nothing.
+        string filename = filenameInput.text;
+        if (string.IsNullOrWhiteSpace(filename))
+        {
+            Debug.LogError("Cannot save level: Please enter a filename.");
+            return;
+        }
 
+        // 2. Create the master LevelData object to hold everything.
+        LevelData levelData = new LevelData();
+
+        // 3. Populate Grid & Rules Data
+        levelData.gridWidth = gridManager.cols;
+        levelData.gridHeight = gridManager.rows;
+        levelData.maxMoves = GetCurrentMaxMoves();
+        levelData.lockedRows = riverControls.GetLockStates(); // We will need to add this helper function
+
+        // 4. Populate Tile Data
+        for (int y = 0; y < gridManager.rows; y++)
+        {
+            for (int x = 0; x < gridManager.cols; x++)
+            {
+                TileInstance tile = gridManager.GetTileAt(x, y);
+                if (tile != null && tile.originalTemplate != null)
+                {
+                    TileSaveData tileSave = new TileSaveData
+                    {
+                        tileTypeName = tile.originalTemplate.displayName,
+                        gridX = x,
+                        gridY = y,
+                        rotationY = tile.transform.eulerAngles.y,
+                        isFlipped = tile.IsReversed,
+                        isHardBlocker = tile.IsHardBlocker
+                    };
+                    levelData.tiles.Add(tileSave);
+
+                    // While we're here, check for a collectible on this tile
+                    var collectible = tile.GetComponentInChildren<CollectibleInstance>();
+                    if (collectible != null)
+                    {
+                        CollectibleSaveData collectibleSave = new CollectibleSaveData
+                        {
+                            gridX = x,
+                            gridY = y,
+                            type = collectible.type,
+                            value = collectible.value
+                        };
+                        levelData.collectibles.Add(collectibleSave);
+                    }
+                }
+            }
+        }
+
+        // 5. Populate Player Hand Data
+        foreach (PuzzleHandTile handTile in playerHand)
+        {
+            HandTileSaveData handTileSave = new HandTileSaveData
+            {
+                tileTypeName = handTile.tileType.displayName,
+                rotationY = handTile.rotationY,
+                isFlipped = handTile.isFlipped
+            };
+            levelData.playerHand.Add(handTileSave);
+        }
+        
+        // 6. Populate Start & End Goal Data
+        levelData.startPosition = new GoalData();
+        if (startBank.HasValue)
+        {
+            levelData.startPosition.bankSide = startBank.Value;
+        }
+        else if (startTile != null)
+        {
+            var coords = gridManager.GetTileCoordinates(startTile);
+            levelData.startPosition.tileX = coords.x;
+            levelData.startPosition.tileY = coords.y;
+            levelData.startPosition.snapPointIndex = startSnapPointIndex;
+        }
+
+        levelData.endPosition = new GoalData();
+        if (endBank.HasValue)
+        {
+            levelData.endPosition.bankSide = endBank.Value;
+        }
+        else if (endTile != null)
+        {
+            var coords = gridManager.GetTileCoordinates(endTile);
+            levelData.endPosition.tileX = coords.x;
+            levelData.endPosition.tileY = coords.y;
+        }
+
+        // 7. Convert to JSON and Save to File
+        string json = JsonUtility.ToJson(levelData, true); // 'true' for pretty print
+        string path = Path.Combine(Application.persistentDataPath, filename + ".json");
+        
+        try
+        {
+            File.WriteAllText(path, json);
+            Debug.Log($"<color=lime>Level saved successfully to: {path}</color>");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to save level to {path}. Error: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Loads level data from a JSON file. For now, it just loads it into memory
+    /// and prints it to the console to verify it works.
+    /// </summary>
+    public void LoadLevel()
+    {
+        string filename = filenameInput.text;
+        if (string.IsNullOrWhiteSpace(filename))
+        {
+            Debug.LogError("Cannot load level: Please enter a filename.");
+            return;
+        }
+
+        string path = Path.Combine(Application.persistentDataPath, filename + ".json");
+
+        if (!File.Exists(path))
+        {
+            Debug.LogError($"Load failed: File not found at {path}");
+            return;
+        }
+
+        try
+        {
+            string json = File.ReadAllText(path);
+            LevelData loadedData = JsonUtility.FromJson<LevelData>(json);
+
+            // For now, we just prove it works by logging the data.
+            // In the next step, we will use this data to build the scene.
+            Debug.Log($"<color=cyan>Successfully loaded level '{filename}' from file.</color>");
+            Debug.Log($"Grid Size: {loadedData.gridWidth}x{loadedData.gridHeight}, Max Moves: {loadedData.maxMoves}");
+            Debug.Log($"Contains {loadedData.tiles.Count} tiles, {loadedData.collectibles.Count} collectibles, and {loadedData.playerHand.Count} hand tiles.");
+            
+            // You could add more detailed logging here if you want to inspect the loaded data.
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to load or parse level from {path}. Error: {e.Message}");
+        }
+    }
 
 }
 

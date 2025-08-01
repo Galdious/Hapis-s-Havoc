@@ -280,6 +280,23 @@ public class GridManager : MonoBehaviour
         return rowCenter + new Vector3(xOffset, 0f, 0f);
     }
 
+    public (int x, int y) GetTileCoordinates(TileInstance tile)
+    {
+        for (int y = 0; y < rows; y++)
+        {
+            for (int x = 0; x < cols; x++)
+            {
+                if (grid[x, y] == tile)
+                {
+                    return (x, y);
+                }
+            }
+        }
+        return (-1, -1); // Return an invalid coordinate if not found
+    }
+
+
+
     // ------------------------------------------------------------
     // 7.  Hapi's Havoc Push Mechanics - Public API
     // ------------------------------------------------------------
