@@ -1409,12 +1409,28 @@ private void UpdateBagButtonVisuals()
 
         // 7. Convert to JSON and Save to File
         string json = JsonUtility.ToJson(levelData, true); // 'true' for pretty print
-        string path = Path.Combine(Application.persistentDataPath, filename + ".json");
+
+        // Define the path to our new "Levels" subfolder within Assets
+        string directoryPath = Path.Combine(Application.dataPath, "Levels");
+
+        // Ensure the directory exists. If not, create it.
+        if (!Directory.Exists(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
         
+        // Combine the directory path with the desired filename
+        string path = Path.Combine(directoryPath, filename + ".json");
+
         try
         {
             File.WriteAllText(path, json);
             Debug.Log($"<color=lime>Level saved successfully to: {path}</color>");
+
+        #if UNITY_EDITOR
+        UnityEditor.AssetDatabase.Refresh();
+        #endif
+        
         }
         catch (System.Exception e)
         {
@@ -1435,7 +1451,7 @@ private void UpdateBagButtonVisuals()
             return;
         }
 
-        string path = Path.Combine(Application.persistentDataPath, filename + ".json");
+        string path = Path.Combine(Application.dataPath, "Levels", filename + ".json");
 
         if (!File.Exists(path))
         {
