@@ -67,6 +67,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     public TileInstance GetCurrentTile() => currentTile;
 
     public int GetCurrentSnapPoint() => currentSnapPoint;
+
+    public RiverBankManager.BankSide? CurrentBank { get; private set; } = null;
     
     // --- State & References ---
     private TileInstance currentTile;
@@ -127,18 +129,19 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             starCounterText.text = $"Stars: {starsCollected}";
         }
     }
-/// <summary>
-/// Sets the boat's internal state to be on a specific tile without moving the transform.
-/// This is used for initialization.
-/// </summary>
-public void InitializeStateOnTile(TileInstance tile, int snapPointIndex)
-{
-    if (tile == null) return;
-    
-    currentTile = tile;
-    currentSnapPoint = snapPointIndex;
-    isAtBank = false;
-    bankPosition = null;
+    /// <summary>
+    /// Sets the boat's internal state to be on a specific tile without moving the transform.
+    /// This is used for initialization.
+    /// </summary>
+    public void InitializeStateOnTile(TileInstance tile, int snapPointIndex)
+    {
+        if (tile == null) return;
+
+        currentTile = tile;
+        currentSnapPoint = snapPointIndex;
+        isAtBank = false;
+        bankPosition = null;
+        CurrentBank = null;
 }
 
 public IEnumerator FadeOutForEjection()
@@ -195,6 +198,7 @@ private IEnumerator FadeOutCoroutine()
         isAtBank = true;
         currentTile = null;
         currentSnapPoint = -1;
+        CurrentBank = bankSpawnPoint.name.Contains("Top") ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
         transform.position = bankSpawnPoint.position;
         transform.rotation = bankSpawnPoint.rotation;
     }
@@ -223,18 +227,19 @@ private IEnumerator FadeOutCoroutine()
         if (!isSelected) SelectBoat();
         else DeselectBoat();
     }
-    
 
 
 
-private void SetStateForBank(Transform bankSpawnPoint)
-{
-    // This method ONLY sets the internal state variables for being at a bank.
-    // It does NOT touch the transform's position or rotation, leaving that to the animation.
-    bankPosition = bankSpawnPoint;
-    isAtBank = true;
-    currentTile = null;
-    currentSnapPoint = -1;
+
+    private void SetStateForBank(Transform bankSpawnPoint)
+    {
+        // This method ONLY sets the internal state variables for being at a bank.
+        // It does NOT touch the transform's position or rotation, leaving that to the animation.
+        bankPosition = bankSpawnPoint;
+        isAtBank = true;
+        currentTile = null;
+        currentSnapPoint = -1;
+        CurrentBank = bankSpawnPoint.name.Contains("Top") ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
 }
 
 
@@ -736,19 +741,22 @@ void RefreshMovementOptions()
 {
     isMoving = false;
     
+    if(GameManager.Instance != null) GameManager.Instance.CheckForWinCondition(this);
+
+
     // Check if we are in puzzle mode before doing anything else.
-    if (gridManager != null && gridManager.isPuzzleMode)
-    {
-        // In Puzzle Mode, running out of points is final.
-        if (currentMovementPoints <= 0)
+        if (gridManager != null && gridManager.isPuzzleMode)
         {
-            Debug.Log("PUZZLE MODE: Out of moves!");
-            DeselectBoat(); // Deselect to provide feedback
-            // Here, a future PuzzleGameManager would trigger the "You Lose" screen.
-            // For now, the boat is just stuck, which is correct.
-            return; // Stop the method here.
+            // In Puzzle Mode, running out of points is final.
+            if (currentMovementPoints <= 0)
+            {
+                Debug.Log("PUZZLE MODE: Out of moves!");
+                DeselectBoat(); // Deselect to provide feedback
+                                // Here, a future PuzzleGameManager would trigger the "You Lose" screen.
+                                // For now, the boat is just stuck, which is correct.
+                return; // Stop the method here.
+            }
         }
-    }
 
 
 

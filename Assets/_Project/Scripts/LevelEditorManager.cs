@@ -1695,6 +1695,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
         //Debug.Break();
 
         boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
+        GameManager.Instance.InitializeLevel(data);
 
         Debug.Log("<color=cyan>Level reconstruction complete.</color>");
     }
