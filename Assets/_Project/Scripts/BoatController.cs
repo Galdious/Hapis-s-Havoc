@@ -60,6 +60,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     [Header("Visual Feedback")]
     public Color selectedColor = Color.magenta;
     public TMP_Text starCounterText;
+    public TMP_Text moveCounterText;
     
     [Header("Debug")]
     public bool showDebugInfo = true;
@@ -112,6 +113,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         }
 
         UpdateStarCounterUI();
+        UpdateMoveCounterUI();
 
         if (gridManager == null) Debug.LogError("[BoatController] GridManager not found!");
         if (riverBankManager == null) Debug.LogError("[BoatController] RiverBankManager not found!");
@@ -129,6 +131,16 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             starCounterText.text = $"Stars: {starsCollected}";
         }
     }
+    
+    private void UpdateMoveCounterUI()
+    {
+        if (moveCounterText != null)
+        {
+            moveCounterText.text = $"Moves: {currentMovementPoints}";
+        }
+    }
+
+
     /// <summary>
     /// Sets the boat's internal state to be on a specific tile without moving the transform.
     /// This is used for initialization.
@@ -142,7 +154,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         isAtBank = false;
         bankPosition = null;
         CurrentBank = null;
-}
+    }
 
 public IEnumerator FadeOutForEjection()
 {
@@ -353,30 +365,31 @@ private IEnumerator FadeOutCoroutine()
     
 
 }
-public void SelectBoat()
-{
-    // --- ADD THIS LINE ---
-    // First, clear any highlights that might exist from a previous state.
-    // This wipes the slate clean before we do anything else.
-    ClearHighlights();
-
-    // --- The rest of the method is the same as before ---
-    if (boatManager != null) boatManager.SetSelectedBoat(this);
-
-    isSelected = true;
-
-
-    if (gridManager == null || !gridManager.isPuzzleMode)
+    public void SelectBoat()
     {
-        if (currentMovementPoints <= 0)
+        // --- ADD THIS LINE ---
+        // First, clear any highlights that might exist from a previous state.
+        // This wipes the slate clean before we do anything else.
+        ClearHighlights();
+
+        // --- The rest of the method is the same as before ---
+        if (boatManager != null) boatManager.SetSelectedBoat(this);
+
+        isSelected = true;
+
+
+        if (gridManager == null || !gridManager.isPuzzleMode)
         {
-            currentMovementPoints = maxMovementPoints;
+            if (currentMovementPoints <= 0)
+            {
+                currentMovementPoints = maxMovementPoints;
+            }
         }
-    }
-    
-    StartCoroutine(LiftAndBobBoat(true));
-    FindValidMoves();
-    StartCoroutine(HighlightValidMovesWithDelay());
+
+        StartCoroutine(LiftAndBobBoat(true));
+        FindValidMoves();
+        StartCoroutine(HighlightValidMovesWithDelay());
+        UpdateMoveCounterUI();
 }
     
     public void DeselectBoat()
@@ -406,6 +419,7 @@ public void SelectBoat()
                     break;
                 case CollectibleType.ExtraMove:
                     currentMovementPoints += collectible.value;
+                    UpdateMoveCounterUI();
                     Debug.Log($"Collected an Extra Move! Value: {collectible.value}. Current moves: {currentMovementPoints}");
                     break;
             }
@@ -1075,6 +1089,7 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
     
     PlaceOnTile(targetTile, snapPoint);
     currentMovementPoints--;
+    UpdateMoveCounterUI();
     
 
     var collectible = targetTile.GetComponentInChildren<CollectibleInstance>();
@@ -1090,6 +1105,7 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
                 break;
             case CollectibleType.ExtraMove:
                 currentMovementPoints += collectible.value;
+                UpdateMoveCounterUI();
                 Debug.Log($"Collected an Extra Move! Value: {collectible.value}. Current moves: {currentMovementPoints}");
                 break;
         }
@@ -1119,6 +1135,7 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
         }
         SetStateForBank(targetSpawn);
         currentMovementPoints--;
+        UpdateMoveCounterUI();
         RefreshMovementOptions();
     }
     
@@ -1132,8 +1149,9 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
 
     public void EndMovementTurn()
     {
-        if(isSelected) DeselectBoat();
+        if (isSelected) DeselectBoat();
         currentMovementPoints = 0;
+        UpdateMoveCounterUI();
     }
 
     public void ResetStateAfterEjection()
@@ -1174,6 +1192,8 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
 
 
         currentMovementPoints = maxMovementPoints;
+        UpdateMoveCounterUI();
+
         if (isSelected)
         {
             DeselectBoat();

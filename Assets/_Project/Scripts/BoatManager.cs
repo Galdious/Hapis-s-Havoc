@@ -16,7 +16,8 @@ public class BoatManager : MonoBehaviour
     public int boatsPerPlayer = 2;    
     
     [Header("UI References")] // <<< ADD THIS HEADER AND FIELD
-    public TMP_Text starCounterText;    
+    public TMP_Text starCounterText;  
+    public TMP_Text moveCounterText;   
 
     [Header("Testing")]
     public bool spawnTestBoats = true;
@@ -88,9 +89,13 @@ public class BoatManager : MonoBehaviour
             boat.currentMovementPoints = maxMoves;
         }
 
-        if (boat != null && starCounterText != null)
+        if (starCounterText != null)
         {
             boat.starCounterText = this.starCounterText;
+        }
+        if (moveCounterText != null)
+        {
+            boat.moveCounterText = this.moveCounterText;
         }
         
         // Initialize boat at bank (not on a tile yet)
@@ -172,6 +177,11 @@ public void SpawnBoatAtLevelStart(TileInstance startTile, int startSnapPoint, Ri
         {
             boat.starCounterText = this.starCounterText;
         }
+        if (moveCounterText != null) // <<< ADD THIS IF-STATEMENT
+        {
+            boat.moveCounterText = this.moveCounterText;
+        }
+
         playerBoats.Add(boat);
     }
     // --- Failsafe Case ---
