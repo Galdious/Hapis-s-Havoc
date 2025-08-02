@@ -968,7 +968,7 @@ private void SetStartPosition(TileInstance tile, RiverBankManager.BankSide? side
 
     Debug.Log($"[SetStartPosition] Condition is TRUE. snapIndex.Value is: {snapIndex.Value}");
     Debug.Log($"[SetStartPosition] Position of snap point {snapIndex.Value} is: {tile.snapPoints[snapIndex.Value].position}");
-    markerComponent.Setup(gridManager, tile, side, snapIndex);
+    markerComponent.Setup(gridManager, tile, side, snapIndex, false);
 }
 
 // This method places the end marker and attaches the data component.
@@ -997,7 +997,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
     // Get the GoalMarker component and tell it to set itself up.
     // The snap point is null for the end position.
     var markerComponent = activeEndMarker.AddComponent<GoalMarker>();
-    markerComponent.Setup(gridManager, tile, side, null);
+    markerComponent.Setup(gridManager, tile, side, null, true);
 }
 
 
@@ -1695,7 +1695,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
         //Debug.Break();
 
         boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
-        GameManager.Instance.InitializeLevel(data);
+        GameManager.Instance.InitializeLevel(data, activeEndMarker);
 
         Debug.Log("<color=cyan>Level reconstruction complete.</color>");
     }

@@ -387,6 +387,9 @@ public class GridManager : MonoBehaviour
     {
         isPushingInProgress = true;
 
+        // Determine the exit column immediately.
+        int exitCol = fromLeft ? cols - 1 : 0;
+        // Instantly tell the GameManager to check if these coordinates are the goal.
 
 
         // vvv THIS IS THE CORRECTED LOGIC vvv
@@ -437,11 +440,13 @@ public class GridManager : MonoBehaviour
 
         // Determine positions
         int insertCol = fromLeft ? 0 : cols - 1;
-        int exitCol = fromLeft ? cols - 1 : 0;
+        // int exitCol = fromLeft ? cols - 1 : 0;
         Vector3 spawnPos = GetSpawnPosition(rowIndex, fromLeft);
 
         // Store the tile that will be ejected
         TileInstance ejectingTile = grid[exitCol, rowIndex];
+
+
 
         //This part finds any boats that need to be saved or parented befroe the tiles move
         // --- START OF BLOCK TO ADD (Part 1) ---
@@ -721,6 +726,7 @@ public class GridManager : MonoBehaviour
         // ^^^ END OF FINAL STEP ^^^
 
 
+
         isPushingInProgress = false;
 
         string sideText = showObstacleSide ? "Red (Obstacle)" : "Blue (River)";
@@ -739,6 +745,9 @@ public class GridManager : MonoBehaviour
         isPushingInProgress = true;
 
 
+        // Determine the exit column immediately.
+        int exitCol = fromLeft ? cols - 1 : 0;
+        // Instantly tell the GameManager to check if these coordinates are the goal.
 
 
         // STEP 1: Find the selected boat and store it, if it exists.
@@ -783,9 +792,11 @@ public class GridManager : MonoBehaviour
 
         // === Section 3: Ejected Tile & Boat Logic (Part 1 - Identical to original) ===
         int insertCol = fromLeft ? 0 : cols - 1;
-        int exitCol = fromLeft ? cols - 1 : 0;
+        // int exitCol = fromLeft ? cols - 1 : 0;
         Vector3 spawnPos = GetSpawnPosition(rowIndex, fromLeft);
         TileInstance ejectingTile = grid[exitCol, rowIndex];
+
+
 
         //This part finds any boats that need to be saved or parented befroe the tiles move
         float ejectedTileRotation = 0f;
@@ -1083,6 +1094,14 @@ public class GridManager : MonoBehaviour
 
     private IEnumerator EjectTileToAbyss(TileInstance tile, bool exitingLeft)
     {
+
+        var goalMarker = tile.GetComponentInChildren<GoalMarker>();
+        if (goalMarker != null)
+        {
+            Destroy(goalMarker.gameObject);
+        }
+
+
         // First, smoothly slide the tile a bit further off the edge to separate it from neighbors
         Vector3 startPos = tile.transform.position;
         Vector3 separationTarget = startPos + (exitingLeft ? Vector3.left : Vector3.right) * 1f; // 1 unit separation

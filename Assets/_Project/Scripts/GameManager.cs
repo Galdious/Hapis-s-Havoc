@@ -7,7 +7,8 @@ public enum GameState
     Loading,
     Playing,
     Paused,
-    LevelComplete
+    LevelComplete,
+    LevelFailed
 }
 
 public class GameManager : MonoBehaviour
@@ -21,6 +22,7 @@ public class GameManager : MonoBehaviour
     [Header("Game State")]
     public GameState currentState;
     public LevelData currentLevelData { get; private set; }
+    private GameObject activeEndMarker; 
 
     private void Awake()
     {
@@ -44,52 +46,86 @@ public class GameManager : MonoBehaviour
     /// Called by the LevelEditorManager after it finishes loading a level.
     /// This gives the GameManager all the info it needs about the current puzzle.
     /// </summary>
-    public void InitializeLevel(LevelData data)
+    public void InitializeLevel(LevelData data, GameObject endMarker)
     {
         currentLevelData = data;
+        // --- ADD THIS LINE ---
+        activeEndMarker = endMarker; 
+
         currentState = GameState.Playing;
-        Debug.Log($"<color=green>[GameManager]</color> Initialized with level: {data.gridWidth}x{data.gridHeight}. Let the game begin!");
+        Debug.Log($"<color=green>[GameManager]</color> Initialized with level. End marker tracking enabled.");
     }
+
+
+
 
     /// <summary>
-    /// Checks if the boat has reached the designated end goal for the level.
+    /// This is the master method that evaluates the game state after every boat move.
+    /// It checks for win and loss conditions in the correct order of priority.
     /// </summary>
-    public void CheckForWinCondition(BoatController boat)
+    public void EvaluateGameStateAfterMove(BoatController boat)
     {
-        // We only check for wins while actively playing.
-        if (currentState != GameState.Playing || currentLevelData == null || currentLevelData.endPosition == null)
-        {
-            return;
-        }
+        // Don't do anything if the game is not in the 'Playing' state.
+        if (currentState != GameState.Playing) return;
 
         GoalData endGoal = currentLevelData.endPosition;
-
-        // Case 1: The goal is a specific bank.
-        if (endGoal.isBankGoal)
+  
+        // Check if goal is a tile
+        TileInstance boatTile = boat.GetCurrentTile();
+        if (!endGoal.isBankGoal && boatTile != null)
         {
-            if (boat.CurrentBank.HasValue && boat.CurrentBank.Value == endGoal.bankSide)
+            var boatCoords = gridManager.GetTileCoordinates(boatTile);
+            if (boatCoords.x == endGoal.tileX && boatCoords.y == endGoal.tileY)
             {
-                // WE HAVE A WINNER!
                 currentState = GameState.LevelComplete;
-                Debug.Log($"<color=yellow>LEVEL COMPLETE! Boat reached the goal bank: {endGoal.bankSide}.</color>");
-                // Future: Show "You Win!" UI.
+                Debug.Log($"<color=yellow>LEVEL COMPLETE!</color> Reached the goal tile ({endGoal.tileX}, {endGoal.tileY}).");
+                return; // Stop checking
             }
         }
-        // Case 2: The goal is a specific tile.
-        else if (endGoal.tileX != -1)
+
+        // --- 2. CHECK FOR EJECTED GOAL LOSS (Your brilliant idea) ---
+        // If the goal is a tile, but its marker GameObject has been destroyed, it's a loss.
+        if (!endGoal.isBankGoal && activeEndMarker == null)
         {
-            TileInstance boatTile = boat.GetCurrentTile();
-            if (boatTile != null)
-            {
-                var boatCoords = gridManager.GetTileCoordinates(boatTile);
-                if (boatCoords.x == endGoal.tileX && boatCoords.y == endGoal.tileY)
-                {
-                    // WE HAVE A WINNER!
-                    currentState = GameState.LevelComplete;
-                    Debug.Log($"<color=yellow>LEVEL COMPLETE! Boat reached the goal tile ({endGoal.tileX}, {endGoal.tileY}).</color>");
-                    // In the future, we would show a "You Win!" UI panel here.
-                }
-            }
+            currentState = GameState.LevelFailed;
+            Debug.LogWarning($"<color=red>LEVEL FAILED!</color> The end goal marker was destroyed (ejected from the grid).");
+            return; // Stop checking
+        }
+
+        // --- 3. CHECK FOR OUT OF MOVES LOSS ---
+        // If we are out of moves and haven't won, it's a loss.
+        if (boat.currentMovementPoints <= 0)
+        {
+            currentState = GameState.LevelFailed;
+            Debug.LogWarning($"<color=red>LEVEL FAILED!</color> Out of movement points.");
+            return; // Stop checking
         }
     }
+
+
+
+    /// <summary>
+    /// Called by the End GoalMarker's OnDestroy() method.
+    /// This is an event-driven way to handle the loss condition.
+    /// </summary>
+    public void OnEndGoalDestroyed()
+    {
+        // If we are playing, this means the goal was destroyed during gameplay.
+        if (currentState == GameState.Playing)
+        {
+            currentState = GameState.LevelFailed;
+            Debug.LogWarning($"<color=red>LEVEL FAILED!</color> The end goal was ejected from the grid.");
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
 }

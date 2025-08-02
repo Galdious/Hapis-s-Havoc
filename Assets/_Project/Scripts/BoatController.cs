@@ -741,20 +741,21 @@ void RefreshMovementOptions()
 {
     isMoving = false;
     
-    if(GameManager.Instance != null) GameManager.Instance.CheckForWinCondition(this);
+        // After every move, just ask the GameManager to evaluate the situation.
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.EvaluateGameStateAfterMove(this);
+        }
+        // --- END OF NEW CALL ---
 
-
-    // Check if we are in puzzle mode before doing anything else.
+        // Check if we are in puzzle mode before doing anything else.
         if (gridManager != null && gridManager.isPuzzleMode)
         {
-            // In Puzzle Mode, running out of points is final.
             if (currentMovementPoints <= 0)
             {
-                Debug.Log("PUZZLE MODE: Out of moves!");
-                DeselectBoat(); // Deselect to provide feedback
-                                // Here, a future PuzzleGameManager would trigger the "You Lose" screen.
-                                // For now, the boat is just stuck, which is correct.
-                return; // Stop the method here.
+                Debug.Log("PUZZLE MODE: Out of moves! Turn ended.");
+                DeselectBoat();
+                return;
             }
         }
 
