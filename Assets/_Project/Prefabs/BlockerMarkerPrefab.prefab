@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 623792851238900990}
   - component: {fileID: 4964033392678017791}
   - component: {fileID: 2802256274310340410}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: BlockerMarkerPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}

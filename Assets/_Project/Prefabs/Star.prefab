@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4936684293184397841}
   - component: {fileID: 6381514061982038400}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Star
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -48,6 +48,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ollectibleInstance
   type: 0
+  value: 1
 --- !u!1 &1672822351311306234
 GameObject:
   m_ObjectHideFlags: 0
@@ -60,7 +61,7 @@ GameObject:
   - component: {fileID: 5472744177896219388}
   - component: {fileID: 7940032839176122953}
   - component: {fileID: 5159316079094011950}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: StarBody (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -173,7 +174,7 @@ GameObject:
   - component: {fileID: 5728710436864442162}
   - component: {fileID: 736164868811229348}
   - component: {fileID: 8209946646845402842}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: StarBody
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -286,7 +287,7 @@ GameObject:
   - component: {fileID: 800927270177452447}
   - component: {fileID: 4348835197955606651}
   - component: {fileID: 2925382441081504273}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: StarBody (2)
   m_TagString: Untagged
   m_Icon: {fileID: 0}

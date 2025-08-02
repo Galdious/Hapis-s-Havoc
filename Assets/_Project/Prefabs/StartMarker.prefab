@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 8778340174716740614}
   - component: {fileID: 4598831607582328702}
   - component: {fileID: 5844502998728142514}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: StartMarker
   m_TagString: StartMarker
   m_Icon: {fileID: 0}

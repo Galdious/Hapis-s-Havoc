@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7288465678145092981}
   - component: {fileID: 8620097701073600636}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: ExtraMove
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -60,7 +60,7 @@ GameObject:
   - component: {fileID: 1815882930663263765}
   - component: {fileID: 2873551956506258715}
   - component: {fileID: 1792439174070153537}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: ExtraMoveBody (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -171,7 +171,7 @@ GameObject:
   - component: {fileID: 829975707220288906}
   - component: {fileID: 619493762389597985}
   - component: {fileID: 4698161374988269753}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: ExtraMoveBody
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 8591378212091221023}
   - component: {fileID: 5223645354822051494}
   - component: {fileID: 897969553512893872}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: EndMarker
   m_TagString: EndMarker
   m_Icon: {fileID: 0}
