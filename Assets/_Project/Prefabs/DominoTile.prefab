@@ -442,12 +442,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TileInstance
   snapPoints:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 6409669037505048594}
+  - {fileID: 2073438437590168830}
+  - {fileID: 4046880553999911296}
+  - {fileID: 1386278923626814635}
+  - {fileID: 2083443551246407688}
+  - {fileID: 4268417611662522212}
   connections: []
 --- !u!114 &4326345156925355078
 MonoBehaviour:

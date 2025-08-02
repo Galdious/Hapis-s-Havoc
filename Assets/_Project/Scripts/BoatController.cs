@@ -127,7 +127,19 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             starCounterText.text = $"Stars: {starsCollected}";
         }
     }
-
+/// <summary>
+/// Sets the boat's internal state to be on a specific tile without moving the transform.
+/// This is used for initialization.
+/// </summary>
+public void InitializeStateOnTile(TileInstance tile, int snapPointIndex)
+{
+    if (tile == null) return;
+    
+    currentTile = tile;
+    currentSnapPoint = snapPointIndex;
+    isAtBank = false;
+    bankPosition = null;
+}
 
 public IEnumerator FadeOutForEjection()
 {
@@ -1160,7 +1172,7 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
         }
     }
     
-Quaternion GetSnapPointRotation(TileInstance tile, int snapPointIndex)
+public static Quaternion GetSnapPointRotation(TileInstance tile, int snapPointIndex)
 {
     if (tile == null) return Quaternion.identity;
 
@@ -1187,7 +1199,7 @@ Quaternion GetSnapPointRotation(TileInstance tile, int snapPointIndex)
             break;
 
         default:
-            return transform.rotation; // Failsafe
+            return Quaternion.identity;
     }
 
     // --- STEP 2: Check if the TILE itself is rotated ---
@@ -1210,18 +1222,16 @@ Quaternion GetSnapPointRotation(TileInstance tile, int snapPointIndex)
 public void PlaceOnTile(TileInstance tile, int snapPointIndex)
 {
     if (tile == null || snapPointIndex < 0 || snapPointIndex >= tile.snapPoints.Length) return;
-    currentTile = tile;
-    currentSnapPoint = snapPointIndex;
-    isAtBank = false;
-    bankPosition = null;
-    
+
+    // First, calculate and set the physical transform
     Vector3 snapPosition = tile.snapPoints[snapPointIndex].position;
     Vector3 tileCenter = tile.transform.position;
     Vector3 direction = (snapPosition - tileCenter).normalized;
     transform.position = snapPosition - direction * snapOffset;
-    
-    // Update the call to pass the correct tile.
     transform.rotation = GetSnapPointRotation(tile, snapPointIndex);
+
+    // Now, call the new method to update the internal state
+    InitializeStateOnTile(tile, snapPointIndex);
 }
 
     int DetermineSnapPointFromClick(TileInstance tile)

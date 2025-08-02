@@ -87,7 +87,24 @@ public class RiverControls : MonoBehaviour
     }
 
 
+    public void SetLockStates(bool[] newLockStates)
+    {
+        // Safety check to ensure the loaded data matches our current grid size.
+        if (newLockStates == null || rowLockStates == null || newLockStates.Length != rowLockStates.Length)
+        {
+            Debug.LogWarning("Could not apply lock states from loaded data: The data was invalid or for a different grid size.");
+            return;
+        }
+    
+        // Overwrite our current lock states with the ones from the file.
+        rowLockStates = newLockStates;
 
+        // Loop through every row and update its visuals to match the new state.
+        for (int i = 0; i < rowLockStates.Length; i++)
+        {
+            UpdateRowLockVisuals(i);
+        }
+    }
 
 
 

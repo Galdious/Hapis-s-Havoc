@@ -45,10 +45,18 @@ public class HandTileSaveData
 [System.Serializable]
 public class GoalData
 {
-    public int? tileX;
-    public int? tileY;
-    public int? snapPointIndex; // Only for start position
-    public RiverBankManager.BankSide? bankSide;
+    // Use a boolean to determine if this goal is on a bank or a tile.
+    public bool isBankGoal;
+
+    // --- Fields for a TILE goal ---
+    // We use -1 as a sentinel value to indicate "not set".
+    public int tileX = -1;
+    public int tileY = -1;
+    public int snapPointIndex = -1; // Primarily for the start position.
+
+    // --- Field for a BANK goal ---
+    // This will only be relevant if isBankGoal is true.
+    public RiverBankManager.BankSide bankSide;
 }
 
 // This is the main class that holds all the data for a single level.

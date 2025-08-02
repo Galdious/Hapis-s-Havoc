@@ -24,9 +24,9 @@ public class GridManager : MonoBehaviour
 
     [Header("Scene References")]
     public TileBagManager bagManager;    // drag BagManager GO here
-    public GameObject     tilePrefab;    // DominoTile prefab
-    public Transform      gridParent;    // optional parent object
-    public BoatManager    boatManager;   // link our BoatManager for spawning boats
+    public GameObject tilePrefab;    // DominoTile prefab
+    public Transform gridParent;    // optional parent object
+    public BoatManager boatManager;   // link our BoatManager for spawning boats
     private LevelEditorManager levelEditorManager;
 
 
@@ -45,18 +45,18 @@ public class GridManager : MonoBehaviour
     //public ReversedTileRule reversedTileRule = ReversedTileRule.PushYourLuck;
 
     [Header("Grid Size")]
-    public int   rows = 6;
-    public int   cols = 6;
+    public int rows = 6;
+    public int cols = 6;
 
     [Header("Tile Spacing")]
-    public float tileWidth  = 2f;        // X spacing
+    public float tileWidth = 2f;        // X spacing
     public float tileHeight = 1f;        // Z spacing
     public float gapX = 0f;   // space left-right
     public float gapZ = 0f;   // space front-back
 
     [Header("Spawn Animation")]
-    public Vector2 delayRange   = new Vector2(0f, 0.35f); // random delay per tile
-    public float   scaleTime    = 0.25f;                  // pop-in duration
+    public Vector2 delayRange = new Vector2(0f, 0.35f); // random delay per tile
+    public float scaleTime = 0.25f;                  // pop-in duration
 
     [Header("Push Animation")]
     public float pushDuration = 0.8f;    // how long tiles take to slide
@@ -65,7 +65,7 @@ public class GridManager : MonoBehaviour
 
 
     [Header("Physics Fall Settings")]
-            [Tooltip("How long the tile's fade-out animation takes at the end of its life.")]
+    [Tooltip("How long the tile's fade-out animation takes at the end of its life.")]
     public float fallFadeDuration = 1.5f;
     public float fallCleanupTime = 3f;    // how long before we clean up fallen tiles
     public float fallTorque = 5f;         // spinning force when ejected
@@ -102,23 +102,23 @@ public class GridManager : MonoBehaviour
 
 
 
-    // --- START OF BLOCK TO ADD ---
-    // This block initializes the random number generator with a seed.
-    if (useSpecificSeed)
-    {
-        // Use the seed provided in the Inspector.
-        currentSeed = gridSeed;
-    }
-    else
-    {
-        // Generate a new random seed based on the system time.
-        currentSeed = (int)System.DateTime.Now.Ticks;
-    }
-    
-    // Apply the chosen seed to Unity's random number generator.
-    Random.InitState(currentSeed);
-    Debug.Log($"[GridManager] Generating river with seed: {currentSeed}");
-    // --- END OF BLOCK TO ADD ---
+        // --- START OF BLOCK TO ADD ---
+        // This block initializes the random number generator with a seed.
+        if (useSpecificSeed)
+        {
+            // Use the seed provided in the Inspector.
+            currentSeed = gridSeed;
+        }
+        else
+        {
+            // Generate a new random seed based on the system time.
+            currentSeed = (int)System.DateTime.Now.Ticks;
+        }
+
+        // Apply the chosen seed to Unity's random number generator.
+        Random.InitState(currentSeed);
+        Debug.Log($"[GridManager] Generating river with seed: {currentSeed}");
+        // --- END OF BLOCK TO ADD ---
 
 
 
@@ -131,7 +131,7 @@ public class GridManager : MonoBehaviour
         bagManager.BuildBag();   // guarantees a fresh full bag
         //BuildGrid();  // Build the grid of tiles - commenet out for lever editor mode
     }
-    
+
 
     private void Update()
     {
@@ -147,14 +147,14 @@ public class GridManager : MonoBehaviour
     {
         grid = new TileInstance[cols, rows];
 
-        float totalWidth  = (cols - 1) * (tileWidth  + gapX);
+        float totalWidth = (cols - 1) * (tileWidth + gapX);
         float totalHeight = (rows - 1) * (tileHeight + gapZ);
 
         // Shift so the middle of the board sits at (0,0,0)
         boardOrigin = new Vector3(
-            -totalWidth  / 2f,
+            -totalWidth / 2f,
             0f,
-            -totalHeight / 2f);         
+            -totalHeight / 2f);
 
         for (int y = 0; y < rows; y++)
         {
@@ -168,10 +168,22 @@ public class GridManager : MonoBehaviour
     }
 
 
-    public void CreateGridFromEditor(int newCols, int newRows)
+    public List<Coroutine> CreateGridFromEditor(int newCols, int newRows, List<TileSaveData> tileBlueprint = null)
     {
 
-        // 1. Find and destroy the old floor to make way for the new one.
+        Dictionary<(int, int), TileSaveData> tileDataMap = null;
+        if (tileBlueprint != null)
+        {
+            tileDataMap = new Dictionary<(int, int), TileSaveData>();
+            foreach (var data in tileBlueprint)
+            {
+                tileDataMap[(data.gridX, data.gridY)] = data;
+            }
+        }
+
+        // Create a list to hold all the animation coroutines we are about to start.
+        List<Coroutine> runningAnimations = new List<Coroutine>();
+
         if (gridParent != null)
         {
             Transform oldFloor = gridParent.Find("GameFloor");
@@ -181,7 +193,6 @@ public class GridManager : MonoBehaviour
             }
         }
 
-        // First, clear any old grid objects if they exist
         if (grid != null)
         {
             for (int x = 0; x < cols; x++)
@@ -195,20 +206,40 @@ public class GridManager : MonoBehaviour
                 }
             }
         }
-        // Update grid dimensions
+
         cols = newCols;
         rows = newRows;
 
-        // Now, call the original build logic
-        BuildGrid();
+        // --- MODIFIED SECTION ---
+        grid = new TileInstance[cols, rows];
+        float totalWidth = (cols - 1) * (tileWidth + gapX);
+        float totalHeight = (rows - 1) * (tileHeight + gapZ);
+        boardOrigin = new Vector3(-totalWidth / 2f, 0f, -totalHeight / 2f);
 
+        for (int y = 0; y < rows; y++)
+        {
+            for (int x = 0; x < cols; x++)
+            {
+                TileSaveData specificTileData = null;
+                // Try to get specific data only if the map exists.
+                tileDataMap?.TryGetValue((x, y), out specificTileData);
+                
+                // This single call now handles both random and blueprint creation.
+                runningAnimations.Add(CreateTileAtGridPosition(x, y, specificTileData));
+            }
+        }
+        Debug.Log("[GridManager] River grid build process started.");
+        // --- END OF MODIFIED SECTION ---
 
         if (createGameFloor)
         {
-        CreateGameFloor();
+            CreateGameFloor();
         }
 
         Debug.Log($"[GridManager] Created a new {cols}x{rows} grid from the editor.");
+
+        // Return the complete list of all running animations.
+        return runningAnimations;
     }
 
 
@@ -220,21 +251,42 @@ public class GridManager : MonoBehaviour
     // 5.  Tile creation helper
     // ------------------------------------------------------------
 
-    private void CreateTileAtGridPosition(int x, int y)
+    private Coroutine CreateTileAtGridPosition(int x, int y, TileSaveData data = null)
+
     {
-        // Draw a tile template from the bag
-        TileType template = bagManager.DrawRandomTile();
-        if (template == null)
+            TileType template;
+            Quaternion rotation;
+            bool isFlipped;
+            bool isHardBlocker;
+
+            // IF we have data (loading a level), use it.
+            if (data != null)
+            {
+                template = FindTileTypeByName(data.tileTypeName);
+                rotation = Quaternion.Euler(data.isFlipped ? 180f : 0f, data.rotationY, 0); // Use saved flip (X) and rotation (Y)
+                isFlipped = data.isFlipped;
+                isHardBlocker = data.isHardBlocker;
+            }
+            // ELSE (creating a new random grid), use random values.
+            else
+            {
+                template = bagManager.DrawRandomTile();
+                rotation = (template != null && template.canRotate180 && Random.value > 0.5f) ? Quaternion.Euler(0, 180f, 0) : Quaternion.identity;
+                isFlipped = false; // Default to not flipped for new grids
+                isHardBlocker = false;
+            }
+
+        if (template == null) // Failsafe for both cases
         {
-            Debug.LogError("[GridManager] Bag ran out of tiles!");
-            return;
+            Debug.LogError($"Could not determine a tile template for ({x},{y}). Aborting creation for this tile.");
+            return null;
         }
 
         // Calculate world-space position (on the floor)
         Vector3 pos = GetWorldPosition(x, y);
 
         // Spawn the prefab
-        GameObject go = Instantiate(tilePrefab, pos, Quaternion.identity, gridParent);
+        GameObject go = Instantiate(tilePrefab, pos, rotation, gridParent);
         go.name = $"Tile ({x},{y})";
 
         // Ensure tile has Rigidbody for physics
@@ -246,20 +298,23 @@ public class GridManager : MonoBehaviour
         rb.isKinematic = true; // Controlled during sliding
         rb.mass = 1f;
 
-        // Random 0° / 180° spin (physical only – no path remap)
-        if (template.canRotate180 && Random.value > 0.5f)
-            go.transform.Rotate(0f, 180f, 0f);
+        // // Random 0° / 180° spin (physical only – no path remap)
+        // if (template.canRotate180 && Random.value > 0.5f)
+        //     go.transform.Rotate(0f, 180f, 0f);
 
         // Initialize tile with proper side
         TileInstance ti = go.GetComponent<TileInstance>();
-        InitializeTile(ti, template, false); // Start with blue side
+        InitializeTile(ti, template, isFlipped);
+        ti.IsHardBlocker = isHardBlocker; // Set blocker status from the correct source
 
         grid[x, y] = ti;
 
         // Play staggered pop-in animation
         float delay = Random.Range(delayRange.x, delayRange.y);
-        StartCoroutine(ScaleIn(go.transform, delay, scaleTime));
+        return StartCoroutine(ScaleIn(go.transform, delay, scaleTime));
     }
+
+
 
     // ------------------------------------------------------------
     // 6.  Position calculation
@@ -334,25 +389,25 @@ public class GridManager : MonoBehaviour
 
 
 
-    // vvv THIS IS THE CORRECTED LOGIC vvv
+        // vvv THIS IS THE CORRECTED LOGIC vvv
 
-    // STEP 1: Find the selected boat and store it, if it exists.
-    BoatController previouslySelectedBoat = null;
-    if (boatManager != null)
-    {
-        // GetSelectedBoat() is a cleaner way to do this.
-        previouslySelectedBoat = boatManager.GetSelectedBoat();
-    }
+        // STEP 1: Find the selected boat and store it, if it exists.
+        BoatController previouslySelectedBoat = null;
+        if (boatManager != null)
+        {
+            // GetSelectedBoat() is a cleaner way to do this.
+            previouslySelectedBoat = boatManager.GetSelectedBoat();
+        }
 
-    // STEP 2: If a boat was selected, call the correct DeselectBoat() method.
-    if (previouslySelectedBoat != null)
-    {
-        previouslySelectedBoat.DeselectBoat();
-        // Wait a moment for the boat's deselection animation (lowering) to play.
-        yield return new WaitForSeconds(0.3f);
-    }
-    
-    // ^^^ END OF CORRECTED LOGIC ^^^
+        // STEP 2: If a boat was selected, call the correct DeselectBoat() method.
+        if (previouslySelectedBoat != null)
+        {
+            previouslySelectedBoat.DeselectBoat();
+            // Wait a moment for the boat's deselection animation (lowering) to play.
+            yield return new WaitForSeconds(0.3f);
+        }
+
+        // ^^^ END OF CORRECTED LOGIC ^^^
 
 
 
@@ -389,9 +444,9 @@ public class GridManager : MonoBehaviour
         TileInstance ejectingTile = grid[exitCol, rowIndex];
 
         //This part finds any boats that need to be saved or parented befroe the tiles move
-                // --- START OF BLOCK TO ADD (Part 1) ---
+        // --- START OF BLOCK TO ADD (Part 1) ---
         float ejectedTileRotation = 0f;
-        if(ejectingTile != null)
+        if (ejectingTile != null)
         {
             ejectedTileRotation = ejectingTile.transform.eulerAngles.y;
         }
@@ -417,7 +472,7 @@ public class GridManager : MonoBehaviour
                     else
                     {
                         // Check if this boat is on a tile that is just sliding.
-                        for(int x = 0; x < cols; x++)
+                        for (int x = 0; x < cols; x++)
                         {
                             if (grid[x, rowIndex] == boatTile)
                             {
@@ -430,12 +485,12 @@ public class GridManager : MonoBehaviour
                 }
             }
         }
-        
 
-    if (ejectedBoat != null)
-    {
-        yield return StartCoroutine(ejectedBoat.FadeOutForEjection());
-    }
+
+        if (ejectedBoat != null)
+        {
+            yield return StartCoroutine(ejectedBoat.FadeOutForEjection());
+        }
 
 
         // --- END OF BLOCK TO ADD (Part 1) ---
@@ -465,19 +520,19 @@ public class GridManager : MonoBehaviour
         TileInstance newTile = newTileGO.GetComponent<TileInstance>();
         InitializeTile(newTile, newTileTemplate, showObstacleSide);
 
-if (levelEditorManager != null)
-{
-    var editorTile = newTileGO.AddComponent<EditorGridTile>();
-    editorTile.editorManager = levelEditorManager;
-    editorTile.tileInstance = newTile;
-}
-      
-    
-    
+        if (levelEditorManager != null)
+        {
+            var editorTile = newTileGO.AddComponent<EditorGridTile>();
+            editorTile.editorManager = levelEditorManager;
+            editorTile.tileInstance = newTile;
+        }
 
 
 
-// Animate all critical movements concurrently.
+
+
+
+        // Animate all critical movements concurrently.
         List<Coroutine> essentialAnimations = new List<Coroutine>();
 
         // If a boat is being ejected, add its fade-out animation to the list of animations we must wait for.
@@ -532,30 +587,30 @@ if (levelEditorManager != null)
         }
 
 
-      
-      
-// --- START OF CORRECTED BLOCK ---
-    // BOAT STICKING LOGIC (Part 2: Un-parent)
-    foreach (var boat in boatsToParent)
-    {
-        if (boat != null) // Safety check in case the boat was on the ejected tile
+
+
+        // --- START OF CORRECTED BLOCK ---
+        // BOAT STICKING LOGIC (Part 2: Un-parent)
+        foreach (var boat in boatsToParent)
         {
-            boat.transform.SetParent(null, true); // Un-parent from tile
-            // The 'if (showDebugInfo)' has been removed from the next line
-            Debug.Log($"[GridManager] Un-parenting {boat.name}.");
+            if (boat != null) // Safety check in case the boat was on the ejected tile
+            {
+                boat.transform.SetParent(null, true); // Un-parent from tile
+                                                      // The 'if (showDebugInfo)' has been removed from the next line
+                Debug.Log($"[GridManager] Un-parenting {boat.name}.");
+            }
         }
-    }
 
         //This logic places the saved boat back onto the grid or bank
         // --- START OF BLOCK TO ADD (Part 2) ---
-if (ejectedBoat != null)
-{
-    // 1. Prepare the boat and determine its initial target row.
-    ejectedBoat.ResetStateAfterEjection();
-    int targetRow = rowIndex + (ejectedBoat.starsCollected > 0 ? 1 : -1);
-    
+        if (ejectedBoat != null)
+        {
+            // 1. Prepare the boat and determine its initial target row.
+            ejectedBoat.ResetStateAfterEjection();
+            int targetRow = rowIndex + (ejectedBoat.starsCollected > 0 ? 1 : -1);
 
-    // 2. Handle immediate bank placement if the target is off the board.
+
+            // 2. Handle immediate bank placement if the target is off the board.
             if (targetRow < 0)
             {
                 // We now WAIT for this animation to finish.
@@ -644,10 +699,10 @@ if (ejectedBoat != null)
                 Debug.Log($"[GridManager] Puzzle Mode: Did NOT return {ejectingTile.originalTemplate.displayName} to bag.");
             }
         }
-    else if (ejectingTile != null)
-    {
-        Debug.LogWarning("[GridManager] Ejected tile had no originalTemplate - cannot return to bag!");
-    }
+        else if (ejectingTile != null)
+        {
+            Debug.LogWarning("[GridManager] Ejected tile had no originalTemplate - cannot return to bag!");
+        }
 
         // Re-enable arrow colliders after push is complete
         if (riverControls != null)
@@ -667,7 +722,7 @@ if (ejectedBoat != null)
 
 
         isPushingInProgress = false;
-        
+
         string sideText = showObstacleSide ? "Red (Obstacle)" : "Blue (River)";
         string directionText = fromLeft ? "Left" : "Right";
         Debug.Log($"[GridManager] Row {rowIndex} pushed from {directionText} with {sideText} tile");
@@ -678,7 +733,7 @@ if (ejectedBoat != null)
     // ------------------------------------------------------------
 
 
-public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile handTile)
+    public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile handTile)
 
     {
         isPushingInProgress = true;
@@ -686,38 +741,38 @@ public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile 
 
 
 
-    // STEP 1: Find the selected boat and store it, if it exists.
-    BoatController previouslySelectedBoat = null;
-    if (boatManager != null)
-    {
-        // GetSelectedBoat() is a cleaner way to do this.
-        previouslySelectedBoat = boatManager.GetSelectedBoat();
-    }
+        // STEP 1: Find the selected boat and store it, if it exists.
+        BoatController previouslySelectedBoat = null;
+        if (boatManager != null)
+        {
+            // GetSelectedBoat() is a cleaner way to do this.
+            previouslySelectedBoat = boatManager.GetSelectedBoat();
+        }
 
-    // STEP 2: If a boat was selected, call the correct DeselectBoat() method.
-    if (previouslySelectedBoat != null)
-    {
-        previouslySelectedBoat.DeselectBoat();
-        // Wait a moment for the boat's deselection animation (lowering) to play.
-        yield return new WaitForSeconds(0.3f);
-    }
-    
-    // ^^^ END OF CORRECTED LOGIC ^^^
+        // STEP 2: If a boat was selected, call the correct DeselectBoat() method.
+        if (previouslySelectedBoat != null)
+        {
+            previouslySelectedBoat.DeselectBoat();
+            // Wait a moment for the boat's deselection animation (lowering) to play.
+            yield return new WaitForSeconds(0.3f);
+        }
+
+        // ^^^ END OF CORRECTED LOGIC ^^^
 
 
-    RiverControls riverControls = FindFirstObjectByType<RiverControls>();
-    if (riverControls != null)
-    {
-        riverControls.SetArrowCollidersEnabled(false);
-    }
+        RiverControls riverControls = FindFirstObjectByType<RiverControls>();
+        if (riverControls != null)
+        {
+            riverControls.SetArrowCollidersEnabled(false);
+        }
 
-    // === Section 2: Get the New Tile (This is the first key difference) ===
-    // We DO NOT draw from the bag. We use the tile provided by the editor.
-    TileType newTileTemplate = handTile.tileType;
-    
-    OnTileConsumed?.Invoke();
+        // === Section 2: Get the New Tile (This is the first key difference) ===
+        // We DO NOT draw from the bag. We use the tile provided by the editor.
+        TileType newTileTemplate = handTile.tileType;
 
-    // Check if the provided tile is valid.
+        OnTileConsumed?.Invoke();
+
+        // Check if the provided tile is valid.
         if (newTileTemplate == null)
         {
             Debug.LogError("[GridManager] Push failed: Invalid hand tile provided!");
@@ -726,24 +781,24 @@ public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile 
             yield break;
         }
 
-    // === Section 3: Ejected Tile & Boat Logic (Part 1 - Identical to original) ===
-    int insertCol = fromLeft ? 0 : cols - 1;
-    int exitCol = fromLeft ? cols - 1 : 0;
-    Vector3 spawnPos = GetSpawnPosition(rowIndex, fromLeft);
-    TileInstance ejectingTile = grid[exitCol, rowIndex];
+        // === Section 3: Ejected Tile & Boat Logic (Part 1 - Identical to original) ===
+        int insertCol = fromLeft ? 0 : cols - 1;
+        int exitCol = fromLeft ? cols - 1 : 0;
+        Vector3 spawnPos = GetSpawnPosition(rowIndex, fromLeft);
+        TileInstance ejectingTile = grid[exitCol, rowIndex];
 
         //This part finds any boats that need to be saved or parented befroe the tiles move
-    float ejectedTileRotation = 0f;
-    if (ejectingTile != null)
-    {
-        ejectedTileRotation = ejectingTile.transform.eulerAngles.y;
-    }
+        float ejectedTileRotation = 0f;
+        if (ejectingTile != null)
+        {
+            ejectedTileRotation = ejectingTile.transform.eulerAngles.y;
+        }
 
-    BoatController ejectedBoat = null;
-    int originalSnapPoint = -1;
-    List<BoatController> boatsToParent = new List<BoatController>();
-    
-    if (boatManager != null)
+        BoatController ejectedBoat = null;
+        int originalSnapPoint = -1;
+        List<BoatController> boatsToParent = new List<BoatController>();
+
+        if (boatManager != null)
         {
             foreach (var boat in boatManager.GetPlayerBoats())
             {
@@ -771,12 +826,12 @@ public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile 
                 }
             }
         }
-        
 
-    if (ejectedBoat != null)
-    {
-        yield return StartCoroutine(ejectedBoat.FadeOutForEjection());
-    }
+
+        if (ejectedBoat != null)
+        {
+            yield return StartCoroutine(ejectedBoat.FadeOutForEjection());
+        }
 
 
         // --- END OF BLOCK TO ADD (Part 1) ---
@@ -794,128 +849,128 @@ public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile 
         newRb.isKinematic = true; // Controlled during sliding
         newRb.mass = 1f;
 
-    // APPLY THE SAVED STATE: Set rotation and flip state from the hand tile data object.
-    // No random rotation here.
-    newTileGO.transform.rotation = Quaternion.Euler(0, handTile.rotationY, handTile.isFlipped ? 180f : 0f);
+        // APPLY THE SAVED STATE: Set rotation and flip state from the hand tile data object.
+        // No random rotation here.
+        newTileGO.transform.rotation = Quaternion.Euler(0, handTile.rotationY, handTile.isFlipped ? 180f : 0f);
 
-    TileInstance newTile = newTileGO.GetComponent<TileInstance>();
-    // Initialize the tile with the correct paths based on its flipped state.
-    InitializeTile(newTile, newTileTemplate, handTile.isFlipped);
+        TileInstance newTile = newTileGO.GetComponent<TileInstance>();
+        // Initialize the tile with the correct paths based on its flipped state.
+        InitializeTile(newTile, newTileTemplate, handTile.isFlipped);
 
-if (levelEditorManager != null)
-{
-    var editorTile = newTileGO.AddComponent<EditorGridTile>();
-    editorTile.editorManager = levelEditorManager;
-    editorTile.tileInstance = newTile;
-}
+        if (levelEditorManager != null)
+        {
+            var editorTile = newTileGO.AddComponent<EditorGridTile>();
+            editorTile.editorManager = levelEditorManager;
+            editorTile.tileInstance = newTile;
+        }
 
         // === Section 5: Animation (Identical to original) ===
         List<Coroutine> essentialAnimations = new List<Coroutine>();
-    if (ejectedBoat != null)
-    {
-        essentialAnimations.Add(StartCoroutine(ejectedBoat.FadeOutForEjection()));
-    }
-    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(newTile.transform, GetWorldPosition(insertCol, rowIndex))));
+        if (ejectedBoat != null)
+        {
+            essentialAnimations.Add(StartCoroutine(ejectedBoat.FadeOutForEjection()));
+        }
+        essentialAnimations.Add(StartCoroutine(SlideTileToPosition(newTile.transform, GetWorldPosition(insertCol, rowIndex))));
 
         // Add all existing tiles sliding within the grid.
-    if (fromLeft)
-    {
-        for (int x = cols - 1; x >= 1; x--)
+        if (fromLeft)
         {
-            if (grid[x - 1, rowIndex] != null)
+            for (int x = cols - 1; x >= 1; x--)
             {
-                grid[x, rowIndex] = grid[x - 1, rowIndex];
-                essentialAnimations.Add(StartCoroutine(SlideTileToPosition(grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
+                if (grid[x - 1, rowIndex] != null)
+                {
+                    grid[x, rowIndex] = grid[x - 1, rowIndex];
+                    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
+                }
             }
+            grid[0, rowIndex] = newTile;
         }
-        grid[0, rowIndex] = newTile;
-    }
-    else // from right
-    {
-        for (int x = 0; x < cols - 1; x++)
+        else // from right
         {
-            if (grid[x + 1, rowIndex] != null)
+            for (int x = 0; x < cols - 1; x++)
             {
-                grid[x, rowIndex] = grid[x + 1, rowIndex];
-                essentialAnimations.Add(StartCoroutine(SlideTileToPosition(grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
+                if (grid[x + 1, rowIndex] != null)
+                {
+                    grid[x, rowIndex] = grid[x + 1, rowIndex];
+                    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
+                }
             }
+            grid[cols - 1, rowIndex] = newTile;
         }
-        grid[cols - 1, rowIndex] = newTile;
-    }
 
         // Start the non-essential "fire-and-forget" animation for the falling tile.
         // We do NOT add this to the list, so we don't wait for it.
-    if (ejectingTile != null)
-    {
-        StartCoroutine(EjectTileToAbyss(ejectingTile, !fromLeft));
-    }
-    
-    foreach (var anim in essentialAnimations)
-    {
-        yield return anim;
-    }
-
-    // === Section 6: Post-Animation Boat Logic (Identical to original) ===
-    foreach (var boat in boatsToParent)
-    {
-        if (boat != null)
+        if (ejectingTile != null)
         {
-            boat.transform.SetParent(null, true);
-            Debug.Log($"[GridManager] Un-parenting {boat.name}.");
+            StartCoroutine(EjectTileToAbyss(ejectingTile, !fromLeft));
         }
-    }
+
+        foreach (var anim in essentialAnimations)
+        {
+            yield return anim;
+        }
+
+        // === Section 6: Post-Animation Boat Logic (Identical to original) ===
+        foreach (var boat in boatsToParent)
+        {
+            if (boat != null)
+            {
+                boat.transform.SetParent(null, true);
+                Debug.Log($"[GridManager] Un-parenting {boat.name}.");
+            }
+        }
 
         //This logic places the saved boat back onto the grid or bank
         // --- START OF BLOCK TO ADD (Part 2) ---
-if (ejectedBoat != null)
-{
-    // 1. Prepare the boat and determine its initial target row.
-    ejectedBoat.ResetStateAfterEjection();
-    int targetRow = rowIndex + (ejectedBoat.starsCollected > 0 ? 1 : -1);
-
-    // 2. Handle immediate bank placement if the target is off the board.
-    if (targetRow < 0)
-    {
-        // We now WAIT for this animation to finish.
-        yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom));
-        ejectedBoat.enabled = true;
-    }
-    else if (targetRow >= rows)
-    {
-        // We now WAIT for this animation to finish.
-        yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top));
-        ejectedBoat.enabled = true;
-    }
-    // 3. If the target is on the board, perform the search.
-    else 
-    {
-        int landingCol = fromLeft ? cols - 1 : 0;
-        int searchDirection = (ejectedBoat.starsCollected > 0) ? 1 : -1;
-        int currentRow = targetRow; 
-        RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
-
-        List<TileInstance> crossedReversedTiles = new List<TileInstance>();
-        TileInstance finalLandingTile = null;
-
-        while (currentRow >= 0 && currentRow < rows)
+        if (ejectedBoat != null)
         {
-            TileInstance tileToCheck = GetTileAt(landingCol, currentRow);
-            if (tileToCheck != null && tileToCheck.IsReversed)
+            // 1. Prepare the boat and determine its initial target row.
+            ejectedBoat.ResetStateAfterEjection();
+            int targetRow = rowIndex + (ejectedBoat.starsCollected > 0 ? 1 : -1);
+
+            // 2. Handle immediate bank placement if the target is off the board.
+            if (targetRow < 0)
             {
-                crossedReversedTiles.Add(tileToCheck);
-                currentRow += searchDirection;
+                // We now WAIT for this animation to finish.
+                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom));
+                ejectedBoat.enabled = true;
             }
+            else if (targetRow >= rows)
+            {
+                // We now WAIT for this animation to finish.
+                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top));
+                ejectedBoat.enabled = true;
+            }
+            // 3. If the target is on the board, perform the search.
             else
             {
-                finalLandingTile = tileToCheck;
-                break;
-            }
-        }
-        
-        if (crossedReversedTiles.Count > 0)
-        {
-            ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
-        }
+                int landingCol = fromLeft ? cols - 1 : 0;
+                int searchDirection = (ejectedBoat.starsCollected > 0) ? 1 : -1;
+                int currentRow = targetRow;
+                RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
+
+                List<TileInstance> crossedReversedTiles = new List<TileInstance>();
+                TileInstance finalLandingTile = null;
+
+                while (currentRow >= 0 && currentRow < rows)
+                {
+                    TileInstance tileToCheck = GetTileAt(landingCol, currentRow);
+                    if (tileToCheck != null && tileToCheck.IsReversed)
+                    {
+                        crossedReversedTiles.Add(tileToCheck);
+                        currentRow += searchDirection;
+                    }
+                    else
+                    {
+                        finalLandingTile = tileToCheck;
+                        break;
+                    }
+                }
+
+                if (crossedReversedTiles.Count > 0)
+                {
+                    ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
+                }
 
                 if (finalLandingTile != null)
                 {
@@ -931,14 +986,14 @@ if (ejectedBoat != null)
                     yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint));
                     ejectedBoat.enabled = true;
                     ejectedBoat.CheckForCollectibleOnCurrentTile();
-        }
+                }
                 else
                 {
                     // We now WAIT for this animation to finish.
                     yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
                     ejectedBoat.enabled = true;
                 }
-    }
+            }
 
 
         }
@@ -962,10 +1017,10 @@ if (ejectedBoat != null)
                 Debug.Log($"[GridManager] Puzzle Mode: Did NOT return {ejectingTile.originalTemplate.displayName} to bag.");
             }
         }
-    else if (ejectingTile != null)
-    {
-        Debug.LogWarning("[GridManager] Ejected tile had no originalTemplate - cannot return to bag!");
-    }
+        else if (ejectingTile != null)
+        {
+            Debug.LogWarning("[GridManager] Ejected tile had no originalTemplate - cannot return to bag!");
+        }
 
         // Re-enable arrow colliders after push is complete
         if (riverControls != null)
@@ -986,10 +1041,10 @@ if (ejectedBoat != null)
 
 
         isPushingInProgress = false;
-        
-    string sideText = handTile.isFlipped ? "Red (Obstacle)" : "Blue (River)";
-    string directionText = fromLeft ? "Left" : "Right";
-    Debug.Log($"[GridManager] Row {rowIndex} pushed from {directionText} with hand tile '{handTile.tileType.displayName}' ({sideText})");
+
+        string sideText = handTile.isFlipped ? "Red (Obstacle)" : "Blue (River)";
+        string directionText = fromLeft ? "Left" : "Right";
+        Debug.Log($"[GridManager] Row {rowIndex} pushed from {directionText} with hand tile '{handTile.tileType.displayName}' ({sideText})");
     }
 
 
@@ -1085,7 +1140,7 @@ if (ejectedBoat != null)
             var tileRenderer = tile.GetComponentInChildren<MeshRenderer>();
             if (tileRenderer != null)
             {
-                
+
                 Color startColor = tileRenderer.material.color;
                 float fadeElapsed = 0f;
                 while (fadeElapsed < actualFadeDuration)
@@ -1107,16 +1162,16 @@ if (ejectedBoat != null)
 
 
 
-    // --- THIS IS THE CORRECTED FINAL BLOCK ---
-    // Clean up the tile GameObject itself
-    if (tile != null && tile.gameObject != null)
-    {
-        // First, explicitly tell the PathVisualizer to destroy its children.
-        tile.GetComponent<PathVisualizer>()?.CleanUpPaths();
-        
-        // Then, destroy the main tile object.
-        Destroy(tile.gameObject);
-    }
+        // --- THIS IS THE CORRECTED FINAL BLOCK ---
+        // Clean up the tile GameObject itself
+        if (tile != null && tile.gameObject != null)
+        {
+            // First, explicitly tell the PathVisualizer to destroy its children.
+            tile.GetComponent<PathVisualizer>()?.CleanUpPaths();
+
+            // Then, destroy the main tile object.
+            Destroy(tile.gameObject);
+        }
 
 
 
@@ -1128,7 +1183,7 @@ if (ejectedBoat != null)
 
     }
 
-//NEW OVERLOAD - Pushes a specific, pre-configured tile from the player's hand.
+    //NEW OVERLOAD - Pushes a specific, pre-configured tile from the player's hand.
 
 
 
@@ -1176,14 +1231,14 @@ if (ejectedBoat != null)
     // 11. Tile initialization helper
     // ------------------------------------------------------------
 
-public void InitializeTile(TileInstance tileInstance, TileType template, bool showObstacleSide)
-{
-    if (showObstacleSide)
+    public void InitializeTile(TileInstance tileInstance, TileType template, bool showObstacleSide)
     {
-        // Flip tile to show obstacle (red) side
-        // tileInstance.transform.Rotate(180f, 0f, 0f);
-        
-        var straightPaths = new List<TileInstance.Connection>
+        if (showObstacleSide)
+        {
+            // Flip tile to show obstacle (red) side
+            // tileInstance.transform.Rotate(180f, 0f, 0f);
+
+            var straightPaths = new List<TileInstance.Connection>
         {
             new TileInstance.Connection { from = 0, to = 2 },
             new TileInstance.Connection { from = 2, to = 0 },
@@ -1192,16 +1247,16 @@ public void InitializeTile(TileInstance tileInstance, TileType template, bool sh
             new TileInstance.Connection { from = 4, to = 5 },
             new TileInstance.Connection { from = 5, to = 4 }
         };
-        
-        // PASS THE TEMPLATE to the tile
-        tileInstance.Initialise(straightPaths, true, template);
+
+            // PASS THE TEMPLATE to the tile
+            tileInstance.Initialise(straightPaths, true, template);
+        }
+        else
+        {
+            // PASS THE TEMPLATE to the tile
+            tileInstance.Initialise(ConvertPaths(template.frontPaths), false, template);
+        }
     }
-    else
-    {
-        // PASS THE TEMPLATE to the tile
-        tileInstance.Initialise(ConvertPaths(template.frontPaths), false, template);
-    }
-}
 
     // ------------------------------------------------------------
     // 12. Helper methods
@@ -1218,7 +1273,7 @@ public void InitializeTile(TileInstance tileInstance, TileType template, bool sh
     private IEnumerator ScaleIn(Transform t, float delay, float duration)
     {
         Vector3 target = t.localScale;
-        t.localScale   = Vector3.zero;
+        t.localScale = Vector3.zero;
 
         yield return new WaitForSeconds(delay);
 
@@ -1236,20 +1291,20 @@ public void InitializeTile(TileInstance tileInstance, TileType template, bool sh
     // ------------------------------------------------------------
     // 13. Public utility methods
     // ------------------------------------------------------------
-private int GetOppositeSnapPoint(int snap)
-{
-    switch (snap)
+    private int GetOppositeSnapPoint(int snap)
     {
-        case 0: return 3;
-        case 1: return 2;
-        case 2: return 1;
-        case 3: return 0;
-        // Snap points 4 and 5 (sides) are their own opposites in a 180-degree flip.
-        case 4: return 5; 
-        case 5: return 4;
-        default: return snap; // Failsafe
+        switch (snap)
+        {
+            case 0: return 3;
+            case 1: return 2;
+            case 2: return 1;
+            case 3: return 0;
+            // Snap points 4 and 5 (sides) are their own opposites in a 180-degree flip.
+            case 4: return 5;
+            case 5: return 4;
+            default: return snap; // Failsafe
+        }
     }
-}
     public bool IsPushInProgress()
     {
         return isPushingInProgress;
@@ -1261,4 +1316,20 @@ private int GetOppositeSnapPoint(int snap)
             return grid[x, y];
         return null;
     }
+    
+private TileType FindTileTypeByName(string name)
+{
+    if (bagManager.tileLibrary == null) return null;
+    foreach (var type in bagManager.tileLibrary.tileTypes)
+    {
+        if (type.displayName == name) return type;
+    }
+    return null;
+}
+
+
+
+
+
+
 }

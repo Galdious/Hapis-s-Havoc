@@ -50,7 +50,7 @@ public class LevelEditorManager : MonoBehaviour
     public Button paintToolButton;
     public Button rotateToolButton;
     public Button flipToolButton;
-    public Button toggleBlockerToolButton; 
+    public Button toggleBlockerToolButton;
     public Button placeCollectibleToolButton;
     public Button addToHandButton;      // <-- ADD
     public Button removeFromHandButton;
@@ -66,9 +66,9 @@ public class LevelEditorManager : MonoBehaviour
     public float paletteSpacing = 1.5f; // How far apart to space the palette tiles
 
     [Header("Editor Visuals")]
-    public GameObject blockerMarkerPrefab; 
-    public GameObject starCollectiblePrefab; 
-    public GameObject extraMoveCollectiblePrefab; 
+    public GameObject blockerMarkerPrefab;
+    public GameObject starCollectiblePrefab;
+    public GameObject extraMoveCollectiblePrefab;
     [Tooltip("The color to apply to the selected palette tile.")]
     public Color paletteSelectionColor = Color.cyan; // You can change this in the Inspector
     [Tooltip("How high to lift the selected palette tile.")]
@@ -85,7 +85,7 @@ public class LevelEditorManager : MonoBehaviour
     private List<PuzzleHandTile> playerHand = new List<PuzzleHandTile>();
     private Dictionary<TileType, TMP_Text> handCounters = new Dictionary<TileType, TMP_Text>();
 
-    private GameObject currentlyHighlightedHandTile; 
+    private GameObject currentlyHighlightedHandTile;
 
     // This class holds our "brush" information
     private class EditorBrush
@@ -160,9 +160,9 @@ public class LevelEditorManager : MonoBehaviour
 
         // Set the initial visual state
         UpdateToolButtonVisuals();
-        UpdateBagButtonVisuals(); 
+        UpdateBagButtonVisuals();
 
-                if (gridManager != null)
+        if (gridManager != null)
         {
             gridManager.OnTileConsumed += UpdateHandCounters;
         }
@@ -249,47 +249,47 @@ public class LevelEditorManager : MonoBehaviour
         }
     }
 
-private void SelectAddToHandTool()
-{
-    currentTool = (currentTool == EditorTool.AddToHand) ? EditorTool.Paint : EditorTool.AddToHand;
-    UpdateToolButtonVisuals();
-    Debug.Log($"Tool is now: {currentTool}. Click a tile from the LEFT palette.");
-}
+    private void SelectAddToHandTool()
+    {
+        currentTool = (currentTool == EditorTool.AddToHand) ? EditorTool.Paint : EditorTool.AddToHand;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}. Click a tile from the LEFT palette.");
+    }
 
-private void SelectRemoveFromHandTool()
-{
-    currentTool = (currentTool == EditorTool.RemoveFromHand) ? EditorTool.Paint : EditorTool.RemoveFromHand;
-    UpdateToolButtonVisuals();
-    Debug.Log($"Tool is now: {currentTool}. Click a tile from the RIGHT hand palette to remove.");
-}
-
-
+    private void SelectRemoveFromHandTool()
+    {
+        currentTool = (currentTool == EditorTool.RemoveFromHand) ? EditorTool.Paint : EditorTool.RemoveFromHand;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}. Click a tile from the RIGHT hand palette to remove.");
+    }
 
 
 
 
-private void SelectPaintTool()
-{
-    currentTool = EditorTool.Paint;
-    UpdateToolButtonVisuals();
-    Debug.Log("Switched to Paint tool.");
-}
 
-private void SelectRotateTool()
-{
-    // If the rotate tool is already active, switch back to paint. Otherwise, activate it.
-    currentTool = (currentTool == EditorTool.Rotate) ? EditorTool.Paint : EditorTool.Rotate;
-    UpdateToolButtonVisuals();
-    Debug.Log($"Tool is now: {currentTool}");
-}
 
-private void SelectFlipTool()
-{
-    // If the flip tool is already active, switch back to paint. Otherwise, activate it.
-    currentTool = (currentTool == EditorTool.Flip) ? EditorTool.Paint : EditorTool.Flip;
-    UpdateToolButtonVisuals();
-    Debug.Log($"Tool is now: {currentTool}");
-}
+    private void SelectPaintTool()
+    {
+        currentTool = EditorTool.Paint;
+        UpdateToolButtonVisuals();
+        Debug.Log("Switched to Paint tool.");
+    }
+
+    private void SelectRotateTool()
+    {
+        // If the rotate tool is already active, switch back to paint. Otherwise, activate it.
+        currentTool = (currentTool == EditorTool.Rotate) ? EditorTool.Paint : EditorTool.Rotate;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}");
+    }
+
+    private void SelectFlipTool()
+    {
+        // If the flip tool is already active, switch back to paint. Otherwise, activate it.
+        currentTool = (currentTool == EditorTool.Flip) ? EditorTool.Paint : EditorTool.Flip;
+        UpdateToolButtonVisuals();
+        Debug.Log($"Tool is now: {currentTool}");
+    }
 
 
 
@@ -526,21 +526,21 @@ private void SelectFlipTool()
 
             case EditorTool.Paint:
             default:
-            // 1. Always clear any previous selection first.
-            ClearHandHighlight();
+                // 1. Always clear any previous selection first.
+                ClearHandHighlight();
 
-            // 2. Find the specific instance in our hand data.
-            selectedHandTileForPush = playerHand.FirstOrDefault(t => t.tileType == clickedTile.myTileType);
+                // 2. Find the specific instance in our hand data.
+                selectedHandTileForPush = playerHand.FirstOrDefault(t => t.tileType == clickedTile.myTileType);
 
-            if (selectedHandTileForPush != null)
-            {
-                Debug.Log($"SELECTED '{clickedTile.myTileType.displayName}' for the next push.");
-                // 3. Apply the highlight to the visual tile we just clicked.
-                HighlightPaletteTile(clickedTile.gameObject); 
-                // And store a reference to it for clearing later.
-                currentlyHighlightedHandTile = clickedTile.gameObject;
-            }
-            break;
+                if (selectedHandTileForPush != null)
+                {
+                    Debug.Log($"SELECTED '{clickedTile.myTileType.displayName}' for the next push.");
+                    // 3. Apply the highlight to the visual tile we just clicked.
+                    HighlightPaletteTile(clickedTile.gameObject);
+                    // And store a reference to it for clearing later.
+                    currentlyHighlightedHandTile = clickedTile.gameObject;
+                }
+                break;
         }
     }
 
@@ -566,9 +566,9 @@ private void SelectFlipTool()
     }
 
 
-/// <summary>
-/// Updates the text for a single tile type in the hand palette.
-/// </summary>
+    /// <summary>
+    /// Updates the text for a single tile type in the hand palette.
+    /// </summary>
     private void UpdateSingleCounter(TileType type)
     {
         if (handCounters.ContainsKey(type))
@@ -578,7 +578,7 @@ private void SelectFlipTool()
             {
                 int initialCount = initialHandBlueprint.ContainsKey(type) ? initialHandBlueprint[type] : 0;
                 int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
-                
+
                 counterText.text = $"x{initialCount} ({currentAmountInBag} left)";
                 counterText.color = (currentAmountInBag > 0) ? Color.white : Color.grey;
             }
@@ -624,48 +624,48 @@ private void SelectFlipTool()
         float startZ = (groupedHand.Count() - 1) * paletteSpacing / 2f;
         int index = 0;
 
-            foreach (TileType type in uniqueTypesInHand.OrderBy(t => t.displayName))
-    {
-        // Find the first data object for this type to use as our visual model.
-        // This ensures the visual shows the rotation/flip of at least one of the tiles of this type.
-        PuzzleHandTile representativeTile = playerHand.First(t => t.tileType == type);
-
-        // Calculate the spawn position for this tile in the column.
-        Vector3 spawnPos = new Vector3(0, 0, startZ - (index * paletteSpacing));
-        
-        // Instantiate the tile prefab and set its state from our data model.
-        GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
-        tileGO.transform.SetParent(handPaletteContainer, false);
-        tileGO.name = "HandPalette_" + type.displayName;
-
-        // Initialize its paths based on its current flip state.
-        var tileInstance = tileGO.GetComponent<TileInstance>();
-        gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
-
-        // Add the component that makes it clickable.
-        var handTile = tileGO.AddComponent<HandPaletteTile>();
-        handTile.editorManager = this;
-        handTile.myTileType = type;
-        
-        // Add the text counter.
-        if (countIndicatorPrefab != null)
+        foreach (TileType type in uniqueTypesInHand.OrderBy(t => t.displayName))
         {
-            GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
-            indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
-            var text = indicatorGO.GetComponentInChildren<TMP_Text>();
-            if (text)
+            // Find the first data object for this type to use as our visual model.
+            // This ensures the visual shows the rotation/flip of at least one of the tiles of this type.
+            PuzzleHandTile representativeTile = playerHand.First(t => t.tileType == type);
+
+            // Calculate the spawn position for this tile in the column.
+            Vector3 spawnPos = new Vector3(0, 0, startZ - (index * paletteSpacing));
+
+            // Instantiate the tile prefab and set its state from our data model.
+            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
+            tileGO.transform.SetParent(handPaletteContainer, false);
+            tileGO.name = "HandPalette_" + type.displayName;
+
+            // Initialize its paths based on its current flip state.
+            var tileInstance = tileGO.GetComponent<TileInstance>();
+            gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
+
+            // Add the component that makes it clickable.
+            var handTile = tileGO.AddComponent<HandPaletteTile>();
+            handTile.editorManager = this;
+            handTile.myTileType = type;
+
+            // Add the text counter.
+            if (countIndicatorPrefab != null)
             {
-                // Count how many of this type are in our data list.
-                int countInHand = playerHand.Count(t => t.tileType == type);
-                text.text = $"x{countInHand}";
-                
-                // Store a reference to this text component so we can update it later
-                // without having to redraw everything.
-                handCounters[type] = text;
+                GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
+                indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
+                var text = indicatorGO.GetComponentInChildren<TMP_Text>();
+                if (text)
+                {
+                    // Count how many of this type are in our data list.
+                    int countInHand = playerHand.Count(t => t.tileType == type);
+                    text.text = $"x{countInHand}";
+
+                    // Store a reference to this text component so we can update it later
+                    // without having to redraw everything.
+                    handCounters[type] = text;
+                }
             }
-        }
-        
-        index++;
+
+            index++;
         }
     }
 
@@ -714,7 +714,7 @@ private void SelectFlipTool()
                 break;
 
             case EditorTool.SetStart:
-                SetStartPosition(tileToModify);
+                SetStartPosition(tileToModify); 
                 break;
 
             case EditorTool.SetEnd:
@@ -760,28 +760,104 @@ private void SelectFlipTool()
                     break;
             }
 
+            // --- THIS IS THE FIX ---
+            // We now get the value from the prefab itself instead of hardcoding it.
+            int value = 0;
             if (prefabToSpawn != null)
             {
-                // Position it slightly above the tile surface
-                Vector3 spawnPos = tile.transform.position + Vector3.up * 0.25f; 
-                GameObject collectibleGO = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity, tile.transform);
-                
-                var collectibleInstance = collectibleGO.GetComponent<CollectibleInstance>();
-                if (collectibleInstance != null)
+                var prefabInstance = prefabToSpawn.GetComponent<CollectibleInstance>();
+                if (prefabInstance != null)
                 {
-                    collectibleInstance.type = selectedType;
+                    value = prefabInstance.value;
                 }
-                Debug.Log($"Placed {selectedType} on tile {tile.name}");
             }
+            PlaceOrRemoveCollectible(tile, selectedType, value);
+
+          
         }
     }
 
+    // This version is for our loading code. It takes specific data and places the correct item.
+    private void PlaceOrRemoveCollectible(TileInstance tile, CollectibleType type, int value)
+    {
+        // If a collectible already exists here (from a previous load attempt, etc.), clear it first.
+        var existingCollectible = tile.GetComponentInChildren<CollectibleInstance>();
+        if(existingCollectible != null)
+        {
+            Destroy(existingCollectible.gameObject);
+        }
+
+        GameObject prefabToSpawn = null;
+    
+        switch (type)
+        {
+            case CollectibleType.Star:
+                prefabToSpawn = starCollectiblePrefab;
+                break;
+            case CollectibleType.ExtraMove:
+                prefabToSpawn = extraMoveCollectiblePrefab;
+                break;
+        }
+    
+        if (prefabToSpawn != null)
+        {
+            Vector3 spawnPos = tile.transform.position + Vector3.up * 0.25f; 
+            GameObject collectibleGO = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity, tile.transform);
+            
+            var collectibleInstance = collectibleGO.GetComponent<CollectibleInstance>();
+            if (collectibleInstance != null)
+            {
+                collectibleInstance.type = type;
+                collectibleInstance.value = value; // Set the value from the loaded data
+            }
+            // Don't need to log this during a level load, it clutters the console.
+            // Debug.Log($"Placed {type} on tile {tile.name}");
+        }
+    }
+private void UpdateBlockerVisual(TileInstance tile)
+{
+    string markerName = "BlockerMarker";
+    Transform existingMarker = tile.transform.Find(markerName);
+
+    // If the tile's data says it's a blocker...
+    if (tile.IsHardBlocker)
+    {
+        // ...and it's a red tile and doesn't have a marker, add one.
+        if (tile.IsReversed && existingMarker == null && blockerMarkerPrefab != null)
+        {
+            Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform).name = markerName;
+        }
+    }
+    // If the tile's data says it's NOT a blocker...
+    else
+    {
+        // ...and it has a marker, remove it.
+        if (existingMarker != null)
+        {
+            Destroy(existingMarker.gameObject);
+        }
+    }
+}
+private void ToggleTileBlocker(TileInstance tile)
+{
+    // This method is for user clicks.
+    if (!tile.IsReversed)
+    {
+        Debug.LogWarning($"Cannot set blocker status on a non-reversed (blue) tile: {tile.name}");
+        return;
+    }
+
+    // Flip the data state.
+    tile.IsHardBlocker = !tile.IsHardBlocker;
+    Debug.Log($"Tile {tile.name} IsHardBlocker set to: {tile.IsHardBlocker}");
+
+    // Tell the new helper to update the visual to match the new data state.
+    UpdateBlockerVisual(tile);
+}
 
 
 
-
-
-    private void ToggleTileBlocker(TileInstance tile)
+    private void ToggleTileBlocker(TileInstance tile, bool shouldBeBlocker)
     {
         // Safety check: We can only toggle blockers on reversed (red) tiles.
         if (!tile.IsReversed)
@@ -832,100 +908,97 @@ private void SelectFlipTool()
         else if (currentTool == EditorTool.SetStart)
         {
             // Tell the SetStartPosition method that a bank was clicked.
-            SetStartPosition(null, side);
+            SetStartPosition(null, side, null);
         }
 
     }
 
-// And finally, the logic to place the end marker.
+
+// This is the version for when the USER CLICKS a tile. It uses a raycast to find the nearest snap point.
+private void SetStartPosition(TileInstance tile)
+{
+    Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
+    if (Physics.Raycast(ray, out RaycastHit hit))
+    {
+        float minDistance = float.MaxValue;
+        int closestSnapIndex = -1;
+        for (int i = 0; i < tile.snapPoints.Length; i++) {
+            if (tile.snapPoints[i] != null) {
+                float distance = Vector3.Distance(hit.point, tile.snapPoints[i].position);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestSnapIndex = i;
+                }
+            }
+        }
+        if (closestSnapIndex != -1) {
+            SetStartPosition(tile, null, closestSnapIndex);
+        }
+    }
+}
+
+// This is the version that does the actual work for both user clicks and loading from data.
+private void SetStartPosition(TileInstance tile, RiverBankManager.BankSide? side, int? snapIndex)
+{
+        Debug.Log($"[SetStartPosition] Method entered. Received snapIndex: {snapIndex}");
+    if (activeStartMarker != null) Destroy(activeStartMarker);
+
+    // Update the editor's internal state variables for the boat spawner
+    this.startTile = tile;
+    this.startBank = side;
+    this.startSnapPointIndex = snapIndex ?? -1;
+
+    // Determine marker's world position
+    Vector3 markerPosition = Vector3.zero;
+    if (side.HasValue)
+    {
+        markerPosition = riverBankManager.GetBankGameObject(side.Value).transform.position;
+    }
+    else if (tile != null && snapIndex.HasValue)
+    {
+        markerPosition = tile.snapPoints[snapIndex.Value].position;
+    }
+
+    // Instantiate the marker prefab
+    activeStartMarker = Instantiate(startMarkerPrefab, markerPosition, Quaternion.identity);
+
+    // Get the GoalMarker component and tell it to set itself up.
+    // This is the key change.
+    var markerComponent = activeStartMarker.AddComponent<GoalMarker>();
+
+    Debug.Log($"[SetStartPosition] Condition is TRUE. snapIndex.Value is: {snapIndex.Value}");
+    Debug.Log($"[SetStartPosition] Position of snap point {snapIndex.Value} is: {tile.snapPoints[snapIndex.Value].position}");
+    markerComponent.Setup(gridManager, tile, side, snapIndex);
+}
+
+// This method places the end marker and attaches the data component.
 private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide? side = null)
 {
     if (activeEndMarker != null) Destroy(activeEndMarker);
 
-    if (tile != null)
+    // Update the editor's internal state variables
+    this.endTile = tile;
+    this.endBank = side;
+
+    // Determine marker's world position
+    Vector3 markerPosition = Vector3.zero;
+    if (side.HasValue)
     {
-        endTile = tile;
-        endBank = null;
-        activeEndMarker = Instantiate(endMarkerPrefab, tile.transform.position, Quaternion.identity);
-        Debug.Log($"End point set on tile {tile.name}.");
+        markerPosition = riverBankManager.GetBankGameObject(side.Value).transform.position;
     }
-    else if (side.HasValue)
+    else if (tile != null)
     {
-        endTile = null;
-        endBank = side.Value;
-        Transform bankTransform = riverBankManager.GetBankGameObject(side.Value).transform;
-        activeEndMarker = Instantiate(endMarkerPrefab, bankTransform.position, Quaternion.identity);
-        Debug.Log($"End point set on {side.Value} bank.");
+        markerPosition = tile.transform.position;
     }
+
+    // Instantiate the marker prefab
+    activeEndMarker = Instantiate(endMarkerPrefab, markerPosition, Quaternion.identity);
+
+    // Get the GoalMarker component and tell it to set itself up.
+    // The snap point is null for the end position.
+    var markerComponent = activeEndMarker.AddComponent<GoalMarker>();
+    markerComponent.Setup(gridManager, tile, side, null);
 }
-
-
-
-private void SetStartPosition(TileInstance tile = null, RiverBankManager.BankSide? side = null)
-{
-    // Clear the old marker first
-    if (activeStartMarker != null) Destroy(activeStartMarker);
-
-    // Scenario 1: A TILE was clicked
-    if (tile != null)
-    {
-        // Find the closest snap point on the clicked tile (this logic is still needed for tiles)
-        Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
-        if (Physics.Raycast(ray, out RaycastHit hit))
-        {
-            Vector3 clickWorldPos = hit.point;
-            float minDistance = float.MaxValue;
-            int closestSnapIndex = -1;
-
-            for (int i = 0; i < tile.snapPoints.Length; i++)
-            {
-                if (tile.snapPoints[i] != null)
-                {
-                    float distance = Vector3.Distance(clickWorldPos, tile.snapPoints[i].position);
-                    if (distance < minDistance)
-                    {
-                        minDistance = distance;
-                        closestSnapIndex = i;
-                    }
-                }
-            }
-
-            if (closestSnapIndex != -1)
-            {
-                // Update state for a TILE start
-                startTile = tile;
-                startSnapPointIndex = closestSnapIndex;
-                startBank = null;
-
-                // Place marker on the specific snap point
-                activeStartMarker = Instantiate(startMarkerPrefab, tile.snapPoints[closestSnapIndex]);
-                Debug.Log($"Start point set on TILE {tile.name}, snap point {closestSnapIndex}.");
-            }
-        }
-    }
-    // Scenario 2: A BANK was clicked
-    else if (side.HasValue)
-    {
-        // Update state for a BANK start
-        startTile = null;
-        startSnapPointIndex = -1;
-        startBank = side.Value;
-        // We can just store the BankSide. The PuzzleGameManager will figure out the spawn point later.
-            // For the visual marker, we'll place it in the middle of the bank.
-            Transform bankTransform = riverBankManager.GetBankGameObject(side.Value).transform;
-        
-        activeStartMarker = Instantiate(startMarkerPrefab, bankTransform.position, Quaternion.identity);
-        Debug.Log($"Start point set on BANK {side.Value}.");
-        
-        // Storing the actual spawn transform isn't necessary for the editor,
-        // but we can store the side for when we save the level.
-        // Let's modify the class variable to store the side instead of the transform.
-        // startBankSpawn = bankTransform; <--- We can improve this.
-    }
-}
-
-
-
 
 
 
@@ -1056,20 +1129,20 @@ private void SetStartPosition(TileInstance tile = null, RiverBankManager.BankSid
         Debug.Log($"Rotating tile {tileToRotate.name}");
 
 
-    // We need to check if the tile we clicked is in the hand palette.
-    HandPaletteTile handTileComponent = tileToRotate.GetComponent<HandPaletteTile>();
-    if (handTileComponent != null)
-    {
-        // It's a hand tile! Find the first matching data object in our list.
-        PuzzleHandTile tileData = playerHand.FirstOrDefault(t => t.tileType == handTileComponent.myTileType);
-        if (tileData != null)
+        // We need to check if the tile we clicked is in the hand palette.
+        HandPaletteTile handTileComponent = tileToRotate.GetComponent<HandPaletteTile>();
+        if (handTileComponent != null)
         {
-            // Update the rotation in our DATA object.
-            // The % 360 ensures the value stays within 0-359.
-            tileData.rotationY = (tileData.rotationY + 180f) % 360f;
-            Debug.Log($"Updated hand data for {tileData.tileType.displayName}, new rotation: {tileData.rotationY} degrees.");
+            // It's a hand tile! Find the first matching data object in our list.
+            PuzzleHandTile tileData = playerHand.FirstOrDefault(t => t.tileType == handTileComponent.myTileType);
+            if (tileData != null)
+            {
+                // Update the rotation in our DATA object.
+                // The % 360 ensures the value stays within 0-359.
+                tileData.rotationY = (tileData.rotationY + 180f) % 360f;
+                Debug.Log($"Updated hand data for {tileData.tileType.displayName}, new rotation: {tileData.rotationY} degrees.");
+            }
         }
-    }
 
 
 
@@ -1162,9 +1235,9 @@ private void SetStartPosition(TileInstance tile = null, RiverBankManager.BankSid
         SetButtonColor(flipToolButton, EditorTool.Flip);
         SetButtonColor(addToHandButton, EditorTool.AddToHand);
         SetButtonColor(removeFromHandButton, EditorTool.RemoveFromHand);
-        SetButtonColor(setStartToolButton, EditorTool.SetStart); 
+        SetButtonColor(setStartToolButton, EditorTool.SetStart);
         SetButtonColor(setEndToolButton, EditorTool.SetEnd);
-        SetButtonColor(toggleBlockerToolButton, EditorTool.ToggleBlocker); 
+        SetButtonColor(toggleBlockerToolButton, EditorTool.ToggleBlocker);
         SetButtonColor(placeCollectibleToolButton, EditorTool.PlaceCollectible);
 
         EventSystem.current.SetSelectedGameObject(null);
@@ -1184,7 +1257,7 @@ private void SetStartPosition(TileInstance tile = null, RiverBankManager.BankSid
     public IEnumerator HandleArrowPush(int row, bool fromLeft, bool isForObstacleSide)
     {
         // --- THE NEW, SIMPLIFIED LOGIC ---
-        
+
         // Step 1: Are we in Puzzle Mode?
         if (gridManager.isPuzzleMode)
         {
@@ -1194,10 +1267,10 @@ private void SetStartPosition(TileInstance tile = null, RiverBankManager.BankSid
                 Debug.LogError("PUZZLE MODE: Cannot push. No tile selected from the hand. Please select a tile first.");
                 yield break; // STOP. Do absolutely nothing.
             }
-            
+
             // A hand tile IS selected. Proceed with the puzzle push.
             Debug.Log($"PUZZLE MODE: Pushing selected hand tile: {selectedHandTileForPush.tileType.displayName}");
-            
+
             // Immediately consume the tile from our local data. This prevents re-use.
             PuzzleHandTile tileToPush = new PuzzleHandTile(selectedHandTileForPush.tileType)
             {
@@ -1210,7 +1283,7 @@ private void SetStartPosition(TileInstance tile = null, RiverBankManager.BankSid
             selectedHandTileForPush = null; // Deselect immediately
 
             ApplyHandToBag();
-            
+
             // Now, tell GridManager to push this specific tile and wait for it to finish.
             // GridManager will announce OnTileConsumed, which triggers the UI update.
             yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileToPush));
@@ -1273,31 +1346,31 @@ private void SetStartPosition(TileInstance tile = null, RiverBankManager.BankSid
     // }
 
 
-private void ClearHandHighlight()
-{
-    if (currentlyHighlightedHandTile == null) return;
-
-    var renderer = currentlyHighlightedHandTile.GetComponentInChildren<MeshRenderer>();
-    if (renderer != null && originalPaletteMaterial.ContainsKey(renderer))
+    private void ClearHandHighlight()
     {
-        // Restore the original material.
-        renderer.sharedMaterial = originalPaletteMaterial[renderer];
-        
-        // Lower the tile.
-        StartCoroutine(LiftTileSmooth(currentlyHighlightedHandTile.transform, false));
+        if (currentlyHighlightedHandTile == null) return;
 
-        // Clean up our tracking variables.
-        originalPaletteMaterial.Remove(renderer);
-        currentlyHighlightedHandTile = null;
+        var renderer = currentlyHighlightedHandTile.GetComponentInChildren<MeshRenderer>();
+        if (renderer != null && originalPaletteMaterial.ContainsKey(renderer))
+        {
+            // Restore the original material.
+            renderer.sharedMaterial = originalPaletteMaterial[renderer];
+
+            // Lower the tile.
+            StartCoroutine(LiftTileSmooth(currentlyHighlightedHandTile.transform, false));
+
+            // Clean up our tracking variables.
+            originalPaletteMaterial.Remove(renderer);
+            currentlyHighlightedHandTile = null;
+        }
     }
-}
 
-private void UpdateBagButtonVisuals()
-{
-    // This function will set the colors based on the currentBagMode state.
-    SetBagButtonColor(applySandboxBagButton, EditorBagMode.Sandbox);
-    SetBagButtonColor(applyHandBagButton, EditorBagMode.Hand);
-}
+    private void UpdateBagButtonVisuals()
+    {
+        // This function will set the colors based on the currentBagMode state.
+        SetBagButtonColor(applySandboxBagButton, EditorBagMode.Sandbox);
+        SetBagButtonColor(applyHandBagButton, EditorBagMode.Hand);
+    }
 
     private void SetBagButtonColor(Button btn, EditorBagMode mode)
     {
@@ -1306,9 +1379,9 @@ private void UpdateBagButtonVisuals()
         // Compare against the currentBagMode to decide the color
         colors.normalColor = (currentBagMode == mode) ? toolSelectedColor : toolDefaultColor;
         btn.colors = colors;
-    
+
         if (currentBagMode == mode) EventSystem.current.SetSelectedGameObject(null);
-}
+    }
 
     /// <summary>
     /// Gathers all the current level data from the editor, converts it to JSON,
@@ -1380,31 +1453,26 @@ private void UpdateBagButtonVisuals()
             };
             levelData.playerHand.Add(handTileSave);
         }
-        
+
         // 6. Populate Start & End Goal Data
-        levelData.startPosition = new GoalData();
-        if (startBank.HasValue)
+        if (activeStartMarker != null)
         {
-            levelData.startPosition.bankSide = startBank.Value;
+            levelData.startPosition = activeStartMarker.GetComponent<GoalMarker>().goalInfo;
         }
-        else if (startTile != null)
+        else
         {
-            var coords = gridManager.GetTileCoordinates(startTile);
-            levelData.startPosition.tileX = coords.x;
-            levelData.startPosition.tileY = coords.y;
-            levelData.startPosition.snapPointIndex = startSnapPointIndex;
+            // If there's no marker, ensure we save a null or empty object so the file is valid.
+            levelData.startPosition = new GoalData();
         }
 
-        levelData.endPosition = new GoalData();
-        if (endBank.HasValue)
+        if (activeEndMarker != null)
         {
-            levelData.endPosition.bankSide = endBank.Value;
+            levelData.endPosition = activeEndMarker.GetComponent<GoalMarker>().goalInfo;
         }
-        else if (endTile != null)
+        else
         {
-            var coords = gridManager.GetTileCoordinates(endTile);
-            levelData.endPosition.tileX = coords.x;
-            levelData.endPosition.tileY = coords.y;
+            // If there's no marker, ensure we save a null or empty object so the file is valid.
+            levelData.endPosition = new GoalData();
         }
 
         // 7. Convert to JSON and Save to File
@@ -1418,7 +1486,7 @@ private void UpdateBagButtonVisuals()
         {
             Directory.CreateDirectory(directoryPath);
         }
-        
+
         // Combine the directory path with the desired filename
         string path = Path.Combine(directoryPath, filename + ".json");
 
@@ -1427,10 +1495,10 @@ private void UpdateBagButtonVisuals()
             File.WriteAllText(path, json);
             Debug.Log($"<color=lime>Level saved successfully to: {path}</color>");
 
-        #if UNITY_EDITOR
-        UnityEditor.AssetDatabase.Refresh();
-        #endif
-        
+#if UNITY_EDITOR
+            UnityEditor.AssetDatabase.Refresh();
+#endif
+
         }
         catch (System.Exception e)
         {
@@ -1469,14 +1537,171 @@ private void UpdateBagButtonVisuals()
             Debug.Log($"<color=cyan>Successfully loaded level '{filename}' from file.</color>");
             Debug.Log($"Grid Size: {loadedData.gridWidth}x{loadedData.gridHeight}, Max Moves: {loadedData.maxMoves}");
             Debug.Log($"Contains {loadedData.tiles.Count} tiles, {loadedData.collectibles.Count} collectibles, and {loadedData.playerHand.Count} hand tiles.");
+
+            StartCoroutine(ReconstructLevelFromDataCoroutine(loadedData));
             
-            // You could add more detailed logging here if you want to inspect the loaded data.
         }
         catch (System.Exception e)
         {
             Debug.LogError($"Failed to load or parse level from {path}. Error: {e.Message}");
         }
     }
+
+    // It helps us find a TileType from our library using its name.
+    private TileType FindTileTypeByName(string name)
+    {
+        if (gridManager.bagManager.tileLibrary == null) return null;
+        return gridManager.bagManager.tileLibrary.tileTypes.FirstOrDefault(t => t.displayName == name);
+    }
+
+        private IEnumerator ReconstructLevelFromDataCoroutine(LevelData data)
+    {
+        Debug.Log("Beginning level reconstruction...");
+
+        // 1. Clear the current scene state
+        boatManager.ClearAllBoats();
+        if (activeStartMarker != null) Destroy(activeStartMarker);
+        if (activeEndMarker != null) Destroy(activeEndMarker);
+        playerHand.Clear();
+        ClearPaletteHighlight();
+        ClearHandHighlight();
+        startTile = null;
+        startBank = null;
+        startSnapPointIndex = -1;
+        endTile = null;
+        endBank = null;
+
+        //    This single call will build the entire grid correctly with animations.
+        List<Coroutine> gridAnimations = gridManager.CreateGridFromEditor(data.gridWidth, data.gridHeight, data.tiles);
+
+    // Now, wait for every single one of those animations to complete.
+    Debug.Log($"Waiting for {gridAnimations.Count} tile animations to finish...");
+    if (gridAnimations != null)
+    {
+        foreach (var anim in gridAnimations)
+        {
+            if (anim != null) yield return anim;
+        }
+    }
+    Debug.Log("All tile animations complete. Proceeding...");
+
+        riverBankManager.GenerateBanksForGrid();
+        riverControls.GenerateArrowsForGrid();
+        riverControls.SetLockStates(data.lockedRows); 
+
+    // 3. Place all the tiles and add their editor components
+    for (int y = 0; y < data.gridHeight; y++)
+    {
+        for (int x = 0; x < data.gridWidth; x++)
+        {
+            TileInstance tile = gridManager.GetTileAt(x, y);
+            if (tile != null)
+            {
+                var editorTile = tile.gameObject.AddComponent<EditorGridTile>();
+                editorTile.editorManager = this;
+                editorTile.tileInstance = tile;
+                UpdateBlockerVisual(tile); // Update blocker visuals after creation
+            }
+        }
+    }
+    
+    // 4. Initialize each tile's state from the loaded data
+    // THIS LOOP IS NOW ONLY HERE ONCE.
+    // foreach (var tileData in data.tiles)
+    // {
+    //     TileInstance tileInstance = gridManager.GetTileAt(tileData.gridX, tileData.gridY);
+    //     TileType type = FindTileTypeByName(tileData.tileTypeName);
+
+    //     if (tileInstance != null && type != null)
+    //     {
+    //         tileInstance.GetComponent<PathVisualizer>()?.CleanUpPaths();
+    //         tileInstance.transform.rotation = Quaternion.Euler(0, tileData.rotationY, tileData.isFlipped ? 180f : 0);
+    //         gridManager.InitializeTile(tileInstance, type, tileData.isFlipped);
+            
+    //         // Directly set the blocker data and update the visual
+    //         tileInstance.IsHardBlocker = tileData.isHardBlocker;
+    //         UpdateBlockerVisual(tileInstance);
+    //     }
+    // }
+
+        // 5. Place Collectibles
+        foreach (var collectibleData in data.collectibles)
+        {
+            TileInstance tile = gridManager.GetTileAt(collectibleData.gridX, collectibleData.gridY);
+            if (tile != null)
+            {
+                PlaceOrRemoveCollectible(tile, collectibleData.type, collectibleData.value);
+            }
+        }
+        
+        // 6. Rebuild the Player's Hand data and visuals
+        foreach (var handTileData in data.playerHand)
+        {
+            TileType type = FindTileTypeByName(handTileData.tileTypeName);
+            if (type != null)
+            {
+                playerHand.Add(new PuzzleHandTile(type)
+                {
+                    rotationY = handTileData.rotationY,
+                    isFlipped = handTileData.isFlipped
+                });
+            }
+        }
+        RedrawHandPalette();
+        // Force the game into Puzzle Mode with the hand we just loaded.
+        ApplyHandToBag();
+
+        // 7. Update UI Fields
+        widthInput.text = data.gridWidth.ToString();
+        heightInput.text = data.gridHeight.ToString();
+        maxMovesInput.text = data.maxMoves.ToString();
+
+// 8. Place Start and End Markers by reading the new, robust GoalData structure
+        if (data.startPosition != null)
+        {
+            if (data.startPosition.isBankGoal)
+            {
+                // Load a bank start position
+                SetStartPosition(null, data.startPosition.bankSide, null);
+            }
+            else if (data.startPosition.tileX != -1)
+            {
+                // Load a tile start position
+                TileInstance tile = gridManager.GetTileAt(data.startPosition.tileX, data.startPosition.tileY);
+                Debug.Log($"[Reconstruct] Reading snapPointIndex from JSON: {data.startPosition.snapPointIndex}. Calling SetStartPosition...");
+                SetStartPosition(tile, null, data.startPosition.snapPointIndex);
+            }
+        }
+
+        if (data.endPosition != null)
+        {
+            if (data.endPosition.isBankGoal)
+            {
+                // Load a bank end position
+                SetEndPosition(null, data.endPosition.bankSide);
+            }
+            else if (data.endPosition.tileX != -1)
+            {
+                // Load a tile end position
+                TileInstance tile = gridManager.GetTileAt(data.endPosition.tileX, data.endPosition.tileY);
+                SetEndPosition(tile, null);
+            }
+        }
+
+        // 9. Spawn the test boat in its starting position
+        // This now works because Step 2 fixed SetStartPosition to update these variables!
+        Debug.Log($"[Reconstruct] Spawning boat with startSnapPointIndex: {startSnapPointIndex}");
+
+        //Debug.Break();
+
+        boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
+
+        Debug.Log("<color=cyan>Level reconstruction complete.</color>");
+    }
+
+
+
+
 
 }
 

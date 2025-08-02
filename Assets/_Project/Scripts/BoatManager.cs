@@ -118,6 +118,71 @@ public class BoatManager : MonoBehaviour
     }
     
 
+public void SpawnBoatAtLevelStart(TileInstance startTile, int startSnapPoint, RiverBankManager.BankSide? startBank)
+{
+    // First, clear any existing boats to ensure a clean slate.
+    ClearAllBoats();
+
+    // --- CASE 1: The start point is a BANK ---
+    if (startBank.HasValue)
+    {
+        // Find the spawn point and use the dedicated method for banks.
+        Transform spawnPoint = bankManager.GetNearestSpawnPoint(startBank.Value, Vector3.zero);
+        if (spawnPoint != null)
+        {
+            SpawnBoatAtBank(spawnPoint, 0);
+        }
+    }
+    // --- CASE 2: The start point is a TILE (NEW, DIRECT LOGIC) ---
+    else if (startTile != null) // This handles the tile start case
+    {
+        // Step 1: Calculate the final position and rotation PRECISELY.
+        Vector3 finalPos;
+        Quaternion finalRot;
+
+        Vector3 snapPosition = startTile.snapPoints[startSnapPoint].position;
+        Vector3 tileCenter = startTile.transform.position;
+        Vector3 direction = (snapPosition - tileCenter).normalized;
+        
+        // We need to access the public snapOffset value from the boat prefab.
+        float offset = boatPrefab.GetComponent<BoatController>().snapOffset;
+        finalPos = snapPosition - direction * offset;
+        
+        // Step 2: Call the NEWLY STATIC method. This is legal and correct.
+        finalRot = BoatController.GetSnapPointRotation(startTile, startSnapPoint);
+
+        // Step 3: Instantiate the boat at the PERFECT final transform.
+        GameObject boatGO = Instantiate(boatPrefab, finalPos, finalRot);
+        boatGO.name = "Boat_0";
+        
+        BoatController boat = boatGO.GetComponent<BoatController>();
+        if (boat == null) boat = boatGO.AddComponent<BoatController>();
+
+        // Step 4: Call the SAFE method to set the boat's state WITHOUT moving it.
+        boat.InitializeStateOnTile(startTile, startSnapPoint);
+
+        // Step 5: Apply editor settings and add to list.
+        if (FindFirstObjectByType<LevelEditorManager>() is LevelEditorManager editorManager)
+        {
+            int maxMoves = editorManager.GetCurrentMaxMoves();
+            boat.maxMovementPoints = maxMoves;
+            boat.currentMovementPoints = maxMoves;
+        }
+        if (starCounterText != null)
+        {
+            boat.starCounterText = this.starCounterText;
+        }
+        playerBoats.Add(boat);
+    }
+    // --- Failsafe Case ---
+    else
+    {
+        Debug.LogWarning("No valid start point found for boat. Spawning at default test location.");
+        SpawnTestBoats();
+    }
+
+    Debug.Log("[BoatManager] Spawned boat at level's defined start position.");
+}
 
 public void ClearAllBoats()
 {
