@@ -4,12 +4,12 @@
     "maxMoves": 3,
     "lockedRows": [
         3,
-        1,
-        2
+        2,
+        1
     ],
     "tiles": [
         {
-            "tileTypeName": "TileTurn_03",
+            "tileTypeName": "TileCross",
             "gridX": 0,
             "gridY": 0,
             "rotationY": 0.0,
@@ -17,15 +17,15 @@
             "isHardBlocker": false
         },
         {
-            "tileTypeName": "TileTurnChange_01",
+            "tileTypeName": "TileCross",
             "gridX": 1,
             "gridY": 0,
-            "rotationY": 0.0,
-            "isFlipped": false,
+            "rotationY": 0.000005008956122765085,
+            "isFlipped": true,
             "isHardBlocker": false
         },
         {
-            "tileTypeName": "TileSimple_01",
+            "tileTypeName": "TileFace",
             "gridX": 2,
             "gridY": 0,
             "rotationY": 180.0,
@@ -33,16 +33,8 @@
             "isHardBlocker": false
         },
         {
-            "tileTypeName": "TileSimple_01",
+            "tileTypeName": "TileCross",
             "gridX": 0,
-            "gridY": 1,
-            "rotationY": 0.0,
-            "isFlipped": false,
-            "isHardBlocker": false
-        },
-        {
-            "tileTypeName": "TileFace",
-            "gridX": 1,
             "gridY": 1,
             "rotationY": 0.0,
             "isFlipped": false,
@@ -50,6 +42,14 @@
         },
         {
             "tileTypeName": "TileCross",
+            "gridX": 1,
+            "gridY": 1,
+            "rotationY": 0.000005008956122765085,
+            "isFlipped": true,
+            "isHardBlocker": true
+        },
+        {
+            "tileTypeName": "TileFace",
             "gridX": 2,
             "gridY": 1,
             "rotationY": 0.0,
@@ -57,23 +57,23 @@
             "isHardBlocker": false
         },
         {
-            "tileTypeName": "TileSimple_02",
+            "tileTypeName": "TileCross",
             "gridX": 0,
             "gridY": 2,
-            "rotationY": 180.0,
+            "rotationY": 0.0,
             "isFlipped": false,
             "isHardBlocker": false
         },
         {
-            "tileTypeName": "TileTurn_02",
+            "tileTypeName": "TileSimple_01",
             "gridX": 1,
             "gridY": 2,
             "rotationY": 180.0,
-            "isFlipped": false,
+            "isFlipped": true,
             "isHardBlocker": false
         },
         {
-            "tileTypeName": "TileTurn_01",
+            "tileTypeName": "TileFace",
             "gridX": 2,
             "gridY": 2,
             "rotationY": 0.0,
@@ -81,10 +81,33 @@
             "isHardBlocker": false
         }
     ],
-    "collectibles": [],
+    "collectibles": [
+        {
+            "gridX": 0,
+            "gridY": 1,
+            "type": 0,
+            "value": 1
+        },
+        {
+            "gridX": 2,
+            "gridY": 1,
+            "type": 1,
+            "value": 2
+        }
+    ],
     "playerHand": [
         {
-            "tileTypeName": "TileTurn_02",
+            "tileTypeName": "TileTurn_01",
+            "rotationY": 0.0,
+            "isFlipped": false
+        },
+        {
+            "tileTypeName": "TileTurn_01",
+            "rotationY": 0.0,
+            "isFlipped": false
+        },
+        {
+            "tileTypeName": "TileTurn_01",
             "rotationY": 0.0,
             "isFlipped": false
         },
@@ -95,6 +118,26 @@
         },
         {
             "tileTypeName": "TileTurn_02",
+            "rotationY": 0.0,
+            "isFlipped": false
+        },
+        {
+            "tileTypeName": "TileTurn_02",
+            "rotationY": 0.0,
+            "isFlipped": false
+        },
+        {
+            "tileTypeName": "TileTurn_03",
+            "rotationY": 0.0,
+            "isFlipped": false
+        },
+        {
+            "tileTypeName": "TileTurn_03",
+            "rotationY": 0.0,
+            "isFlipped": false
+        },
+        {
+            "tileTypeName": "TileTurn_03",
             "rotationY": 0.0,
             "isFlipped": false
         }
@@ -103,13 +146,13 @@
         "isBankGoal": false,
         "tileX": 0,
         "tileY": 0,
-        "snapPointIndex": 5,
+        "snapPointIndex": 2,
         "bankSide": 0
     },
     "endPosition": {
-        "isBankGoal": false,
-        "tileX": 2,
-        "tileY": 2,
+        "isBankGoal": true,
+        "tileX": -1,
+        "tileY": -1,
         "snapPointIndex": -1,
         "bankSide": 0
     }

@@ -174,6 +174,93 @@ public class LevelEditorManager : MonoBehaviour
 
 
 
+    /// Gathers the complete current state of the game and returns it as a snapshot object.
+    /// <returns>A populated GameStateSnapshot object.</returns>
+    public GameStateSnapshot CreateCurrentStateSnapshot()
+    {
+        GameStateSnapshot snapshot = new GameStateSnapshot();
+
+        // 1. Capture Grid and Collectible State
+        snapshot.tileStates = new List<TileSaveData>();
+        snapshot.collectibleStates = new List<CollectibleSaveData>();
+        for (int y = 0; y < gridManager.rows; y++)
+        {
+            for (int x = 0; x < gridManager.cols; x++)
+            {
+                TileInstance tile = gridManager.GetTileAt(x, y);
+                if (tile != null && tile.originalTemplate != null)
+                {
+                    snapshot.tileStates.Add(new TileSaveData
+                    {
+                        tileTypeName = tile.originalTemplate.displayName,
+                        gridX = x,
+                        gridY = y,
+                        rotationY = tile.transform.eulerAngles.y,
+                        isFlipped = tile.IsReversed,
+                        isHardBlocker = tile.IsHardBlocker
+                    });
+
+                    var collectible = tile.GetComponentInChildren<CollectibleInstance>();
+                    if (collectible != null)
+                    {
+                        snapshot.collectibleStates.Add(new CollectibleSaveData
+                        {
+                            gridX = x,
+                            gridY = y,
+                            type = collectible.type,
+                            value = collectible.value
+                        });
+                    }
+                }
+            }
+        }
+
+        // 2. Capture Row Lock State
+        snapshot.lockedRowsState = riverControls.GetLockStatesAsInts();
+
+        // 3. Capture Boat State (assuming single boat for puzzle mode)
+        var boat = boatManager.GetPlayerBoats().FirstOrDefault();
+        if (boat != null)
+        {
+            snapshot.boatMovementPoints = boat.currentMovementPoints;
+            snapshot.boatStarsCollected = boat.starsCollected;
+
+            // Use a GoalData object to store the boat's position cleanly
+            snapshot.boatPosition = new GoalData();
+            if (boat.GetCurrentTile() != null)
+            {
+                var coords = gridManager.GetTileCoordinates(boat.GetCurrentTile());
+                snapshot.boatPosition.isBankGoal = false;
+                snapshot.boatPosition.tileX = coords.x;
+                snapshot.boatPosition.tileY = coords.y;
+                snapshot.boatPosition.snapPointIndex = boat.GetCurrentSnapPoint();
+            }
+            else if (boat.CurrentBank.HasValue)
+            {
+                snapshot.boatPosition.isBankGoal = true;
+                snapshot.boatPosition.bankSide = boat.CurrentBank.Value;
+            }
+        }
+
+        // 4. Capture Player Hand State
+        snapshot.playerHandState = new List<HandTileSaveData>();
+        foreach (var handTile in playerHand)
+        {
+            snapshot.playerHandState.Add(new HandTileSaveData
+            {
+                tileTypeName = handTile.tileType.displayName,
+                rotationY = handTile.rotationY,
+                isFlipped = handTile.isFlipped
+            });
+        }
+
+        // We will handle undoCount later when we implement the undo action itself.
+
+        return snapshot;
+    }
+
+
+
 
 
 
@@ -1257,7 +1344,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
 
     public IEnumerator HandleArrowPush(int row, bool fromLeft, bool isForObstacleSide)
     {
-        // --- THE NEW, SIMPLIFIED LOGIC ---
+        HistoryManager.Instance.SaveState();
 
         // Step 1: Are we in Puzzle Mode?
         if (gridManager.isPuzzleMode)
@@ -1512,50 +1599,104 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
     /// Loads level data from a JSON file. For now, it just loads it into memory
     /// and prints it to the console to verify it works.
     /// </summary>
-    
 
-public void LoadLevelFromFile(string path)
-{
-    if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+
+    public void LoadLevelFromFile(string path)
     {
-        Debug.LogError($"[LevelEditorManager] Load failed: File not found or path is invalid: {path}");
-        return;
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            Debug.LogError($"[LevelEditorManager] Load failed: File not found or path is invalid: {path}");
+            return;
+        }
+
+        try
+        {
+            string json = File.ReadAllText(path);
+            LevelData loadedData = JsonUtility.FromJson<LevelData>(json);
+
+            if (loadedData != null)
+            {
+                currentLoadedLevelData = loadedData;
+
+                // Clear history for a new level.
+                if (HistoryManager.Instance != null)
+                {
+                    HistoryManager.Instance.ClearHistory();
+                }
+
+                // Convert the loaded file data into a snapshot to reconstruct the initial state.
+                GameStateSnapshot initialSnapshot = CreateSnapshotFromLevelData(loadedData);
+
+                // Save the initial state immediately after creating it (before reconstruction starts).
+                if (HistoryManager.Instance != null)
+                {
+                    HistoryManager.Instance.SaveState(initialSnapshot); // Pass the initial snapshot
+                }
+
+
+                StartCoroutine(ReconstructLevelFromDataCoroutine(initialSnapshot)); // Start reconstruction
+
+                Debug.Log($"<color=cyan>Successfully loaded level data from: {path}</color>");
+                
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to load or parse level from {path}. Error: {e.Message}");
+        }
+
+
+
+
+
+
+
+
     }
 
-    try
-    {
-        string json = File.ReadAllText(path);
-        LevelData loadedData = JsonUtility.FromJson<LevelData>(json);
 
-        if (loadedData != null)
+
+    private GameStateSnapshot CreateSnapshotFromLevelData(LevelData data)
+    {
+        GameStateSnapshot snapshot = new GameStateSnapshot();
+        snapshot.tileStates = data.tiles;
+        snapshot.collectibleStates = data.collectibles;
+        snapshot.lockedRowsState = data.lockedRows;
+        snapshot.boatMovementPoints = data.maxMoves;
+        snapshot.boatStarsCollected = 0;
+        snapshot.boatPosition = data.startPosition;
+        snapshot.playerHandState = data.playerHand;
+        snapshot.undoCount = 0;
+        return snapshot;
+    }
+
+
+    /// Reconstructs the level using the last successfully loaded level data.
+    public void RestartCurrentLevel()
+    {
+        // First, check if we actually have a level loaded to restart.
+        if (currentLoadedLevelData != null)
         {
-            currentLoadedLevelData = loadedData;
-            Debug.Log($"<color=cyan>Successfully loaded level data from: {path}</color>");
-            StartCoroutine(ReconstructLevelFromDataCoroutine(loadedData));
+            Debug.Log($"<color=yellow>Restarting level...</color>");
+
+            // Clear history and save the initial state (just like a new load)
+            if (HistoryManager.Instance != null)
+            {
+                HistoryManager.Instance.ClearHistory();
+            }
+            GameStateSnapshot initialSnapshot = CreateSnapshotFromLevelData(currentLoadedLevelData);
+            if (HistoryManager.Instance != null)
+            {
+                HistoryManager.Instance.SaveState(initialSnapshot);
+            }
+
+            StartCoroutine(ReconstructLevelFromDataCoroutine(initialSnapshot));
+        }
+        else
+        {
+            Debug.LogWarning("Cannot restart: No level has been loaded yet.");
         }
     }
-    catch (System.Exception e)
-    {
-        Debug.LogError($"Failed to load or parse level from {path}. Error: {e.Message}");
-    }
-}
-
-
-/// Reconstructs the level using the last successfully loaded level data.
-public void RestartCurrentLevel()
-{
-    // First, check if we actually have a level loaded to restart.
-    if (currentLoadedLevelData != null)
-    {
-        Debug.Log($"<color=yellow>Restarting level...</color>");
-        // Simply call the same reconstruction coroutine with our stored data.
-        StartCoroutine(ReconstructLevelFromDataCoroutine(currentLoadedLevelData));
-    }
-    else
-    {
-        Debug.LogWarning("Cannot restart: No level has been loaded yet.");
-    }
-}
 
 
 
@@ -1569,9 +1710,9 @@ public void RestartCurrentLevel()
         return gridManager.bagManager.tileLibrary.tileTypes.FirstOrDefault(t => t.displayName == name);
     }
 
-        private IEnumerator ReconstructLevelFromDataCoroutine(LevelData data)
+    private IEnumerator ReconstructLevelFromDataCoroutine(GameStateSnapshot snapshot)
     {
-        Debug.Log("Beginning level reconstruction...");
+        Debug.Log("Beginning level reconstruction from snapshot...");
 
         // 1. Clear the current scene state
         boatManager.ClearAllBoats();
@@ -1585,30 +1726,36 @@ public void RestartCurrentLevel()
         startSnapPointIndex = -1;
         endTile = null;
         endBank = null;
+            // Clear goal markers, we will restore them from the CURRENT level data later
+        foreach (var marker in FindObjectsByType<GoalMarker>(FindObjectsSortMode.None)) { Destroy(marker.gameObject); }
 
-        //    This single call will build the entire grid correctly with animations.
-        List<Coroutine> gridAnimations = gridManager.CreateGridFromEditor(data.gridWidth, data.gridHeight, data.tiles);
+        // We use the grid dimensions FROM THE SNAPSHOT.
+        List<Coroutine> gridAnimations = gridManager.CreateGridFromEditor(currentLoadedLevelData.gridWidth, currentLoadedLevelData.gridHeight, snapshot.tileStates);
 
-    // Now, wait for every single one of those animations to complete.
-    Debug.Log($"Waiting for {gridAnimations.Count} tile animations to finish...");
-    if (gridAnimations != null)
-    {
-        foreach (var anim in gridAnimations)
+
+        // --- THIS IS OUR FADE-OUT/FADE-IN TRANSITION (Optional but cool) ---
+
+
+        // Now, wait for every single one of those animations to complete.
+        // Debug.Log($"Waiting for {gridAnimations.Count} tile animations to finish...");
+        if (gridAnimations != null)
         {
-            if (anim != null) yield return anim;
+            foreach (var anim in gridAnimations)
+            {
+                if (anim != null) yield return anim;
+            }
         }
-    }
-    Debug.Log("All tile animations complete. Proceeding...");
+        // Debug.Log("All tile animations complete. Proceeding...");
 
         riverBankManager.GenerateBanksForGrid();
         riverControls.GenerateArrowsForGrid();
         //riverControls.SetLockStates(data.lockedRows); 
-        riverControls.SetLockStatesFromInts(data.lockedRows);
+        riverControls.SetLockStatesFromInts(snapshot.lockedRowsState);
 
-    // 3. Place all the tiles and add their editor components
-        for (int y = 0; y < data.gridHeight; y++)
+        // 3. Place all the tiles and add their editor components
+        for (int y = 0; y < currentLoadedLevelData.gridHeight; y++)
         {
-            for (int x = 0; x < data.gridWidth; x++)
+            for (int x = 0; x < currentLoadedLevelData.gridWidth; x++)
             {
                 TileInstance tile = gridManager.GetTileAt(x, y);
                 if (tile != null)
@@ -1621,27 +1768,27 @@ public void RestartCurrentLevel()
             }
         }
     
-    // 4. Initialize each tile's state from the loaded data
-    // THIS LOOP IS NOW ONLY HERE ONCE.
-    // foreach (var tileData in data.tiles)
-    // {
-    //     TileInstance tileInstance = gridManager.GetTileAt(tileData.gridX, tileData.gridY);
-    //     TileType type = FindTileTypeByName(tileData.tileTypeName);
+        // 4. Initialize each tile's state from the loaded data
+        // THIS LOOP IS NOW ONLY HERE ONCE.
+        // foreach (var tileData in data.tiles)
+        // {
+        //     TileInstance tileInstance = gridManager.GetTileAt(tileData.gridX, tileData.gridY);
+        //     TileType type = FindTileTypeByName(tileData.tileTypeName);
 
-    //     if (tileInstance != null && type != null)
-    //     {
-    //         tileInstance.GetComponent<PathVisualizer>()?.CleanUpPaths();
-    //         tileInstance.transform.rotation = Quaternion.Euler(0, tileData.rotationY, tileData.isFlipped ? 180f : 0);
-    //         gridManager.InitializeTile(tileInstance, type, tileData.isFlipped);
-            
-    //         // Directly set the blocker data and update the visual
-    //         tileInstance.IsHardBlocker = tileData.isHardBlocker;
-    //         UpdateBlockerVisual(tileInstance);
-    //     }
-    // }
+        //     if (tileInstance != null && type != null)
+        //     {
+        //         tileInstance.GetComponent<PathVisualizer>()?.CleanUpPaths();
+        //         tileInstance.transform.rotation = Quaternion.Euler(0, tileData.rotationY, tileData.isFlipped ? 180f : 0);
+        //         gridManager.InitializeTile(tileInstance, type, tileData.isFlipped);
+                
+        //         // Directly set the blocker data and update the visual
+        //         tileInstance.IsHardBlocker = tileData.isHardBlocker;
+        //         UpdateBlockerVisual(tileInstance);
+        //     }
+        // }
 
         // 5. Place Collectibles
-        foreach (var collectibleData in data.collectibles)
+        foreach (var collectibleData in snapshot.collectibleStates)
         {
             TileInstance tile = gridManager.GetTileAt(collectibleData.gridX, collectibleData.gridY);
             if (tile != null)
@@ -1651,7 +1798,7 @@ public void RestartCurrentLevel()
         }
         
         // 6. Rebuild the Player's Hand data and visuals
-        foreach (var handTileData in data.playerHand)
+        foreach (var handTileData in snapshot.playerHandState)
         {
             TileType type = FindTileTypeByName(handTileData.tileTypeName);
             if (type != null)
@@ -1667,53 +1814,100 @@ public void RestartCurrentLevel()
         // Force the game into Puzzle Mode with the hand we just loaded.
         ApplyHandToBag();
 
-        // 7. Update UI Fields
-        widthInput.text = data.gridWidth.ToString();
-        heightInput.text = data.gridHeight.ToString();
-        maxMovesInput.text = data.maxMoves.ToString();
+        // // 7. Update UI Fields
+        // widthInput.text = data.gridWidth.ToString();
+        // heightInput.text = data.gridHeight.ToString();
+        // maxMovesInput.text = data.maxMoves.ToString();
 
-// 8. Place Start and End Markers by reading the new, robust GoalData structure
-        if (data.startPosition != null)
+        // // 8. Place Start and End Markers by reading the new, robust GoalData structure
+        // if (data.startPosition != null)
+        // {
+        //     if (data.startPosition.isBankGoal)
+        //     {
+        //         // Load a bank start position
+        //         SetStartPosition(null, data.startPosition.bankSide, null);
+        //     }
+        //     else if (data.startPosition.tileX != -1)
+        //     {
+        //         // Load a tile start position
+        //         TileInstance tile = gridManager.GetTileAt(data.startPosition.tileX, data.startPosition.tileY);
+        //         Debug.Log($"[Reconstruct] Reading snapPointIndex from JSON: {data.startPosition.snapPointIndex}. Calling SetStartPosition...");
+        //         SetStartPosition(tile, null, data.startPosition.snapPointIndex);
+        //     }
+        // }
+
+        // if (data.endPosition != null)
+        // {
+        //     if (data.endPosition.isBankGoal)
+        //     {
+        //         // Load a bank end position
+        //         SetEndPosition(null, data.endPosition.bankSide);
+        //     }
+        //     else if (data.endPosition.tileX != -1)
+        //     {
+        //         // Load a tile end position
+        //         TileInstance tile = gridManager.GetTileAt(data.endPosition.tileX, data.endPosition.tileY);
+        //         SetEndPosition(tile, null);
+        //     }
+        // }
+
+                // 5. Re-place Start and End Markers FROM THE ORIGINAL LEVEL DATA
+        // The goals don't move, so we restore them from 'currentLoadedLevelData'.
+        var startGoalData = currentLoadedLevelData.startPosition;
+        if (startGoalData != null)
         {
-            if (data.startPosition.isBankGoal)
+            if (startGoalData.isBankGoal) SetStartPosition(null, startGoalData.bankSide, null);
+            else if (startGoalData.tileX != -1) SetStartPosition(gridManager.GetTileAt(startGoalData.tileX, startGoalData.tileY), null, startGoalData.snapPointIndex);
+        }
+        var endGoalData = currentLoadedLevelData.endPosition;
+        if (endGoalData != null)
+        {
+            if (endGoalData.isBankGoal) SetEndPosition(null, endGoalData.bankSide);
+            else if (endGoalData.tileX != -1) SetEndPosition(gridManager.GetTileAt(endGoalData.tileX, endGoalData.tileY), null);
+        }
+
+                // 6. Spawn the boat and RESTORE ITS STATE
+        BoatController boat = boatManager.SpawnBoatWithoutPositioning(); // Spawn it without positioning
+        if (boat != null && snapshot.boatPosition != null)
+        {
+            // Restore dynamic values
+            boat.currentMovementPoints = snapshot.boatMovementPoints;
+            boat.SetCollectedStars(snapshot.boatStarsCollected);
+
+            // Restore position
+            if (snapshot.boatPosition.isBankGoal)
             {
-                // Load a bank start position
-                SetStartPosition(null, data.startPosition.bankSide, null);
+                boat.MoveToBank(snapshot.boatPosition.bankSide);
             }
-            else if (data.startPosition.tileX != -1)
+            else
             {
-                // Load a tile start position
-                TileInstance tile = gridManager.GetTileAt(data.startPosition.tileX, data.startPosition.tileY);
-                Debug.Log($"[Reconstruct] Reading snapPointIndex from JSON: {data.startPosition.snapPointIndex}. Calling SetStartPosition...");
-                SetStartPosition(tile, null, data.startPosition.snapPointIndex);
+                TileInstance boatTile = gridManager.GetTileAt(snapshot.boatPosition.tileX, snapshot.boatPosition.tileY);
+                boat.PlaceOnTile(boatTile, snapshot.boatPosition.snapPointIndex);
             }
         }
 
-        if (data.endPosition != null)
-        {
-            if (data.endPosition.isBankGoal)
-            {
-                // Load a bank end position
-                SetEndPosition(null, data.endPosition.bankSide);
-            }
-            else if (data.endPosition.tileX != -1)
-            {
-                // Load a tile end position
-                TileInstance tile = gridManager.GetTileAt(data.endPosition.tileX, data.endPosition.tileY);
-                SetEndPosition(tile, null);
-            }
-        }
 
         // 9. Spawn the test boat in its starting position
         // This now works because Step 2 fixed SetStartPosition to update these variables!
-        Debug.Log($"[Reconstruct] Spawning boat with startSnapPointIndex: {startSnapPointIndex}");
+        // Debug.Log($"[Reconstruct] Spawning boat with startSnapPointIndex: {startSnapPointIndex}");
 
         //Debug.Break();
 
-        boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
-        GameManager.Instance.InitializeLevel(data, activeEndMarker);
+        // boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
+        GameManager.Instance.InitializeLevel(currentLoadedLevelData, activeEndMarker);
 
-        Debug.Log("<color=cyan>Level reconstruction complete.</color>");
+
+        // // Clear any history from a previous level and save the initial state.
+        // if (HistoryManager.Instance != null)
+        // {
+        //     HistoryManager.Instance.ClearHistory();
+        //     HistoryManager.Instance.SaveState();
+        // }
+
+
+
+
+        Debug.Log("<color=cyan>Level reconstruction from snapshot complete.</color>");
     }
 
 

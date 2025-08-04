@@ -710,20 +710,22 @@ public void PrepareForForcedMove()
     
     public void OnTileClicked(TileInstance clickedTile)
     {
-            // --- ADD THIS BLOCK to the start of the method ---
-    if (reversedPathways.ContainsKey(clickedTile))
-    {
-        List<TileInstance> crossedTiles = reversedPathways[clickedTile];
-        Debug.Log($"[BoatController] Crossed {crossedTiles.Count} reversed tiles.");
-        foreach (var tile in crossedTiles)
+            
+        if (reversedPathways.ContainsKey(clickedTile))
         {
-            Debug.Log($"-- Applying placeholder penalty for crossing {tile.name}!");
+            List<TileInstance> crossedTiles = reversedPathways[clickedTile];
+            Debug.Log($"[BoatController] Crossed {crossedTiles.Count} reversed tiles.");
+            foreach (var tile in crossedTiles)
+            {
+                Debug.Log($"-- Applying placeholder penalty for crossing {tile.name}!");
+            }
         }
-    }
-        // --- END OF BLOCK TO ADD ---
+        
     
         if (isMoving || !isSelected || !validMoves.Contains(clickedTile) || currentMovementPoints <= 0) return;
         
+        HistoryManager.Instance.SaveState();
+
         isMoving = true;
         
 
@@ -742,6 +744,8 @@ public void PrepareForForcedMove()
     {
         if(isMoving || !isSelected || currentMovementPoints <= 0) return;
 
+        HistoryManager.Instance.SaveState();
+
         isMoving = true;
         
         StopAllCoroutines();
@@ -749,7 +753,12 @@ public void PrepareForForcedMove()
         Transform targetSpawn = riverBankManager.GetNearestSpawnPoint(side, transform.position);
         StartCoroutine(MoveToBankCoroutine(targetSpawn));
     }
-    
+
+    public void SetCollectedStars(int amount)
+    {
+        starsCollected = amount;
+        UpdateStarCounterUI();
+    }
 
 void RefreshMovementOptions()
 {
