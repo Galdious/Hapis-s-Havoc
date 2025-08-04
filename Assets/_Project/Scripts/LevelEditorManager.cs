@@ -1404,7 +1404,8 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
         levelData.gridWidth = gridManager.cols;
         levelData.gridHeight = gridManager.rows;
         levelData.maxMoves = GetCurrentMaxMoves();
-        levelData.lockedRows = riverControls.GetLockStates(); // We will need to add this helper function
+        //levelData.lockedRows = riverControls.GetLockStates(); // We will need to add this helper function
+        levelData.lockedRows = riverControls.GetLockStatesAsInts();
 
         // 4. Populate Tile Data
         for (int y = 0; y < gridManager.rows; y++)
@@ -1587,23 +1588,24 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
 
         riverBankManager.GenerateBanksForGrid();
         riverControls.GenerateArrowsForGrid();
-        riverControls.SetLockStates(data.lockedRows); 
+        //riverControls.SetLockStates(data.lockedRows); 
+        riverControls.SetLockStatesFromInts(data.lockedRows);
 
     // 3. Place all the tiles and add their editor components
-    for (int y = 0; y < data.gridHeight; y++)
-    {
-        for (int x = 0; x < data.gridWidth; x++)
+        for (int y = 0; y < data.gridHeight; y++)
         {
-            TileInstance tile = gridManager.GetTileAt(x, y);
-            if (tile != null)
+            for (int x = 0; x < data.gridWidth; x++)
             {
-                var editorTile = tile.gameObject.AddComponent<EditorGridTile>();
-                editorTile.editorManager = this;
-                editorTile.tileInstance = tile;
-                UpdateBlockerVisual(tile); // Update blocker visuals after creation
+                TileInstance tile = gridManager.GetTileAt(x, y);
+                if (tile != null)
+                {
+                    var editorTile = tile.gameObject.AddComponent<EditorGridTile>();
+                    editorTile.editorManager = this;
+                    editorTile.tileInstance = tile;
+                    UpdateBlockerVisual(tile); // Update blocker visuals after creation
+                }
             }
         }
-    }
     
     // 4. Initialize each tile's state from the loaded data
     // THIS LOOP IS NOW ONLY HERE ONCE.

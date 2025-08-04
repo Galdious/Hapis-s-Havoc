@@ -67,7 +67,8 @@ public class LevelData
     public int gridWidth;
     public int gridHeight;
     public int maxMoves;
-    public bool[] lockedRows;
+    //public bool[] lockedRows;
+    public int[] lockedRows;
 
     [Header("Level Content")]
     public List<TileSaveData> tiles = new List<TileSaveData>();
