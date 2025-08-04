@@ -22,6 +22,7 @@ public class LevelLoaderUI : MonoBehaviour
 
     [Tooltip("Drag the 'CurrentLevel_Text' UI element here.")]
     [SerializeField] private TMP_Text currentLevelText;
+    [SerializeField] private UnityEngine.UI.Button restartButton;
 
     [Header("Settings")]
     [Tooltip("The name of the subfolder inside 'Assets' where levels are stored.")]
@@ -51,6 +52,15 @@ public class LevelLoaderUI : MonoBehaviour
 
         // Add a listener that calls our method whenever the user picks a new option
         levelDropdown.onValueChanged.AddListener(OnDropdownValueChanged);
+
+        if (restartButton != null)
+        {
+            // The button should not be clickable until a level is loaded.
+            restartButton.interactable = false;
+            // Tell the button to call our manager's restart method when clicked.
+            restartButton.onClick.AddListener(editorManager.RestartCurrentLevel);
+        }
+    
     }
 
     /// <summary>
@@ -128,6 +138,10 @@ public class LevelLoaderUI : MonoBehaviour
             {
                 currentLevelText.text = $"{levelDropdown.options[index].text}";
             }
+
+            // A level is now loaded, so we can enable the restart button!
+            if (restartButton != null) restartButton.interactable = true;
+        
         }
     }
 }

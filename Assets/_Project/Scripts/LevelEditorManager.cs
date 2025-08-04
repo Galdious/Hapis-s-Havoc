@@ -96,6 +96,7 @@ public class LevelEditorManager : MonoBehaviour
     }
     private EditorBrush currentBrush;
     private PuzzleHandTile selectedHandTileForPush = null;
+    private LevelData currentLoadedLevelData;
 
 
     // This will store the original material of the highlighted palette tile
@@ -1528,6 +1529,7 @@ public void LoadLevelFromFile(string path)
 
         if (loadedData != null)
         {
+            currentLoadedLevelData = loadedData;
             Debug.Log($"<color=cyan>Successfully loaded level data from: {path}</color>");
             StartCoroutine(ReconstructLevelFromDataCoroutine(loadedData));
         }
@@ -1539,7 +1541,21 @@ public void LoadLevelFromFile(string path)
 }
 
 
-
+/// Reconstructs the level using the last successfully loaded level data.
+public void RestartCurrentLevel()
+{
+    // First, check if we actually have a level loaded to restart.
+    if (currentLoadedLevelData != null)
+    {
+        Debug.Log($"<color=yellow>Restarting level...</color>");
+        // Simply call the same reconstruction coroutine with our stored data.
+        StartCoroutine(ReconstructLevelFromDataCoroutine(currentLoadedLevelData));
+    }
+    else
+    {
+        Debug.LogWarning("Cannot restart: No level has been loaded yet.");
+    }
+}
 
 
 
