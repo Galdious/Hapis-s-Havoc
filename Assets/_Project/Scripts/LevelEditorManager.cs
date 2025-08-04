@@ -137,7 +137,7 @@ public class LevelEditorManager : MonoBehaviour
         if (toggleBlockerToolButton != null) toggleBlockerToolButton.onClick.AddListener(SelectToggleBlockerTool);
         if (placeCollectibleToolButton != null) placeCollectibleToolButton.onClick.AddListener(SelectPlaceCollectibleTool);
         if (saveLevelButton != null) saveLevelButton.onClick.AddListener(SaveLevel);
-        if (loadLevelButton != null) loadLevelButton.onClick.AddListener(LoadLevel);
+        //if (loadLevelButton != null) loadLevelButton.onClick.AddListener(LoadLevel);
 
         if (collectibleDropdown != null)
         {
@@ -1511,42 +1511,40 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
     /// Loads level data from a JSON file. For now, it just loads it into memory
     /// and prints it to the console to verify it works.
     /// </summary>
-    public void LoadLevel()
+    
+
+public void LoadLevelFromFile(string path)
+{
+    if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
     {
-        string filename = filenameInput.text;
-        if (string.IsNullOrWhiteSpace(filename))
+        Debug.LogError($"[LevelEditorManager] Load failed: File not found or path is invalid: {path}");
+        return;
+    }
+
+    try
+    {
+        string json = File.ReadAllText(path);
+        LevelData loadedData = JsonUtility.FromJson<LevelData>(json);
+
+        if (loadedData != null)
         {
-            Debug.LogError("Cannot load level: Please enter a filename.");
-            return;
-        }
-
-        string path = Path.Combine(Application.dataPath, "Levels", filename + ".json");
-
-        if (!File.Exists(path))
-        {
-            Debug.LogError($"Load failed: File not found at {path}");
-            return;
-        }
-
-        try
-        {
-            string json = File.ReadAllText(path);
-            LevelData loadedData = JsonUtility.FromJson<LevelData>(json);
-
-            // For now, we just prove it works by logging the data.
-            // In the next step, we will use this data to build the scene.
-            Debug.Log($"<color=cyan>Successfully loaded level '{filename}' from file.</color>");
-            Debug.Log($"Grid Size: {loadedData.gridWidth}x{loadedData.gridHeight}, Max Moves: {loadedData.maxMoves}");
-            Debug.Log($"Contains {loadedData.tiles.Count} tiles, {loadedData.collectibles.Count} collectibles, and {loadedData.playerHand.Count} hand tiles.");
-
+            Debug.Log($"<color=cyan>Successfully loaded level data from: {path}</color>");
             StartCoroutine(ReconstructLevelFromDataCoroutine(loadedData));
-            
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Failed to load or parse level from {path}. Error: {e.Message}");
         }
     }
+    catch (System.Exception e)
+    {
+        Debug.LogError($"Failed to load or parse level from {path}. Error: {e.Message}");
+    }
+}
+
+
+
+
+
+
+
+
 
     // It helps us find a TileType from our library using its name.
     private TileType FindTileTypeByName(string name)
