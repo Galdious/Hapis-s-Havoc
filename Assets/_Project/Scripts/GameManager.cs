@@ -24,6 +24,11 @@ public class GameManager : MonoBehaviour
     public LevelData currentLevelData { get; private set; }
     private GameObject activeEndMarker; 
 
+    // TIME TRACKING
+    private float levelStartTime;
+    private float levelEndTime;
+    private bool isTimerRunning = false;
+
     private void Awake()
     {
         // Singleton setup
@@ -53,10 +58,34 @@ public class GameManager : MonoBehaviour
         activeEndMarker = endMarker; 
 
         currentState = GameState.Playing;
+
+        //START THE TIMER ---
+        levelStartTime = Time.time;
+        isTimerRunning = true;
+        Debug.Log("<color=orange>[Playtest Timer]</color> Timer started.");
+
+
+
         Debug.Log($"<color=green>[GameManager]</color> Initialized with level. End marker tracking enabled.");
     }
 
 
+    private void StopTimerAndLogResult()
+    {
+        // Safety check to ensure we don't stop it more than once.
+        if (!isTimerRunning) return;
+
+        levelEndTime = Time.time;
+        isTimerRunning = false;
+
+        float elapsedTime = levelEndTime - levelStartTime;
+
+        // Let's format it nicely for the log.
+        System.TimeSpan timeSpan = System.TimeSpan.FromSeconds(elapsedTime);
+        string timeText = string.Format("{0:D2}:{1:D2}.{2:D3}", timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds);
+
+        Debug.Log($"<color=orange>[Playtest Timer]</color> Level Time: <b>{timeText}</b>");
+    }
 
 
     /// <summary>
@@ -78,6 +107,7 @@ public class GameManager : MonoBehaviour
             if (boatCoords.x == endGoal.tileX && boatCoords.y == endGoal.tileY)
             {
                 currentState = GameState.LevelComplete;
+                StopTimerAndLogResult(); // Stop the timer when the level is complete.
                 Debug.Log($"<color=yellow>LEVEL COMPLETE!</color> Reached the goal tile ({endGoal.tileX}, {endGoal.tileY}).");
                 return; // Stop checking
             }
@@ -88,6 +118,7 @@ public class GameManager : MonoBehaviour
         if (!endGoal.isBankGoal && activeEndMarker == null)
         {
             currentState = GameState.LevelFailed;
+            StopTimerAndLogResult(); // Stop the timer when the level fails.
             Debug.LogWarning($"<color=red>LEVEL FAILED!</color> The end goal marker was destroyed (ejected from the grid).");
             return; // Stop checking
         }
@@ -97,6 +128,7 @@ public class GameManager : MonoBehaviour
         if (boat.currentMovementPoints <= 0)
         {
             currentState = GameState.LevelFailed;
+            StopTimerAndLogResult(); // Stop the timer when the level fails.
             Debug.LogWarning($"<color=red>LEVEL FAILED!</color> Out of movement points.");
             return; // Stop checking
         }
@@ -114,6 +146,7 @@ public class GameManager : MonoBehaviour
         if (currentState == GameState.Playing)
         {
             currentState = GameState.LevelFailed;
+            StopTimerAndLogResult(); // Stop the timer when the level fails.
             Debug.LogWarning($"<color=red>LEVEL FAILED!</color> The end goal was ejected from the grid.");
         }
     }
