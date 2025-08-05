@@ -644,7 +644,7 @@ public class LevelEditorManager : MonoBehaviour
                     currentlyHighlightedHandTile = clickedTile.gameObject;
                 }
                 break;
-    
+
         }
     }
 
@@ -721,52 +721,52 @@ public class LevelEditorManager : MonoBehaviour
 
 
         var groupedHand = playerHand.GroupBy(t => t.tileType).ToDictionary(g => g.Key, g => g.ToList());
-        
+
         float startZ = (groupedHand.Count - 1) * paletteSpacing / 2f;
         int index = 0;
 
-    // We iterate through the GROUPS to position them correctly in the column.
-    foreach (var group in groupedHand.OrderBy(g => g.Key.displayName))
-    {
-        TileType type = group.Key;
-        List<PuzzleHandTile> tilesOfType = group.Value;
-        
-        // Use the first tile in the group as the visual representative.
-        PuzzleHandTile representativeTile = tilesOfType.First();
-        
-        // Calculate spawn position for this group.
-        Vector3 spawnPos = new Vector3(0, 0, startZ - (index * paletteSpacing));
-        
-        // --- VISUAL TILE CREATION (This part is mostly the same) ---
-        GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
-        tileGO.transform.SetParent(handPaletteContainer, false);
-        tileGO.name = "HandPalette_" + type.displayName;
-
-        var tileInstance = tileGO.GetComponent<TileInstance>();
-        gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
-        
-        // --- ASSIGN ALL IDs TO THE CLICK HANDLER ---
-        // This is a conceptual simplification. The clicker will now just report the type.
-        // We will then find an available tile of that type in the hand.
-        var handTileClicker = tileGO.AddComponent<HandPaletteTile>();
-        handTileClicker.editorManager = this;
-        handTileClicker.myTileType = type;
-        // We no longer need the unique ID on the visual component itself.
-
-        // --- COUNTER LOGIC (This is now correct) ---
-        if (countIndicatorPrefab != null)
+        // We iterate through the GROUPS to position them correctly in the column.
+        foreach (var group in groupedHand.OrderBy(g => g.Key.displayName))
         {
-            GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
-            indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
-            var text = indicatorGO.GetComponentInChildren<TMP_Text>();
-            if (text)
+            TileType type = group.Key;
+            List<PuzzleHandTile> tilesOfType = group.Value;
+
+            // Use the first tile in the group as the visual representative.
+            PuzzleHandTile representativeTile = tilesOfType.First();
+
+            // Calculate spawn position for this group.
+            Vector3 spawnPos = new Vector3(0, 0, startZ - (index * paletteSpacing));
+
+            // --- VISUAL TILE CREATION (This part is mostly the same) ---
+            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
+            tileGO.transform.SetParent(handPaletteContainer, false);
+            tileGO.name = "HandPalette_" + type.displayName;
+
+            var tileInstance = tileGO.GetComponent<TileInstance>();
+            gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
+
+            // --- ASSIGN ALL IDs TO THE CLICK HANDLER ---
+            // This is a conceptual simplification. The clicker will now just report the type.
+            // We will then find an available tile of that type in the hand.
+            var handTileClicker = tileGO.AddComponent<HandPaletteTile>();
+            handTileClicker.editorManager = this;
+            handTileClicker.myTileType = type;
+            // We no longer need the unique ID on the visual component itself.
+
+            // --- COUNTER LOGIC (This is now correct) ---
+            if (countIndicatorPrefab != null)
             {
-                // The text now shows how many of this type we have in our data list.
-                text.text = $"x{tilesOfType.Count}";
-                handCounters[type] = text;
+                GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
+                indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
+                var text = indicatorGO.GetComponentInChildren<TMP_Text>();
+                if (text)
+                {
+                    // The text now shows how many of this type we have in our data list.
+                    text.text = $"x{tilesOfType.Count}";
+                    handCounters[type] = text;
+                }
             }
-        }
-        index++;
+            index++;
         }
     }
 
@@ -815,7 +815,7 @@ public class LevelEditorManager : MonoBehaviour
                 break;
 
             case EditorTool.SetStart:
-                SetStartPosition(tileToModify); 
+                SetStartPosition(tileToModify);
                 break;
 
             case EditorTool.SetEnd:
@@ -874,7 +874,7 @@ public class LevelEditorManager : MonoBehaviour
             }
             PlaceOrRemoveCollectible(tile, selectedType, value);
 
-          
+
         }
     }
 
@@ -883,13 +883,13 @@ public class LevelEditorManager : MonoBehaviour
     {
         // If a collectible already exists here (from a previous load attempt, etc.), clear it first.
         var existingCollectible = tile.GetComponentInChildren<CollectibleInstance>();
-        if(existingCollectible != null)
+        if (existingCollectible != null)
         {
             Destroy(existingCollectible.gameObject);
         }
 
         GameObject prefabToSpawn = null;
-    
+
         switch (type)
         {
             case CollectibleType.Star:
@@ -899,12 +899,12 @@ public class LevelEditorManager : MonoBehaviour
                 prefabToSpawn = extraMoveCollectiblePrefab;
                 break;
         }
-    
+
         if (prefabToSpawn != null)
         {
-            Vector3 spawnPos = tile.transform.position + Vector3.up * 0.25f; 
+            Vector3 spawnPos = tile.transform.position + Vector3.up * 0.25f;
             GameObject collectibleGO = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity, tile.transform);
-            
+
             var collectibleInstance = collectibleGO.GetComponent<CollectibleInstance>();
             if (collectibleInstance != null)
             {
@@ -915,46 +915,46 @@ public class LevelEditorManager : MonoBehaviour
             // Debug.Log($"Placed {type} on tile {tile.name}");
         }
     }
-private void UpdateBlockerVisual(TileInstance tile)
-{
-    string markerName = "BlockerMarker";
-    Transform existingMarker = tile.transform.Find(markerName);
-
-    // If the tile's data says it's a blocker...
-    if (tile.IsHardBlocker)
+    private void UpdateBlockerVisual(TileInstance tile)
     {
-        // ...and it's a red tile and doesn't have a marker, add one.
-        if (tile.IsReversed && existingMarker == null && blockerMarkerPrefab != null)
+        string markerName = "BlockerMarker";
+        Transform existingMarker = tile.transform.Find(markerName);
+
+        // If the tile's data says it's a blocker...
+        if (tile.IsHardBlocker)
         {
-            Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform).name = markerName;
+            // ...and it's a red tile and doesn't have a marker, add one.
+            if (tile.IsReversed && existingMarker == null && blockerMarkerPrefab != null)
+            {
+                Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform).name = markerName;
+            }
+        }
+        // If the tile's data says it's NOT a blocker...
+        else
+        {
+            // ...and it has a marker, remove it.
+            if (existingMarker != null)
+            {
+                Destroy(existingMarker.gameObject);
+            }
         }
     }
-    // If the tile's data says it's NOT a blocker...
-    else
+    private void ToggleTileBlocker(TileInstance tile)
     {
-        // ...and it has a marker, remove it.
-        if (existingMarker != null)
+        // This method is for user clicks.
+        if (!tile.IsReversed)
         {
-            Destroy(existingMarker.gameObject);
+            Debug.LogWarning($"Cannot set blocker status on a non-reversed (blue) tile: {tile.name}");
+            return;
         }
-    }
-}
-private void ToggleTileBlocker(TileInstance tile)
-{
-    // This method is for user clicks.
-    if (!tile.IsReversed)
-    {
-        Debug.LogWarning($"Cannot set blocker status on a non-reversed (blue) tile: {tile.name}");
-        return;
-    }
 
-    // Flip the data state.
-    tile.IsHardBlocker = !tile.IsHardBlocker;
-    Debug.Log($"Tile {tile.name} IsHardBlocker set to: {tile.IsHardBlocker}");
+        // Flip the data state.
+        tile.IsHardBlocker = !tile.IsHardBlocker;
+        Debug.Log($"Tile {tile.name} IsHardBlocker set to: {tile.IsHardBlocker}");
 
-    // Tell the new helper to update the visual to match the new data state.
-    UpdateBlockerVisual(tile);
-}
+        // Tell the new helper to update the visual to match the new data state.
+        UpdateBlockerVisual(tile);
+    }
 
 
 
@@ -1015,91 +1015,95 @@ private void ToggleTileBlocker(TileInstance tile)
     }
 
 
-// This is the version for when the USER CLICKS a tile. It uses a raycast to find the nearest snap point.
-private void SetStartPosition(TileInstance tile)
-{
-    Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
-    if (Physics.Raycast(ray, out RaycastHit hit))
+    // This is the version for when the USER CLICKS a tile. It uses a raycast to find the nearest snap point.
+    private void SetStartPosition(TileInstance tile)
     {
-        float minDistance = float.MaxValue;
-        int closestSnapIndex = -1;
-        for (int i = 0; i < tile.snapPoints.Length; i++) {
-            if (tile.snapPoints[i] != null) {
-                float distance = Vector3.Distance(hit.point, tile.snapPoints[i].position);
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closestSnapIndex = i;
+        Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
+        if (Physics.Raycast(ray, out RaycastHit hit))
+        {
+            float minDistance = float.MaxValue;
+            int closestSnapIndex = -1;
+            for (int i = 0; i < tile.snapPoints.Length; i++)
+            {
+                if (tile.snapPoints[i] != null)
+                {
+                    float distance = Vector3.Distance(hit.point, tile.snapPoints[i].position);
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        closestSnapIndex = i;
+                    }
                 }
             }
-        }
-        if (closestSnapIndex != -1) {
-            SetStartPosition(tile, null, closestSnapIndex);
+            if (closestSnapIndex != -1)
+            {
+                SetStartPosition(tile, null, closestSnapIndex);
+            }
         }
     }
-}
 
-// This is the version that does the actual work for both user clicks and loading from data.
-private void SetStartPosition(TileInstance tile, RiverBankManager.BankSide? side, int? snapIndex)
-{
+    // This is the version that does the actual work for both user clicks and loading from data.
+    private void SetStartPosition(TileInstance tile, RiverBankManager.BankSide? side, int? snapIndex)
+    {
         Debug.Log($"[SetStartPosition] Method entered. Received snapIndex: {snapIndex}");
-    if (activeStartMarker != null) Destroy(activeStartMarker);
+        if (activeStartMarker != null) Destroy(activeStartMarker);
 
-    // Update the editor's internal state variables for the boat spawner
-    this.startTile = tile;
-    this.startBank = side;
-    this.startSnapPointIndex = snapIndex ?? -1;
+        // Update the editor's internal state variables for the boat spawner
+        this.startTile = tile;
+        this.startBank = side;
+        this.startSnapPointIndex = snapIndex ?? -1;
 
-    // Determine marker's world position
-    Vector3 markerPosition = Vector3.zero;
-    if (side.HasValue)
-    {
-        markerPosition = riverBankManager.GetBankGameObject(side.Value).transform.position;
-    }
-    else if (tile != null && snapIndex.HasValue)
-    {
-        markerPosition = tile.snapPoints[snapIndex.Value].position;
-    }
+        // Determine marker's world position
+        Vector3 markerPosition = Vector3.zero;
+        if (side.HasValue)
+        {
+            markerPosition = riverBankManager.GetBankGameObject(side.Value).transform.position;
+        }
+        else if (tile != null && snapIndex.HasValue)
+        {
+            markerPosition = tile.snapPoints[snapIndex.Value].position;
+        }
 
-    // Instantiate the marker prefab
-    activeStartMarker = Instantiate(startMarkerPrefab, markerPosition, Quaternion.identity);
+        // Instantiate the marker prefab
+        activeStartMarker = Instantiate(startMarkerPrefab, markerPosition, Quaternion.identity);
 
-    // Get the GoalMarker component and tell it to set itself up.
-    // This is the key change.
-    var markerComponent = activeStartMarker.AddComponent<GoalMarker>();
+        // Get the GoalMarker component and tell it to set itself up.
+        // This is the key change.
+        var markerComponent = activeStartMarker.AddComponent<GoalMarker>();
 
-    Debug.Log($"[SetStartPosition] Condition is TRUE. snapIndex.Value is: {snapIndex.Value}");
-    Debug.Log($"[SetStartPosition] Position of snap point {snapIndex.Value} is: {tile.snapPoints[snapIndex.Value].position}");
-    markerComponent.Setup(gridManager, tile, side, snapIndex, false);
-}
-
-// This method places the end marker and attaches the data component.
-private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide? side = null)
-{
-    if (activeEndMarker != null) Destroy(activeEndMarker);
-
-    // Update the editor's internal state variables
-    this.endTile = tile;
-    this.endBank = side;
-
-    // Determine marker's world position
-    Vector3 markerPosition = Vector3.zero;
-    if (side.HasValue)
-    {
-        markerPosition = riverBankManager.GetBankGameObject(side.Value).transform.position;
-    }
-    else if (tile != null)
-    {
-        markerPosition = tile.transform.position;
+        Debug.Log($"[SetStartPosition] Condition is TRUE. snapIndex.Value is: {snapIndex.Value}");
+        Debug.Log($"[SetStartPosition] Position of snap point {snapIndex.Value} is: {tile.snapPoints[snapIndex.Value].position}");
+        markerComponent.Setup(gridManager, tile, side, snapIndex, false);
     }
 
-    // Instantiate the marker prefab
-    activeEndMarker = Instantiate(endMarkerPrefab, markerPosition, Quaternion.identity);
+    // This method places the end marker and attaches the data component.
+    private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide? side = null)
+    {
+        if (activeEndMarker != null) Destroy(activeEndMarker);
 
-    // Get the GoalMarker component and tell it to set itself up.
-    // The snap point is null for the end position.
-    var markerComponent = activeEndMarker.AddComponent<GoalMarker>();
-    markerComponent.Setup(gridManager, tile, side, null, true);
-}
+        // Update the editor's internal state variables
+        this.endTile = tile;
+        this.endBank = side;
+
+        // Determine marker's world position
+        Vector3 markerPosition = Vector3.zero;
+        if (side.HasValue)
+        {
+            markerPosition = riverBankManager.GetBankGameObject(side.Value).transform.position;
+        }
+        else if (tile != null)
+        {
+            markerPosition = tile.transform.position;
+        }
+
+        // Instantiate the marker prefab
+        activeEndMarker = Instantiate(endMarkerPrefab, markerPosition, Quaternion.identity);
+
+        // Get the GoalMarker component and tell it to set itself up.
+        // The snap point is null for the end position.
+        var markerComponent = activeEndMarker.AddComponent<GoalMarker>();
+        markerComponent.Setup(gridManager, tile, side, null, true);
+    }
 
 
 
@@ -1650,7 +1654,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
                 StartCoroutine(ReconstructLevelFromDataCoroutine(initialSnapshot)); // Start reconstruction
 
                 Debug.Log($"<color=cyan>Successfully loaded level data from: {path}</color>");
-                
+
             }
         }
         catch (System.Exception e)
@@ -1723,7 +1727,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
         return gridManager.bagManager.tileLibrary.tileTypes.FirstOrDefault(t => t.displayName == name);
     }
 
-    private IEnumerator ReconstructLevelFromDataCoroutine(GameStateSnapshot snapshot)
+    public IEnumerator ReconstructLevelFromDataCoroutine(GameStateSnapshot snapshot, bool isUndoAction = false)
     {
         Debug.Log("Beginning level reconstruction from snapshot...");
 
@@ -1739,7 +1743,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
         startSnapPointIndex = -1;
         endTile = null;
         endBank = null;
-            // Clear goal markers, we will restore them from the CURRENT level data later
+        // Clear goal markers, we will restore them from the CURRENT level data later
         foreach (var marker in FindObjectsByType<GoalMarker>(FindObjectsSortMode.None)) { Destroy(marker.gameObject); }
 
         // We use the grid dimensions FROM THE SNAPSHOT.
@@ -1780,7 +1784,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
                 }
             }
         }
-    
+
         // 4. Initialize each tile's state from the loaded data
         // THIS LOOP IS NOW ONLY HERE ONCE.
         // foreach (var tileData in data.tiles)
@@ -1793,7 +1797,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
         //         tileInstance.GetComponent<PathVisualizer>()?.CleanUpPaths();
         //         tileInstance.transform.rotation = Quaternion.Euler(0, tileData.rotationY, tileData.isFlipped ? 180f : 0);
         //         gridManager.InitializeTile(tileInstance, type, tileData.isFlipped);
-                
+
         //         // Directly set the blocker data and update the visual
         //         tileInstance.IsHardBlocker = tileData.isHardBlocker;
         //         UpdateBlockerVisual(tileInstance);
@@ -1809,7 +1813,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
                 PlaceOrRemoveCollectible(tile, collectibleData.type, collectibleData.value);
             }
         }
-        
+
         // 6. Rebuild the Player's Hand data and visuals
         foreach (var handTileData in snapshot.playerHandState)
         {
@@ -1864,7 +1868,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
         //     }
         // }
 
-                // 5. Re-place Start and End Markers FROM THE ORIGINAL LEVEL DATA
+        // 5. Re-place Start and End Markers FROM THE ORIGINAL LEVEL DATA
         // The goals don't move, so we restore them from 'currentLoadedLevelData'.
         var startGoalData = currentLoadedLevelData.startPosition;
         if (startGoalData != null)
@@ -1879,7 +1883,7 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
             else if (endGoalData.tileX != -1) SetEndPosition(gridManager.GetTileAt(endGoalData.tileX, endGoalData.tileY), null);
         }
 
-                // 6. Spawn the boat and RESTORE ITS STATE
+        // 6. Spawn the boat and RESTORE ITS STATE
         BoatController boat = boatManager.SpawnBoatWithoutPositioning(); // Spawn it without positioning
         if (boat != null && snapshot.boatPosition != null)
         {
@@ -1918,10 +1922,66 @@ private void SetEndPosition(TileInstance tile = null, RiverBankManager.BankSide?
         // }
 
 
-
+        // After everything is visually in place, run the logic finalization routine.
+        yield return StartCoroutine(FinalizeStateReconstruction(snapshot, isUndoAction));
 
         Debug.Log("<color=cyan>Level reconstruction from snapshot complete.</color>");
     }
+
+
+
+
+
+
+
+
+    /// This coroutine runs AFTER the level has been visually reconstructed.
+    /// It re-initializes game logic, re-selects the boat, and checks for win/loss/collectible conditions.
+    private IEnumerator FinalizeStateReconstruction(GameStateSnapshot snapshot, bool isUndoAction)
+    {
+        // Wait a single frame to ensure all GameObjects from the reconstruction have been fully initialized.
+        yield return null;
+
+        // Find the boat in the scene.
+        var boat = boatManager.GetPlayerBoats().FirstOrDefault();
+        if (boat == null)
+        {
+            Debug.LogWarning("[FinalizeState] Could not find boat after reconstruction. Aborting finalization.");
+            yield break;
+        }
+
+        // --- LOGIC RE-EVALUATION ---
+
+        // 1. Tell the boat to check if it landed on a collectible.
+        boat.CheckForCollectibleOnCurrentTile();
+
+        // 2. Re-select the boat. This will lift it, start the bobbing animation, and find its valid moves.
+        // This is crucial for player experience, so it feels like a proper turn state.
+        if (isUndoAction)
+        {
+            // Only re-select the boat if this was triggered by an Undo action.
+            boat.SelectBoat();
+        }
+        
+        // We need to wait for the boat's "lift" animation to finish before checking for game over,
+        // as some checks might depend on the boat being in the correct state.
+        // The LiftAndBobBoat coroutine has a hardcoded duration of 0.3f. Let's wait for that.
+        yield return new WaitForSeconds(0.3f);
+
+        // 3. Manually trigger the GameManager to evaluate the new state.
+        // This will now correctly detect a win (on goal tile) or loss (out of moves).
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.EvaluateGameStateAfterMove(boat);
+        }
+        
+        Debug.Log("<color=lime>[FinalizeState]</color> Post-undo logic executed. Boat selected, game state evaluated.");
+    }
+
+
+
+
+
 
 
 

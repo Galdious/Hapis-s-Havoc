@@ -724,7 +724,7 @@ public void PrepareForForcedMove()
     
         if (isMoving || !isSelected || !validMoves.Contains(clickedTile) || currentMovementPoints <= 0) return;
         
-        HistoryManager.Instance.SaveState();
+        // HistoryManager.Instance.SaveState();
 
         isMoving = true;
         
@@ -744,7 +744,7 @@ public void PrepareForForcedMove()
     {
         if(isMoving || !isSelected || currentMovementPoints <= 0) return;
 
-        HistoryManager.Instance.SaveState();
+        // HistoryManager.Instance.SaveState();
 
         isMoving = true;
         
@@ -762,6 +762,7 @@ public void PrepareForForcedMove()
 
 void RefreshMovementOptions()
 {
+    HistoryManager.Instance.SaveState();
     isMoving = false;
     
         // After every move, just ask the GameManager to evaluate the situation.

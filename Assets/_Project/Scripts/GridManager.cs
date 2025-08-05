@@ -725,7 +725,7 @@ public class GridManager : MonoBehaviour
         }
         // ^^^ END OF FINAL STEP ^^^
 
-
+        HistoryManager.Instance.SaveState();
 
         isPushingInProgress = false;
 
@@ -1049,7 +1049,7 @@ public class GridManager : MonoBehaviour
         // ^^^ END OF FINAL STEP ^^^
 
 
-
+        HistoryManager.Instance.SaveState();
 
         isPushingInProgress = false;
 
