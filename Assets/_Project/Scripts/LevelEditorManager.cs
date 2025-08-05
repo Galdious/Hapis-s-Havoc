@@ -614,21 +614,37 @@ public class LevelEditorManager : MonoBehaviour
 
             case EditorTool.Paint:
             default:
-                // 1. Always clear any previous selection first.
-                ClearHandHighlight();
+                // First, find an available data object for the type of tile that was clicked.
+                PuzzleHandTile tileToSelect = playerHand.FirstOrDefault(t => t.tileType == clickedTile.myTileType);
 
-                // 2. Find the specific instance in our hand data.
-                selectedHandTileForPush = playerHand.FirstOrDefault(t => t.tileType == clickedTile.myTileType);
-
-                if (selectedHandTileForPush != null)
+                // If we couldn't find one (i.e., we've used them all), do nothing.
+                if (tileToSelect == null)
                 {
+                    Debug.LogWarning($"No more tiles of type '{clickedTile.myTileType.displayName}' available in hand.");
+                    ClearHandHighlight();
+                    selectedHandTileForPush = null;
+                    break;
+                }
+
+                // Check if the currently selected tile is of the same type as the one we just clicked.
+                if (selectedHandTileForPush != null && selectedHandTileForPush.tileType == clickedTile.myTileType)
+                {
+                    // If it is, deselect it. This makes the click a toggle.
+                    ClearHandHighlight();
+                    selectedHandTileForPush = null;
+                    Debug.Log("Hand tile deselected.");
+                }
+                else // Otherwise, select this new tile type.
+                {
+                    ClearHandHighlight();
+                    selectedHandTileForPush = tileToSelect; // Select the first available one.
+
                     Debug.Log($"SELECTED '{clickedTile.myTileType.displayName}' for the next push.");
-                    // 3. Apply the highlight to the visual tile we just clicked.
-                    HighlightPaletteTile(clickedTile.gameObject);
-                    // And store a reference to it for clearing later.
+                    HighlightPaletteTile(clickedTile.gameObject); // Highlight the visual tile we clicked.
                     currentlyHighlightedHandTile = clickedTile.gameObject;
                 }
                 break;
+    
         }
     }
 
@@ -680,8 +696,8 @@ public class LevelEditorManager : MonoBehaviour
 
     private void RedrawHandPalette()
     {
-        // Get a list of all UNIQUE tile types currently in the hand.
-        var uniqueTypesInHand = playerHand.Select(t => t.tileType).Distinct().ToList();
+        // // Get a list of all UNIQUE tile types currently in the hand.
+        // var uniqueTypesInHand = playerHand.Select(t => t.tileType).Distinct().ToList();
 
 
         foreach (Transform child in handPaletteContainer)
@@ -704,56 +720,53 @@ public class LevelEditorManager : MonoBehaviour
         handPaletteContainer.position = new Vector3(paletteX, 0, 0);
 
 
-
-
-        // czy usuwac var?
-        // Use the same positioning logic as the main palette
-        var groupedHand = playerHand.GroupBy(t => t.tileType);
-        float startZ = (groupedHand.Count() - 1) * paletteSpacing / 2f;
+        var groupedHand = playerHand.GroupBy(t => t.tileType).ToDictionary(g => g.Key, g => g.ToList());
+        
+        float startZ = (groupedHand.Count - 1) * paletteSpacing / 2f;
         int index = 0;
 
-        foreach (TileType type in uniqueTypesInHand.OrderBy(t => t.displayName))
+    // We iterate through the GROUPS to position them correctly in the column.
+    foreach (var group in groupedHand.OrderBy(g => g.Key.displayName))
+    {
+        TileType type = group.Key;
+        List<PuzzleHandTile> tilesOfType = group.Value;
+        
+        // Use the first tile in the group as the visual representative.
+        PuzzleHandTile representativeTile = tilesOfType.First();
+        
+        // Calculate spawn position for this group.
+        Vector3 spawnPos = new Vector3(0, 0, startZ - (index * paletteSpacing));
+        
+        // --- VISUAL TILE CREATION (This part is mostly the same) ---
+        GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
+        tileGO.transform.SetParent(handPaletteContainer, false);
+        tileGO.name = "HandPalette_" + type.displayName;
+
+        var tileInstance = tileGO.GetComponent<TileInstance>();
+        gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
+        
+        // --- ASSIGN ALL IDs TO THE CLICK HANDLER ---
+        // This is a conceptual simplification. The clicker will now just report the type.
+        // We will then find an available tile of that type in the hand.
+        var handTileClicker = tileGO.AddComponent<HandPaletteTile>();
+        handTileClicker.editorManager = this;
+        handTileClicker.myTileType = type;
+        // We no longer need the unique ID on the visual component itself.
+
+        // --- COUNTER LOGIC (This is now correct) ---
+        if (countIndicatorPrefab != null)
         {
-            // Find the first data object for this type to use as our visual model.
-            // This ensures the visual shows the rotation/flip of at least one of the tiles of this type.
-            PuzzleHandTile representativeTile = playerHand.First(t => t.tileType == type);
-
-            // Calculate the spawn position for this tile in the column.
-            Vector3 spawnPos = new Vector3(0, 0, startZ - (index * paletteSpacing));
-
-            // Instantiate the tile prefab and set its state from our data model.
-            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
-            tileGO.transform.SetParent(handPaletteContainer, false);
-            tileGO.name = "HandPalette_" + type.displayName;
-
-            // Initialize its paths based on its current flip state.
-            var tileInstance = tileGO.GetComponent<TileInstance>();
-            gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
-
-            // Add the component that makes it clickable.
-            var handTile = tileGO.AddComponent<HandPaletteTile>();
-            handTile.editorManager = this;
-            handTile.myTileType = type;
-
-            // Add the text counter.
-            if (countIndicatorPrefab != null)
+            GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
+            indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
+            var text = indicatorGO.GetComponentInChildren<TMP_Text>();
+            if (text)
             {
-                GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
-                indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
-                var text = indicatorGO.GetComponentInChildren<TMP_Text>();
-                if (text)
-                {
-                    // Count how many of this type are in our data list.
-                    int countInHand = playerHand.Count(t => t.tileType == type);
-                    text.text = $"x{countInHand}";
-
-                    // Store a reference to this text component so we can update it later
-                    // without having to redraw everything.
-                    handCounters[type] = text;
-                }
+                // The text now shows how many of this type we have in our data list.
+                text.text = $"x{tilesOfType.Count}";
+                handCounters[type] = text;
             }
-
-            index++;
+        }
+        index++;
         }
     }
 

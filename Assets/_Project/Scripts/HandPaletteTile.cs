@@ -11,6 +11,7 @@ public class HandPaletteTile : MonoBehaviour, IPointerClickHandler
 {
     public LevelEditorManager editorManager;
     public TileType myTileType;
+    public System.Guid uniqueId;
 
     public void OnPointerClick(PointerEventData eventData)
     {

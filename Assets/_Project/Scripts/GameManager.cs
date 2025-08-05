@@ -98,39 +98,48 @@ public class GameManager : MonoBehaviour
         if (currentState != GameState.Playing) return;
 
         GoalData endGoal = currentLevelData.endPosition;
+        bool isGameOver = false;
+        string reason = "";
   
-        // Check if goal is a tile
+        // Check for Win Condition 1: Reached Tile Goal
         TileInstance boatTile = boat.GetCurrentTile();
-        if (!endGoal.isBankGoal && boatTile != null)
+        
+        (int x, int y) boatCoords = (-1, -1); // Initialize to invalid coordinates
+        if (boatTile != null) boatCoords = gridManager.GetTileCoordinates(boatTile);
+        
+        if (!endGoal.isBankGoal && boatTile != null && boatCoords.x == endGoal.tileX && boatCoords.y == endGoal.tileY)
         {
-            var boatCoords = gridManager.GetTileCoordinates(boatTile);
-            if (boatCoords.x == endGoal.tileX && boatCoords.y == endGoal.tileY)
-            {
-                currentState = GameState.LevelComplete;
-                StopTimerAndLogResult(); // Stop the timer when the level is complete.
-                Debug.Log($"<color=yellow>LEVEL COMPLETE!</color> Reached the goal tile ({endGoal.tileX}, {endGoal.tileY}).");
-                return; // Stop checking
-            }
+            currentState = GameState.LevelComplete;
+            isGameOver = true;
+            reason = $"<color=yellow>LEVEL COMPLETE!</color> Reached the goal tile ({endGoal.tileX}, {endGoal.tileY}).";
         }
-
-        // --- 2. CHECK FOR EJECTED GOAL LOSS (Your brilliant idea) ---
-        // If the goal is a tile, but its marker GameObject has been destroyed, it's a loss.
-        if (!endGoal.isBankGoal && activeEndMarker == null)
+        // Check for Win Condition 2: Reached Bank Goal
+        else if (endGoal.isBankGoal && boat.CurrentBank.HasValue && boat.CurrentBank.Value == endGoal.bankSide)
+        {
+            currentState = GameState.LevelComplete;
+            isGameOver = true;
+            reason = $"<color=yellow>LEVEL COMPLETE!</color> Reached the goal bank ({endGoal.bankSide}).";
+        }
+        // Check for Loss Condition 1: Goal Ejected
+        else if (!endGoal.isBankGoal && activeEndMarker == null)
         {
             currentState = GameState.LevelFailed;
-            StopTimerAndLogResult(); // Stop the timer when the level fails.
-            Debug.LogWarning($"<color=red>LEVEL FAILED!</color> The end goal marker was destroyed (ejected from the grid).");
-            return; // Stop checking
+            isGameOver = true;
+            reason = $"<color=red>LEVEL FAILED!</color> The end goal marker was destroyed.";
         }
-
-        // --- 3. CHECK FOR OUT OF MOVES LOSS ---
-        // If we are out of moves and haven't won, it's a loss.
-        if (boat.currentMovementPoints <= 0)
+        // Check for Loss Condition 2: Out of Moves
+        else if (boat.currentMovementPoints <= 0)
         {
             currentState = GameState.LevelFailed;
-            StopTimerAndLogResult(); // Stop the timer when the level fails.
-            Debug.LogWarning($"<color=red>LEVEL FAILED!</color> Out of movement points.");
-            return; // Stop checking
+            isGameOver = true;
+            reason = $"<color=red>LEVEL FAILED!</color> Out of movement points.";
+        }
+
+        // Now, if any of the above conditions were met...
+        if (isGameOver)
+        {
+            StopTimerAndLogResult();
+            Debug.Log(reason); // This will now always print the correct reason.
         }
     }
 
