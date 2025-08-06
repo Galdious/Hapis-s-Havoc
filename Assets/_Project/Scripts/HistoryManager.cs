@@ -13,6 +13,7 @@ public class HistoryManager : MonoBehaviour
 {
     // Singleton pattern for easy access from any script.
     public static HistoryManager Instance { get; private set; }
+    public bool hasUsedUndo { get; private set; } = false;
 
     [Header("Scene References")]
     [SerializeField] private LevelEditorManager editorManager;
@@ -128,6 +129,7 @@ public void SaveState(GameStateSnapshot snapshotToSave = null)
 
         if (historyStack.Count > 1)
         {
+            hasUsedUndo = true; 
             isUndoing = true; // Set the flag to true
             Debug.Log("[HistoryManager] Undoing last action.");
 
@@ -166,6 +168,11 @@ public void SaveState(GameStateSnapshot snapshotToSave = null)
         }
     }
 
+    public void ResetUndoFlag()
+    {
+        hasUsedUndo = false;
+        Debug.Log("[HistoryManager] Undo flag has been reset for the new level.");
+    }
 
 
 

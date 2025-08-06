@@ -1913,7 +1913,27 @@ public class LevelEditorManager : MonoBehaviour
                 boat.PlaceOnTile(boatTile, snapshot.boatPosition.snapPointIndex);
             }
         }
+        // 10. Reset State for the New Run
+        if (HistoryManager.Instance != null)
+        {
+            HistoryManager.Instance.ResetUndoFlag();
+        }
 
+        // 11. Count Total Stars in the Level
+        int totalStars = 0;
+        if (snapshot.collectibleStates != null)
+        {
+            foreach (var collectible in snapshot.collectibleStates)
+            {
+                if (collectible.type == CollectibleType.Star)
+                {
+                    totalStars++;
+                }
+            }
+        }
+        // Tell the GameManager about our findings
+        GameManager.Instance.SetLevelInfo(totalStars);
+        
 
         // 9. Spawn the test boat in its starting position
         // This now works because Step 2 fixed SetStartPosition to update these variables!

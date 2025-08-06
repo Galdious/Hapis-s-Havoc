@@ -17,12 +17,21 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance { get; private set; }
 
     [Header("Scene References")]
-    [SerializeField] private GridManager gridManager; // Drag your GridManager here in the Inspector
+    [SerializeField] private GridManager gridManager;
+    [SerializeField] private UIManager uiManager;
 
     [Header("Game State")]
     public GameState currentState;
     public LevelData currentLevelData { get; private set; }
-    private GameObject activeEndMarker; 
+    private GameObject activeEndMarker;
+
+    [Header("Scoring")]
+    [Tooltip("If the player has this many moves or fewer left, they lose a star.")]
+    [SerializeField] private int movePenaltyThreshold = 0; // Set to 0 for the strict "must have leftover moves" rule. You can increase this.
+
+    private int totalStarsInLevel = 0;
+    private int totalPowerupsInLevel = 0; // We can track this too
+
 
     // TIME TRACKING
     private float levelStartTime;
@@ -40,6 +49,14 @@ public class GameManager : MonoBehaviour
         {
             Instance = this;
         }
+
+        if (uiManager == null)
+        {
+            uiManager = FindFirstObjectByType<UIManager>();
+        }
+
+
+
     }
 
     private void Start()
@@ -66,7 +83,7 @@ public class GameManager : MonoBehaviour
 
     //     Debug.Log($"<color=green>[GameManager]</color> Initialized with level. End marker tracking enabled.");
     // }
-    
+
     public void StartLevelTimer()
     {
         // currentState = GameState.Playing;
@@ -84,7 +101,7 @@ public class GameManager : MonoBehaviour
         activeEndMarker = endMarker;
         currentState = GameState.Playing;
         isTimerRunning = true;
-        
+
         Debug.Log("<color=green>[GameManager]</color> Level state references updated without resetting timer.");
     }
 
@@ -119,13 +136,13 @@ public class GameManager : MonoBehaviour
         GoalData endGoal = currentLevelData.endPosition;
         bool isGameOver = false;
         string reason = "";
-  
+
         // Check for Win Condition 1: Reached Tile Goal
         TileInstance boatTile = boat.GetCurrentTile();
-        
+
         (int x, int y) boatCoords = (-1, -1); // Initialize to invalid coordinates
         if (boatTile != null) boatCoords = gridManager.GetTileCoordinates(boatTile);
-        
+
         if (!endGoal.isBankGoal && boatTile != null && boatCoords.x == endGoal.tileX && boatCoords.y == endGoal.tileY)
         {
             currentState = GameState.LevelComplete;
@@ -154,12 +171,47 @@ public class GameManager : MonoBehaviour
             reason = $"<color=red>LEVEL FAILED!</color> Out of movement points.";
         }
 
-        // Now, if any of the above conditions were met...
+        // // Now, if any of the above conditions were met...
+        // if (isGameOver)
+        // {
+        //     StopTimerAndLogResult();
+        //     Debug.Log(reason); // This will now always print the correct reason.
+        // }
+
         if (isGameOver)
         {
             StopTimerAndLogResult();
-            Debug.Log(reason); // This will now always print the correct reason.
+            Debug.Log(reason);
+
+            switch (currentState)
+            {
+                case GameState.LevelComplete:
+                    // Calculate the score and gather all stats
+                    int finalScore = CalculateFinalScore(boat);
+                    float elapsedTime = levelEndTime - levelStartTime;
+                    int maxMoves = boat.maxMovementPoints;
+                    int movesUsed = maxMoves - boat.currentMovementPoints;
+
+                    // Tell the UI Manager to show the results
+                    if (uiManager != null)
+                    {
+                        uiManager.ShowLevelCompleteScreen(finalScore, elapsedTime, movesUsed, maxMoves, boat.starsCollected, totalStarsInLevel);
+                    }
+                    break;
+
+                case GameState.LevelFailed:
+                    if (uiManager != null)
+                    {
+                        // For a failure, we can show a simpler screen or pass stats too
+                        uiManager.ShowLevelFailedScreen(reason);
+                    }
+                    break;
+            }
         }
+    
+
+
+
     }
 
 
@@ -175,12 +227,55 @@ public class GameManager : MonoBehaviour
         {
             currentState = GameState.LevelFailed;
             StopTimerAndLogResult(); // Stop the timer when the level fails.
+            string reason = "The end goal was ejected from the grid.";
             Debug.LogWarning($"<color=red>LEVEL FAILED!</color> The end goal was ejected from the grid.");
+
+            if (uiManager != null)
+            {
+                uiManager.ShowLevelFailedScreen(reason); // Pass the failure reason
+            }
+        
         }
     }
 
 
 
+    public void SetLevelInfo(int starCount)
+    {
+        totalStarsInLevel = starCount;
+    }
+
+
+    private int CalculateFinalScore(BoatController boat)
+    {
+        // Start with a perfect score
+        int finalScore = 3;
+        Debug.Log($"[Scoring] Starting with {finalScore} stars.");
+
+        // Penalty 1: Moves Used
+        if (boat.currentMovementPoints <= movePenaltyThreshold)
+        {
+            finalScore--;
+            Debug.Log($"[Scoring] Penalty applied: Moves left ({boat.currentMovementPoints}) is at or below threshold ({movePenaltyThreshold}). New score: {finalScore}");
+        }
+
+        // Penalty 2: Collectibles
+        if (boat.starsCollected < totalStarsInLevel)
+        {
+            finalScore--;
+            Debug.Log($"[Scoring] Penalty applied: Not all stars collected ({boat.starsCollected} / {totalStarsInLevel}). New score: {finalScore}");
+        }
+
+        // Penalty 3: Undo Usage
+        if (HistoryManager.Instance != null && HistoryManager.Instance.hasUsedUndo)
+        {
+            finalScore--;
+            Debug.Log($"[Scoring] Penalty applied: Undo was used. New score: {finalScore}");
+        }
+
+        // Ensure the score is never less than 1 for a win
+        return Mathf.Max(1, finalScore);
+    }
 
 
 
