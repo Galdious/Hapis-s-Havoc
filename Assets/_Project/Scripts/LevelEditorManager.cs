@@ -1911,8 +1911,13 @@ public class LevelEditorManager : MonoBehaviour
         //Debug.Break();
 
         // boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
-        GameManager.Instance.InitializeLevel(currentLoadedLevelData, activeEndMarker);
+        GameManager.Instance.UpdateLevelState(currentLoadedLevelData, activeEndMarker);
 
+        if (!isUndoAction)
+        {
+            // We'll rename the original method to make its purpose clearer.
+            GameManager.Instance.StartLevelTimer(); 
+        }
 
         // // Clear any history from a previous level and save the initial state.
         // if (HistoryManager.Instance != null)

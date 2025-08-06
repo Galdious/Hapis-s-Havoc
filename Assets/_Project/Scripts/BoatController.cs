@@ -760,8 +760,11 @@ public void PrepareForForcedMove()
         UpdateStarCounterUI();
     }
 
-void RefreshMovementOptions()
+IEnumerator RefreshMovementOptionsCoroutine()
 {
+
+    yield return null;
+
     HistoryManager.Instance.SaveState();
     isMoving = false;
     
@@ -779,7 +782,7 @@ void RefreshMovementOptions()
             {
                 Debug.Log("PUZZLE MODE: Out of moves! Turn ended.");
                 DeselectBoat();
-                return;
+                yield break;
             }
         }
 
@@ -1125,7 +1128,7 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
 
 
 
-    RefreshMovementOptions();
+        StartCoroutine(RefreshMovementOptionsCoroutine());
 }
     
     IEnumerator MoveToBankCoroutine(Transform targetSpawn)
@@ -1146,7 +1149,7 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
         SetStateForBank(targetSpawn);
         currentMovementPoints--;
         UpdateMoveCounterUI();
-        RefreshMovementOptions();
+        StartCoroutine(RefreshMovementOptionsCoroutine());
     }
     
     void CompleteMovementTurn()

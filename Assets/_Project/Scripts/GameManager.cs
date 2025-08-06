@@ -51,22 +51,41 @@ public class GameManager : MonoBehaviour
     /// Called by the LevelEditorManager after it finishes loading a level.
     /// This gives the GameManager all the info it needs about the current puzzle.
     /// </summary>
-    public void InitializeLevel(LevelData data, GameObject endMarker)
+    // public void InitializeLevel(LevelData data, GameObject endMarker)
+    // {
+    //     currentLevelData = data;
+    //     // --- ADD THIS LINE ---
+    //     activeEndMarker = endMarker; 
+
+    //     currentState = GameState.Playing;
+
+    //     //START THE TIMER ---
+    //     levelStartTime = Time.time;
+    //     isTimerRunning = true;
+    //     Debug.Log("<color=orange>[Playtest Timer]</color> Timer started.");
+
+    //     Debug.Log($"<color=green>[GameManager]</color> Initialized with level. End marker tracking enabled.");
+    // }
+    
+    public void StartLevelTimer()
     {
-        currentLevelData = data;
-        // --- ADD THIS LINE ---
-        activeEndMarker = endMarker; 
-
-        currentState = GameState.Playing;
-
-        //START THE TIMER ---
+        // currentState = GameState.Playing;
         levelStartTime = Time.time;
         isTimerRunning = true;
         Debug.Log("<color=orange>[Playtest Timer]</color> Timer started.");
+    }
 
 
-
-        Debug.Log($"<color=green>[GameManager]</color> Initialized with level. End marker tracking enabled.");
+    /// Updates the GameManager's references after a state change (like an Undo)
+    /// without resetting the level timer.
+    public void UpdateLevelState(LevelData data, GameObject endMarker)
+    {
+        currentLevelData = data;
+        activeEndMarker = endMarker;
+        currentState = GameState.Playing;
+        isTimerRunning = true;
+        
+        Debug.Log("<color=green>[GameManager]</color> Level state references updated without resetting timer.");
     }
 
 
