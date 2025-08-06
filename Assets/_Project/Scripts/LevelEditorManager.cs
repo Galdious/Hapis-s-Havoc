@@ -1686,15 +1686,22 @@ public class LevelEditorManager : MonoBehaviour
         snapshot.undoCount = 0;
         return snapshot;
     }
-
+    public void RestartCurrentLevel()
+    {
+        StartCoroutine(RestartCurrentLevelCoroutine());
+    }
 
     /// Reconstructs the level using the last successfully loaded level data.
-    public void RestartCurrentLevel()
+    private IEnumerator RestartCurrentLevelCoroutine()
     {
         // First, check if we actually have a level loaded to restart.
         if (currentLoadedLevelData != null)
         {
             Debug.Log($"<color=yellow>Restarting level...</color>");
+
+
+            yield return ScreenFader.Instance.FadeOut();
+
 
             // Clear history and save the initial state (just like a new load)
             if (HistoryManager.Instance != null)
@@ -1707,7 +1714,11 @@ public class LevelEditorManager : MonoBehaviour
                 HistoryManager.Instance.SaveState(initialSnapshot);
             }
 
-            StartCoroutine(ReconstructLevelFromDataCoroutine(initialSnapshot));
+            // We must wait for the reconstruction to finish.
+            yield return StartCoroutine(ReconstructLevelFromDataCoroutine(initialSnapshot));
+            
+            // --- ADD FADE IN ---
+            yield return ScreenFader.Instance.FadeIn();
         }
         else
         {

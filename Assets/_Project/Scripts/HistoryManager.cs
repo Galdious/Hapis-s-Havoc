@@ -124,6 +124,8 @@ public void SaveState(GameStateSnapshot snapshotToSave = null)
 
     private IEnumerator UndoLastStateCoroutine()
     {
+        yield return ScreenFader.Instance.FadeOut();
+
         if (historyStack.Count > 1)
         {
             isUndoing = true; // Set the flag to true
@@ -144,9 +146,12 @@ public void SaveState(GameStateSnapshot snapshotToSave = null)
         {
             Debug.LogWarning("[HistoryManager] Cannot undo: No history available.");
         }
-        
+
         // IMPORTANT: Clear the flag after the entire operation is complete.
         isUndoing = false;
+        
+
+        yield return ScreenFader.Instance.FadeIn();
     }
 
 
