@@ -132,7 +132,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         }
     }
     
-    private void UpdateMoveCounterUI()
+    public void UpdateMoveCounterUI()
     {
         if (moveCounterText != null)
         {

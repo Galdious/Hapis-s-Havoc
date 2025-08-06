@@ -138,7 +138,7 @@ public class LevelEditorManager : MonoBehaviour
         if (toggleBlockerToolButton != null) toggleBlockerToolButton.onClick.AddListener(SelectToggleBlockerTool);
         if (placeCollectibleToolButton != null) placeCollectibleToolButton.onClick.AddListener(SelectPlaceCollectibleTool);
         if (saveLevelButton != null) saveLevelButton.onClick.AddListener(SaveLevel);
-        //if (loadLevelButton != null) loadLevelButton.onClick.AddListener(LoadLevel);
+        if (maxMovesInput != null) maxMovesInput.onEndEdit.AddListener(OnMaxMovesChanged);
 
         if (collectibleDropdown != null)
         {
@@ -1924,10 +1924,18 @@ public class LevelEditorManager : MonoBehaviour
         // boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
         GameManager.Instance.UpdateLevelState(currentLoadedLevelData, activeEndMarker);
 
+
+        if (maxMovesInput != null)
+        {
+            maxMovesInput.text = currentLoadedLevelData.maxMoves.ToString();
+        }
+
+
+
         if (!isUndoAction)
         {
             // We'll rename the original method to make its purpose clearer.
-            GameManager.Instance.StartLevelTimer(); 
+            GameManager.Instance.StartLevelTimer();
         }
 
         // // Clear any history from a previous level and save the initial state.
@@ -1995,7 +2003,29 @@ public class LevelEditorManager : MonoBehaviour
     }
 
 
+    /// Called when the user changes the value in the Max Moves input field.
+    /// It dynamically updates the moves for any boat currently in the scene.
+    public void OnMaxMovesChanged(string newMaxMovesValue)
+    {
+        // Use TryParse for safety to ensure the input is a valid number.
+        if (int.TryParse(newMaxMovesValue, out int newMoves))
+        {
+            Debug.Log($"<color=cyan>Max Moves updated to: {newMoves}</color>");
 
+            // Find all boats currently managed by the BoatManager.
+            var boats = boatManager.GetPlayerBoats();
+            foreach (var boat in boats)
+            {
+                if (boat != null)
+                {
+                    // Update both the max and current moves for instant feedback.
+                    boat.maxMovementPoints = newMoves;
+                    boat.currentMovementPoints = newMoves;
+                    boat.UpdateMoveCounterUI(); // Immediately refresh the on-screen counter.
+                }
+            }
+        }
+    }
 
 
 
