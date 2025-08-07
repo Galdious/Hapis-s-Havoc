@@ -1740,6 +1740,8 @@ public class LevelEditorManager : MonoBehaviour
 
     public IEnumerator ReconstructLevelFromDataCoroutine(GameStateSnapshot snapshot, bool isUndoAction = false)
     {
+
+        if(GameManager.Instance != null) GameManager.Instance.SetReconstructing(true);
         Debug.Log("Beginning level reconstruction from snapshot...");
 
         // 1. Clear the current scene state
@@ -1969,6 +1971,8 @@ public class LevelEditorManager : MonoBehaviour
         // After everything is visually in place, run the logic finalization routine.
         yield return StartCoroutine(FinalizeStateReconstruction(snapshot, isUndoAction));
 
+        if (GameManager.Instance != null) GameManager.Instance.SetReconstructing(false);
+
         Debug.Log("<color=cyan>Level reconstruction from snapshot complete.</color>");
     }
 
@@ -2048,7 +2052,33 @@ public class LevelEditorManager : MonoBehaviour
     }
 
 
+public void PlaytestCurrentLevel()
+{
+    // Set the game mode
+    if (GameManager.Instance != null)
+    {
+        GameManager.Instance.SetOperatingMode(OperatingMode.Playing);
+    }
 
+    // Switch the UI to the player-facing view
+    if (UIManager.Instance != null)
+    {
+        UIManager.Instance.SwitchToMode(OperatingMode.Playing);
+    }
+
+    // Create a snapshot of the level exactly as it is in the editor right now
+    GameStateSnapshot currentEditorState = CreateCurrentStateSnapshot();
+    
+    // This is a new play session, so clear any previous history
+    if (HistoryManager.Instance != null)
+    {
+        HistoryManager.Instance.ClearHistory();
+        HistoryManager.Instance.SaveState(currentEditorState); // Save the starting state
+    }
+    
+    // Start the reconstruction using the animated coroutine
+    StartCoroutine(ReconstructLevelFromDataCoroutine(currentEditorState));
+}
 
 
 

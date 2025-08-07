@@ -16,8 +16,11 @@ public class BoatManager : MonoBehaviour
     public int boatsPerPlayer = 2;
 
     [Header("UI References")] // <<< ADD THIS HEADER AND FIELD
-    public TMP_Text starCounterText;
-    public TMP_Text moveCounterText;
+    public TMP_Text editor_starCounterText;
+    public TMP_Text editor_moveCounterText;
+    public TMP_Text player_starCounterText;
+    public TMP_Text player_moveCounterText;
+
 
     [Header("Testing")]
     public bool spawnTestBoats = true;
@@ -89,14 +92,17 @@ public class BoatManager : MonoBehaviour
             boat.currentMovementPoints = maxMoves;
         }
 
-        if (starCounterText != null)
+        if (GameManager.Instance.currentMode == OperatingMode.Editor)
         {
-            boat.starCounterText = this.starCounterText;
+            boat.starCounterText = this.editor_starCounterText;
+            boat.moveCounterText = this.editor_moveCounterText;
         }
-        if (moveCounterText != null)
+        else // It's in Playing mode
         {
-            boat.moveCounterText = this.moveCounterText;
+            boat.starCounterText = this.player_starCounterText;
+            boat.moveCounterText = this.player_moveCounterText;
         }
+
 
         // Initialize boat at bank (not on a tile yet)
         boat.SetAtBank(spawnPoint);
@@ -173,14 +179,17 @@ public class BoatManager : MonoBehaviour
                 boat.maxMovementPoints = maxMoves;
                 boat.currentMovementPoints = maxMoves;
             }
-            if (starCounterText != null)
+            if (GameManager.Instance.currentMode == OperatingMode.Editor)
             {
-                boat.starCounterText = this.starCounterText;
+                boat.starCounterText = this.editor_starCounterText;
+                boat.moveCounterText = this.editor_moveCounterText;
             }
-            if (moveCounterText != null) // <<< ADD THIS IF-STATEMENT
+            else // It's in Playing mode
             {
-                boat.moveCounterText = this.moveCounterText;
+                boat.starCounterText = this.player_starCounterText;
+                boat.moveCounterText = this.player_moveCounterText;
             }
+
 
             playerBoats.Add(boat);
         }
@@ -249,8 +258,17 @@ public class BoatManager : MonoBehaviour
             boat.maxMovementPoints = maxMoves;
         }
 
-        if (starCounterText != null) boat.starCounterText = this.starCounterText;
-        if (moveCounterText != null) boat.moveCounterText = this.moveCounterText;
+        if (GameManager.Instance.currentMode == OperatingMode.Editor)
+        {
+            boat.starCounterText = this.editor_starCounterText;
+            boat.moveCounterText = this.editor_moveCounterText;
+        }
+        else // It's in Playing mode
+        {
+            boat.starCounterText = this.player_starCounterText;
+            boat.moveCounterText = this.player_moveCounterText;
+        }
+
 
         playerBoats.Add(boat);
         return boat;

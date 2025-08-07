@@ -9,7 +9,7 @@ EditorBuildSettings:
     path: Assets/_Project/Scenes/MainMenu.unity
     guid: b39249047d199451faee6045b19c540b
   - enabled: 1
-    path: Assets/_Project/Scenes/LevelEditor .unity
+    path: Assets/_Project/Scenes/LevelEditor.unity
     guid: 47299cc5ba3f443e9907d7c631735aec
   - enabled: 1
     path: Assets/_Project/Scenes/PuzzleGame.unity

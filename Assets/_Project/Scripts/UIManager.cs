@@ -22,7 +22,10 @@ public class UIManager : MonoBehaviour
     [SerializeField] private GameObject levelFailedPanel;
 
     [Tooltip("Drag the parent GameObject containing all editor UI (tool buttons, palettes, etc.).")]
-    [SerializeField] private GameObject editorUIParent;
+    [SerializeField] private GameObject editorUI_Container;
+    [Tooltip("Drag the parent GameObject containing all player-facing gameplay UI.")]
+    [SerializeField] private GameObject playerUI_Container; 
+
 
     [Header("Level Complete Stats")]
     [Tooltip("The list of the 3 star images on the win panel.")]
@@ -62,7 +65,7 @@ public class UIManager : MonoBehaviour
         // Ensure all panels are hidden at the start of the game
         if (levelCompletePanel != null) levelCompletePanel.SetActive(false);
         if (levelFailedPanel != null) levelFailedPanel.SetActive(false);
-        if (editorUIParent != null) editorUIParent.SetActive(true); // Make sure editor UI is visible
+        SwitchToMode(OperatingMode.Editor);
     }
 
     // --- This is the new, upgraded method ---
@@ -71,7 +74,7 @@ public class UIManager : MonoBehaviour
         if (levelCompletePanel != null)
         {
             levelCompletePanel.SetActive(true);
-            if (editorUIParent != null) editorUIParent.SetActive(false); // Hide the editor UI
+            if(playerUI_Container != null) playerUI_Container.SetActive(false); // Hide the editor UI
 
             // 1. Update Star Rating
             for (int i = 0; i < starRatingImages.Count; i++)
@@ -105,7 +108,7 @@ public class UIManager : MonoBehaviour
         if (levelFailedPanel != null)
         {
             levelFailedPanel.SetActive(true);
-            if (editorUIParent != null) editorUIParent.SetActive(false); // Hide the editor UI
+            if(playerUI_Container != null) playerUI_Container.SetActive(false); // Hide the editor UI
 
             // Update failure reason text
             if (failureReasonText != null)
@@ -145,12 +148,28 @@ public class UIManager : MonoBehaviour
     {
         if (levelCompletePanel != null) levelCompletePanel.SetActive(false);
         if (levelFailedPanel != null) levelFailedPanel.SetActive(false);
-        if (editorUIParent != null) editorUIParent.SetActive(true);
+        // We now have two potential UIs to show, so we need to know which mode to return to.
+        // For now, restarting will always take us back to the player UI.
+        SwitchToMode(OperatingMode.Playing);
+    
     }
 
 
 
 
+    public void SwitchToMode(OperatingMode mode)
+    {
+        if (mode == OperatingMode.Editor)
+        {
+            if (editorUI_Container != null) editorUI_Container.SetActive(true);
+            if (playerUI_Container != null) playerUI_Container.SetActive(false);
+        }
+        else // Switching to Playing mode
+        {
+            if (editorUI_Container != null) editorUI_Container.SetActive(false);
+            if (playerUI_Container != null) playerUI_Container.SetActive(true);
+        }
+    }
 
 
 

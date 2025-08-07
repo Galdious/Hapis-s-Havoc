@@ -11,6 +11,8 @@ public enum GameState
     LevelFailed
 }
 
+public enum OperatingMode { Editor, Playing } 
+
 public class GameManager : MonoBehaviour
 {
     // Singleton pattern to make the GameManager easily accessible.
@@ -22,6 +24,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Game State")]
     public GameState currentState;
+    public OperatingMode currentMode { get; private set; } = OperatingMode.Editor;
     public LevelData currentLevelData { get; private set; }
     private GameObject activeEndMarker;
 
@@ -31,6 +34,7 @@ public class GameManager : MonoBehaviour
 
     private int totalStarsInLevel = 0;
     private int totalPowerupsInLevel = 0; // We can track this too
+    private bool isReconstructing = false;
 
 
     // TIME TRACKING
@@ -208,7 +212,7 @@ public class GameManager : MonoBehaviour
                     break;
             }
         }
-    
+
 
 
 
@@ -222,6 +226,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void OnEndGoalDestroyed()
     {
+        if (isReconstructing) return;
+
         // If we are playing, this means the goal was destroyed during gameplay.
         if (currentState == GameState.Playing)
         {
@@ -234,7 +240,7 @@ public class GameManager : MonoBehaviour
             {
                 uiManager.ShowLevelFailedScreen(reason); // Pass the failure reason
             }
-        
+
         }
     }
 
@@ -278,9 +284,34 @@ public class GameManager : MonoBehaviour
     }
 
 
+    // public void EnterPlayMode()
+    // {
+    //     Debug.Log("<color=cyan>Switching to PLAY Mode.</color>");
+    //     currentMode = OperatingMode.Playing;
+
+    //     // Hide the editor UI and show the player UI
+    //     if (uiManager != null)
+    //     {
+    //         uiManager.SwitchToMode(OperatingMode.Playing);
+    //     }
+
+    //     // Restart the level from its base state to begin the playtest
+    //     if (FindFirstObjectByType<LevelEditorManager>() is LevelEditorManager editor)
+    //     {
+    //         editor.RestartCurrentLevel();
+    //     }
+    // }
 
 
+    public void SetReconstructing(bool status)
+    {
+        isReconstructing = status;
+    }
 
+    public void SetOperatingMode(OperatingMode mode)
+    {
+        currentMode = mode;
+    }
 
 
 
