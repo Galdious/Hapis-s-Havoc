@@ -333,6 +333,13 @@ public class GameManager : MonoBehaviour
             uiManager.SwitchToMode(OperatingMode.Editor);
         }
 
+        // Tell the RiverControls to update its visuals (e.g., show the locks again)
+        if (FindFirstObjectByType<RiverControls>() is RiverControls controls)
+        {
+            controls.UpdateControlsForMode();
+        }
+    
+
         // Optional: you could choose to reload the level to its last saved state here,
         // or leave it as it was at the end of the playtest. For now, we'll leave it.
     }

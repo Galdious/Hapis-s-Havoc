@@ -45,6 +45,7 @@ public class RiverControls : MonoBehaviour
     private PointerArrowButton[,] rightArrows;  // [row, side] 0=blue, 1=red
     private RowLockState[] rowLockStates; // <<< ADD
     private Dictionary<Renderer, Material> originalArrowMaterials = new Dictionary<Renderer, Material>(); // <<< ADD
+    private GameManager gameManager;
 
     // ArrowButton class removed - now using PointerArrowButton
 
@@ -62,6 +63,8 @@ public class RiverControls : MonoBehaviour
             Debug.LogError("[RiverControls] GridManager not found!");
             return;
         }
+
+        gameManager = FindFirstObjectByType<GameManager>();
 
         //CreateArrows();  // commented out for level editor mode
     }
@@ -109,31 +112,31 @@ public class RiverControls : MonoBehaviour
 
 
 
-public int[] GetLockStatesAsInts()
-{
-    int[] lockStatesAsInts = new int[rowLockStates.Length];
-    for (int i = 0; i < rowLockStates.Length; i++)
+    public int[] GetLockStatesAsInts()
     {
-        lockStatesAsInts[i] = (int)rowLockStates[i];
+        int[] lockStatesAsInts = new int[rowLockStates.Length];
+        for (int i = 0; i < rowLockStates.Length; i++)
+        {
+            lockStatesAsInts[i] = (int)rowLockStates[i];
+        }
+        return lockStatesAsInts;
     }
-    return lockStatesAsInts;
-}
 
 
-public void SetLockStatesFromInts(int[] newLockStates)
-{
-    if (newLockStates == null || rowLockStates == null || newLockStates.Length != rowLockStates.Length)
+    public void SetLockStatesFromInts(int[] newLockStates)
     {
-        Debug.LogWarning("Could not apply lock states from loaded data: Data was invalid or for a different grid size.");
-        return;
+        if (newLockStates == null || rowLockStates == null || newLockStates.Length != rowLockStates.Length)
+        {
+            Debug.LogWarning("Could not apply lock states from loaded data: Data was invalid or for a different grid size.");
+            return;
+        }
+
+        for (int i = 0; i < newLockStates.Length; i++)
+        {
+            rowLockStates[i] = (RowLockState)newLockStates[i];
+            UpdateRowLockVisuals(i); // Update visuals for each row as it's loaded
+        }
     }
-    
-    for (int i = 0; i < newLockStates.Length; i++)
-    {
-        rowLockStates[i] = (RowLockState)newLockStates[i];
-        UpdateRowLockVisuals(i); // Update visuals for each row as it's loaded
-    }
-}
 
 
 
@@ -213,6 +216,15 @@ public void SetLockStatesFromInts(int[] newLockStates)
             {
                 lockRenderer.material = lockMaterial;
             }
+
+            if (gameManager != null && gameManager.currentMode == OperatingMode.Playing)
+            {
+                lockGO.SetActive(false);
+            }
+
+
+
+
         }
 
 
@@ -401,7 +413,7 @@ public void SetLockStatesFromInts(int[] newLockStates)
     {
         PointerArrowButton[,] arrows = isLeftSide ? leftArrows : rightArrows;
         if (arrows == null) return;
-        
+
         for (int side = 0; side < 2; side++) // 0=blue, 1=red
         {
             if (arrows[row, side]?.gameObject != null)
@@ -509,4 +521,45 @@ public void SetLockStatesFromInts(int[] newLockStates)
         //     }
         // }
     }
+
+
+
+
+    public void UpdateControlsForMode()
+    {
+        if (gameManager == null) gameManager = FindFirstObjectByType<GameManager>();
+        if (gameManager == null || rowLockStates == null) return;
+
+        bool shouldLocksBeVisible = (gameManager.currentMode == OperatingMode.Editor);
+
+        for (int row = 0; row < rowLockStates.Length; row++)
+        {
+            Transform lockTransform = gridParent.Find($"Lock_Row{row}");
+            if (lockTransform != null)
+            {
+                lockTransform.gameObject.SetActive(shouldLocksBeVisible);
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
