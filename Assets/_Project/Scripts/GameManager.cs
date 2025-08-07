@@ -11,7 +11,7 @@ public enum GameState
     LevelFailed
 }
 
-public enum OperatingMode { Editor, Playing } 
+public enum OperatingMode { Editor, Playing }
 
 public class GameManager : MonoBehaviour
 {
@@ -312,6 +312,39 @@ public class GameManager : MonoBehaviour
     {
         currentMode = mode;
     }
+
+
+
+
+    public void EnterEditorMode()
+    {
+        Debug.Log("<color=orange>Returning to EDITOR Mode.</color>");
+
+        // Stop the game logic and timer
+        currentState = GameState.Loading; // A neutral state
+        isTimerRunning = false;
+
+        // Set the operating mode
+        SetOperatingMode(OperatingMode.Editor);
+
+        // Tell the UIManager to switch the UI back
+        if (uiManager != null)
+        {
+            uiManager.SwitchToMode(OperatingMode.Editor);
+        }
+
+        // Optional: you could choose to reload the level to its last saved state here,
+        // or leave it as it was at the end of the playtest. For now, we'll leave it.
+    }
+
+
+
+
+
+
+
+
+
 
 
 

@@ -41,6 +41,17 @@ public class UIManager : MonoBehaviour
     [Header("Level Failed Stats")]
     [SerializeField] private TMP_Text failureReasonText;
 
+    [Header("3D UI Containers")]
+    [Tooltip("The parent object for the editor's tile brush palette.")]
+    [SerializeField] private GameObject editorBrushPalette; // This is the left-side palette
+
+    [Tooltip("The parent object for the editor's hand palette (right side).")]
+    [SerializeField] private GameObject editorHandContainer;
+
+    [Tooltip("The parent object for the player's hand palette (bottom).")]
+    [SerializeField] private GameObject playerHandContainer;
+
+
 
     private void Awake()
     {
@@ -157,19 +168,31 @@ public class UIManager : MonoBehaviour
 
 
 
-    public void SwitchToMode(OperatingMode mode)
+public void SwitchToMode(OperatingMode mode)
+{
+    if (mode == OperatingMode.Editor)
     {
-        if (mode == OperatingMode.Editor)
-        {
-            if (editorUI_Container != null) editorUI_Container.SetActive(true);
-            if (playerUI_Container != null) playerUI_Container.SetActive(false);
-        }
-        else // Switching to Playing mode
-        {
-            if (editorUI_Container != null) editorUI_Container.SetActive(false);
-            if (playerUI_Container != null) playerUI_Container.SetActive(true);
-        }
+        // Show all Editor UI
+        if(editorUI_Container != null) editorUI_Container.SetActive(true);
+        if(editorBrushPalette != null) editorBrushPalette.SetActive(true);
+        if(editorHandContainer != null) editorHandContainer.SetActive(true);
+
+        // Hide all Player UI
+        if(playerUI_Container != null) playerUI_Container.SetActive(false);
+        if(playerHandContainer != null) playerHandContainer.SetActive(false);
     }
+    else // Switching to Playing mode
+    {
+        // Hide all Editor UI
+        if(editorUI_Container != null) editorUI_Container.SetActive(false);
+        if(editorBrushPalette != null) editorBrushPalette.SetActive(false);
+        if(editorHandContainer != null) editorHandContainer.SetActive(false);
+
+        // Show all Player UI
+        if(playerUI_Container != null) playerUI_Container.SetActive(true);
+        if(playerHandContainer != null) playerHandContainer.SetActive(true);
+    }
+}
 
 
 

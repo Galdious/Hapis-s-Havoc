@@ -7,6 +7,7 @@ using System.Linq;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem; 
 using System.IO;
+using JetBrains.Annotations;
 
 public class LevelEditorManager : MonoBehaviour
 {
@@ -63,7 +64,11 @@ public class LevelEditorManager : MonoBehaviour
 
     [Header("3D Palette Settings")]
     public Transform paletteContainer; // The empty GameObject we created
-    public float paletteSpacing = 1.5f; // How far apart to space the palette tiles
+    [Tooltip("The VERTICAL spacing between tiles in the editor palette.")]
+    public float editorPaletteSpacing = 1.5f; // <<< RENAME this from paletteSpacing
+
+    [Tooltip("The HORIZONTAL spacing between tiles in the player hand.")]
+    public float playerHandSpacing = 2.5f; // <<< ADD THIS LINE
 
     [Header("Editor Visuals")]
     public GameObject blockerMarkerPrefab;
@@ -79,7 +84,8 @@ public class LevelEditorManager : MonoBehaviour
 
 
     [Header("Puzzle Hand Setup")]
-    public Transform handPaletteContainer; // The 3D container on the right
+    public Transform editorHandContainer; // The 3D container on the right
+    public Transform playerHandContainer;
     public GameObject countIndicatorPrefab; // The TextMeshPro prefab for the "x2" counter
 
     private List<PuzzleHandTile> playerHand = new List<PuzzleHandTile>();
@@ -514,7 +520,7 @@ public class LevelEditorManager : MonoBehaviour
         // 2. Calculate the starting Z position to center the column
         int tileCount = library.tileTypes.Count;
         // Get the total height of the entire column
-        float totalPaletteHeight = (tileCount - 1) * paletteSpacing;
+        float totalPaletteHeight = (tileCount - 1) * editorPaletteSpacing;
         // The starting Z is half the total height shifted downwards
         float startZ = totalPaletteHeight / 2f;
 
@@ -525,16 +531,16 @@ public class LevelEditorManager : MonoBehaviour
         // --- END OF NEW POSITIONING LOGIC ---
 
 
-        float currentZ = 0;
-
-        foreach (TileType type in library.tileTypes)
+        for (int i = 0; i < tileCount; i++)
         {
-            // Calculate the position for this tile relative to the container, using our centered startZ
-            Vector3 spawnPos = paletteContainer.position + new Vector3(0, 0, startZ - currentZ);
+            TileType type = library.tileTypes[i];
 
-            // ... (The rest of the method for instantiating and setting up the tile stays EXACTLY the same) ...
-            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.identity);
-            tileGO.transform.SetParent(paletteContainer);
+            // Calculate the LOCAL position for this tile inside the container
+            Vector3 localSpawnPos = new Vector3(0, 0, startZ - (i * editorPaletteSpacing));
+
+            // Instantiate the tile at the correct local position and rotation
+            GameObject tileGO = Instantiate(gridManager.tilePrefab, localSpawnPos, Quaternion.identity);
+            tileGO.transform.SetParent(paletteContainer, false); // 'false' makes it respect the local position
             tileGO.name = "Palette_" + type.displayName;
 
             var tileInstance = tileGO.GetComponent<TileInstance>();
@@ -543,10 +549,10 @@ public class LevelEditorManager : MonoBehaviour
             PaletteTile paletteTile = tileGO.AddComponent<PaletteTile>();
             paletteTile.editorManager = this;
             paletteTile.myTileType = type;
-
-            currentZ += paletteSpacing;
         }
 
+        Debug.Log($"Generated 3D Brush Palette with {tileCount} tiles.");
+    
 
         // Adjust the main camera to see everything
         //AdjustCameraView();
@@ -694,81 +700,94 @@ public class LevelEditorManager : MonoBehaviour
 
 
 
-    private void RedrawHandPalette()
+private void RedrawHandPalette()
+{
+    // Determine which container to use based on the current game mode.
+    OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
+    Transform targetContainer = (currentMode == OperatingMode.Editor) ? editorHandContainer : playerHandContainer;
+
+    if (targetContainer == null) return;
+
+    // Clear the children of BOTH containers to be safe before redrawing.
+    if(editorHandContainer != null) foreach (Transform child in editorHandContainer) { Destroy(child.gameObject); }
+    if(playerHandContainer != null) foreach (Transform child in playerHandContainer) { Destroy(child.gameObject); }
+    handCounters.Clear();
+
+    // <<< THIS IS THE CORRECTED DYNAMIC POSITIONING LOGIC >>>
+    if (gridManager != null)
     {
-        // // Get a list of all UNIQUE tile types currently in the hand.
-        // var uniqueTypesInHand = playerHand.Select(t => t.tileType).Distinct().ToList();
-
-
-        foreach (Transform child in handPaletteContainer)
+        if (currentMode == OperatingMode.Editor)
         {
-            Destroy(child.gameObject);
+            // Position the Editor Hand to the RIGHT of the grid.
+            float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
+            float gridRightEdgeX = gridWidth / 2f;
+            float arrowSpaceBuffer = 4f;
+            float paletteX = gridRightEdgeX + arrowSpaceBuffer;
+            targetContainer.position = new Vector3(paletteX, 0, 0);
         }
-
-        handCounters.Clear();
-
-        // 1. Calculate the X position, mirroring the main palette's logic.
-        float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
-        // The grid is centered, so its rightmost edge is at +(gridWidth / 2)
-        float gridRightEdgeX = gridWidth / 2f;
-        // Use the same buffer space as the other palette.
-        float arrowSpaceBuffer = 4f;
-        // Set the final X position for our container, but on the positive side.
-        float paletteX = gridRightEdgeX + arrowSpaceBuffer;
-
-        // 2. Set the final position of our container object
-        handPaletteContainer.position = new Vector3(paletteX, 0, 0);
-
-
-        var groupedHand = playerHand.GroupBy(t => t.tileType).ToDictionary(g => g.Key, g => g.ToList());
-
-        float startZ = (groupedHand.Count - 1) * paletteSpacing / 2f;
-        int index = 0;
-
-        // We iterate through the GROUPS to position them correctly in the column.
-        foreach (var group in groupedHand.OrderBy(g => g.Key.displayName))
+        else // Playing Mode
         {
-            TileType type = group.Key;
-            List<PuzzleHandTile> tilesOfType = group.Value;
-
-            // Use the first tile in the group as the visual representative.
-            PuzzleHandTile representativeTile = tilesOfType.First();
-
-            // Calculate spawn position for this group.
-            Vector3 spawnPos = new Vector3(0, 0, startZ - (index * paletteSpacing));
-
-            // --- VISUAL TILE CREATION (This part is mostly the same) ---
-            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
-            tileGO.transform.SetParent(handPaletteContainer, false);
-            tileGO.name = "HandPalette_" + type.displayName;
-
-            var tileInstance = tileGO.GetComponent<TileInstance>();
-            gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
-
-            // --- ASSIGN ALL IDs TO THE CLICK HANDLER ---
-            // This is a conceptual simplification. The clicker will now just report the type.
-            // We will then find an available tile of that type in the hand.
-            var handTileClicker = tileGO.AddComponent<HandPaletteTile>();
-            handTileClicker.editorManager = this;
-            handTileClicker.myTileType = type;
-            // We no longer need the unique ID on the visual component itself.
-
-            // --- COUNTER LOGIC (This is now correct) ---
-            if (countIndicatorPrefab != null)
-            {
-                GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
-                indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
-                var text = indicatorGO.GetComponentInChildren<TMP_Text>();
-                if (text)
-                {
-                    // The text now shows how many of this type we have in our data list.
-                    text.text = $"x{tilesOfType.Count}";
-                    handCounters[type] = text;
-                }
-            }
-            index++;
+            // Position the Player Hand to the BOTTOM of the grid.
+            float gridHeight = (gridManager.rows - 1) * (gridManager.tileHeight + gridManager.gapZ);
+            float gridBottomEdgeZ = -gridHeight / 2f;
+            float buffer = 2f; // A small buffer space
+            float paletteZ = gridBottomEdgeZ - buffer;
+            targetContainer.position = new Vector3(0, 0, paletteZ);
         }
     }
+
+    // Group the hand tiles by their type
+    var groupedHand = playerHand.GroupBy(t => t.tileType).ToDictionary(g => g.Key, g => g.ToList());
+
+    float spacing = (currentMode == OperatingMode.Editor) ? editorPaletteSpacing : playerHandSpacing;
+    float startPos = (groupedHand.Count - 1) * spacing / 2f;
+    int index = 0;
+
+    foreach (var group in groupedHand.OrderBy(g => g.Key.displayName))
+    {
+        TileType type = group.Key;
+        List<PuzzleHandTile> tilesOfType = group.Value;
+        PuzzleHandTile representativeTile = tilesOfType.First();
+
+        // <<< THIS IS THE CORRECTED LAYOUT LOGIC >>>
+        Vector3 spawnPos;
+        if (currentMode == OperatingMode.Editor)
+        {
+             // Vertical layout for the side palette
+            spawnPos = new Vector3(0, 0, startPos - (index * spacing));
+        }
+        else // Playing Mode
+        {
+             // Horizontal layout for the bottom palette
+            spawnPos = new Vector3(startPos - (index * spacing), 0, 0);
+        }
+        
+        // The rest of the instantiation logic remains the same
+        GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
+        tileGO.transform.SetParent(targetContainer, false); // Use 'false' to respect the local spawn position
+        tileGO.name = "HandPalette_" + type.displayName;
+
+        var tileInstance = tileGO.GetComponent<TileInstance>();
+        gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
+
+        var handTileClicker = tileGO.AddComponent<HandPaletteTile>();
+        handTileClicker.editorManager = this;
+        handTileClicker.myTileType = type;
+
+        if (countIndicatorPrefab != null)
+        {
+            GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
+            indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
+            var text = indicatorGO.GetComponentInChildren<TMP_Text>();
+            if (text)
+            {
+                text.text = $"x{tilesOfType.Count}";
+                handCounters[type] = text;
+            }
+        }
+        index++;
+    }
+}
 
     public void UpdateHandCounters()
     {
@@ -2052,32 +2071,33 @@ public class LevelEditorManager : MonoBehaviour
     }
 
 
-public void PlaytestCurrentLevel()
-{
-    // Set the game mode
-    if (GameManager.Instance != null)
+    public void PlaytestCurrentLevel()
     {
-        GameManager.Instance.SetOperatingMode(OperatingMode.Playing);
-    }
+        // Set the game mode
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.SetOperatingMode(OperatingMode.Playing);
+        }
 
-    // Switch the UI to the player-facing view
-    if (UIManager.Instance != null)
-    {
-        UIManager.Instance.SwitchToMode(OperatingMode.Playing);
-    }
+        // Switch the UI to the player-facing view
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.SwitchToMode(OperatingMode.Playing);
+        }
 
-    // Create a snapshot of the level exactly as it is in the editor right now
-    GameStateSnapshot currentEditorState = CreateCurrentStateSnapshot();
-    
-    // This is a new play session, so clear any previous history
-    if (HistoryManager.Instance != null)
-    {
-        HistoryManager.Instance.ClearHistory();
-        HistoryManager.Instance.SaveState(currentEditorState); // Save the starting state
-    }
-    
-    // Start the reconstruction using the animated coroutine
-    StartCoroutine(ReconstructLevelFromDataCoroutine(currentEditorState));
+        // Create a snapshot of the level exactly as it is in the editor right now
+        GameStateSnapshot currentEditorState = CreateCurrentStateSnapshot();
+
+        // This is a new play session, so clear any previous history
+        if (HistoryManager.Instance != null)
+        {
+            HistoryManager.Instance.ClearHistory();
+            HistoryManager.Instance.SaveState(currentEditorState); // Save the starting state
+        }
+
+        // Start the reconstruction using the animated coroutine
+        StartCoroutine(ReconstructLevelFromDataCoroutine(currentEditorState));
+        RedrawHandPalette();
 }
 
 
