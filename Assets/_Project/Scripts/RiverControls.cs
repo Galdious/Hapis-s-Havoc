@@ -68,21 +68,45 @@ public class RiverControls : MonoBehaviour
 
     private void ClearArrows()
     {
-        if (leftArrows == null) return; // Nothing to clear
-
-        for (int row = 0; row < leftArrows.GetLength(0); row++)
+        // 1. Destroy all existing arrow and lock GameObjects in the scene.
+        // We iterate through all children of the gridParent and destroy those specific objects.
+        if (gridParent != null)
         {
-            // Check both blue (0) and red (1) arrows
-            if (leftArrows[row, 0] != null) Destroy(leftArrows[row, 0].gameObject);
-            if (leftArrows[row, 1] != null) Destroy(leftArrows[row, 1].gameObject);
+            // Use a list to avoid modifying the collection while iterating
+            List<GameObject> objectsToDestroy = new List<GameObject>();
+            foreach (Transform child in gridParent)
+            {
+                // Check if the object is an arrow or a lock based on its name
+                if (child.name.StartsWith("Arrow_") || child.name.StartsWith("Lock_"))
+                {
+                    objectsToDestroy.Add(child.gameObject);
+                }
+            }
 
-            if (rightArrows[row, 0] != null) Destroy(rightArrows[row, 0].gameObject);
-            if (rightArrows[row, 1] != null) Destroy(rightArrows[row, 1].gameObject);
+            foreach (GameObject obj in objectsToDestroy)
+            {
+                // Use DestroyImmediate in editor mode to ensure cleanup before new objects spawn
+                // Use Destroy in play mode
+                if (Application.isEditor && !Application.isPlaying)
+                {
+                    DestroyImmediate(obj);
+                }
+                else
+                {
+                    Destroy(obj);
+                }
+            }
         }
 
+        // 2. Clear internal lists and arrays to prevent lingering references.
         leftArrows = null;
         rightArrows = null;
+        rowLockStates = null;
+        originalArrowMaterials.Clear();
+
+        Debug.Log("[RiverControls] Cleared all previous arrows and locks.");
     }
+
 
 
 public int[] GetLockStatesAsInts()
@@ -120,9 +144,23 @@ public void SetLockStatesFromInts(int[] newLockStates)
     /// </summary>
     public void GenerateArrowsForGrid()
     {
+        // First, clear any old arrows and locks
         ClearArrows();
-        CreateArrows();
+
+        // Initialize the internal arrays based on the new grid size
+        int rows = gridManager.rows;
+        leftArrows = new PointerArrowButton[rows, 2];
+        rightArrows = new PointerArrowButton[rows, 2];
+        rowLockStates = new RowLockState[rows]; // <<< RESET THIS ARRAY
+
+        for (int row = 0; row < rows; row++)
+        {
+            CreateArrowsForRow(row);
+        }
+
+        Debug.Log($"[RiverControls] Created {rows * 4} arrows for {rows} rows");
     }
+
 
     private void CreateArrows()
     {
