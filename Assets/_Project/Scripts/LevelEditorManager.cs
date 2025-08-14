@@ -110,12 +110,15 @@ public class LevelEditorManager : MonoBehaviour
     // This will keep a reference to the GameObject we highlighted
     private GameObject currentlyHighlightedPaletteTile;
     private Dictionary<TileType, int> initialHandBlueprint = new Dictionary<TileType, int>();
+    private UIManager uiManager;
 
 
 
 
     void Start()
     {
+        uiManager = FindFirstObjectByType<UIManager>();
+
         if (gridManager == null || riverBankManager == null || riverControls == null || gridSetupPanel == null)
         {
             Debug.LogError("[LevelEditorManager] A reference is missing! Please assign all fields in the Inspector.");
@@ -411,7 +414,7 @@ public class LevelEditorManager : MonoBehaviour
 
         // 2. Generate the core grid first
         gridManager.CreateGridFromEditor(width, height);
-        // TUTAJ
+        riverControls.InitializeLockStates(height);
 
 
         // After creating the grid, add the clickable component to each tile.
@@ -432,7 +435,7 @@ public class LevelEditorManager : MonoBehaviour
 
         // 3. NOW, tell the other managers to build based on the new grid
         riverBankManager.GenerateBanksForGrid();
-        riverControls.GenerateArrowsForGrid();
+        riverControls.GenerateControlsForGrid();
 
 
         // 4. THIS IS THE NEW STEP: Command the boat to spawn
@@ -770,9 +773,26 @@ private void RedrawHandPalette()
         var tileInstance = tileGO.GetComponent<TileInstance>();
         gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
 
-        var handTileClicker = tileGO.AddComponent<HandPaletteTile>();
-        handTileClicker.editorManager = this;
-        handTileClicker.myTileType = type;
+            if (currentMode == OperatingMode.Editor)
+            {
+                // In the editor, use the simple click handler.
+                var handTileClicker = tileGO.AddComponent<HandPaletteTile>();
+                handTileClicker.editorManager = this;
+                handTileClicker.myTileType = type;
+            }
+            else // Playing Mode
+            {
+                // In play mode, use the full-featured draggable tile script.
+                var playableTile = tileGO.AddComponent<PlayableHandTile>();
+                playableTile.myTileType = type;
+                playableTile.editorManager = this;
+
+                // Use our cached, safe reference to the UIManager.
+                // This avoids the static instance issue and is much more robust.
+                playableTile.uiManager = this.uiManager; 
+    
+            }
+
 
         if (countIndicatorPrefab != null)
         {
@@ -1420,6 +1440,37 @@ private void RedrawHandPalette()
         }
     }
 
+public IEnumerator HandleDropZonePush(int row, bool fromLeft, TileType tileType) // <-- IT NOW ACCEPTS a TileType
+{
+    HistoryManager.Instance.SaveState();
+
+    Debug.Log($"PUZZLE MODE: Pushing dropped hand tile: {tileType.displayName}");
+
+    // Find the FIRST available tile of this type in our hand data and remove it.
+    PuzzleHandTile tileToRemove = playerHand.FirstOrDefault(t => t.tileType == tileType);
+
+    if (tileToRemove != null)
+    {
+        // We found one. Remove it from the data list.
+        playerHand.Remove(tileToRemove);
+
+        // Re-calculate the bag based on the now-smaller hand and update the UI counters.
+        ApplyHandToBag();
+        // Redraw the hand palette to show the tile has been removed.
+        RedrawHandPalette();
+
+        // Tell the GridManager to perform the push with the specific tile data from the hand.
+        yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileToRemove));
+    }
+    else
+    {
+        // This should not happen if the UI is correct, but it's a safe fallback.
+        Debug.LogError($"Attempted to use tile '{tileType.displayName}', but none were found in the hand data!");
+        yield break;
+    }
+}
+
+
 
     // should we leave it?
     // public bool UseSelectedHandTile(int row, bool fromLeft, bool isForObstacleSide)
@@ -1761,9 +1812,10 @@ private void RedrawHandPalette()
     {
 
         if(GameManager.Instance != null) GameManager.Instance.SetReconstructing(true);
-        Debug.Log("Beginning level reconstruction from snapshot...");
+        Debug.Log("<color=yellow>--- STARTING LEVEL RECONSTRUCTION ---</color>");
 
         // 1. Clear the current scene state
+        Debug.Log("Step 1: Clearing current scene state (boats, markers, hand data)...");
         boatManager.ClearAllBoats();
         if (activeStartMarker != null) Destroy(activeStartMarker);
         if (activeEndMarker != null) Destroy(activeEndMarker);
@@ -1776,8 +1828,9 @@ private void RedrawHandPalette()
         endTile = null;
         endBank = null;
         // Clear goal markers, we will restore them from the CURRENT level data later
+        
         foreach (var marker in FindObjectsByType<GoalMarker>(FindObjectsSortMode.None)) { Destroy(marker.gameObject); }
-
+Debug.Log($"Step 2: Creating {currentLoadedLevelData.gridWidth}x{currentLoadedLevelData.gridHeight} grid from blueprint...");
         // We use the grid dimensions FROM THE SNAPSHOT.
         List<Coroutine> gridAnimations = gridManager.CreateGridFromEditor(currentLoadedLevelData.gridWidth, currentLoadedLevelData.gridHeight, snapshot.tileStates);
 
@@ -1794,14 +1847,17 @@ private void RedrawHandPalette()
                 if (anim != null) yield return anim;
             }
         }
+        Debug.Log("Grid visual creation complete.");
         // Debug.Log("All tile animations complete. Proceeding...");
-
+        Debug.Log("Step 3: Generating banks and setting lock states...");
         riverBankManager.GenerateBanksForGrid();
-        riverControls.GenerateArrowsForGrid();
         //riverControls.SetLockStates(data.lockedRows); 
         riverControls.SetLockStatesFromInts(snapshot.lockedRowsState);
+        riverControls.GenerateControlsForGrid();
+        Debug.Log("Banks and controls generated.");
 
         // 3. Place all the tiles and add their editor components
+        Debug.Log("Step 4: Placing collectibles and editor components...");
         for (int y = 0; y < currentLoadedLevelData.gridHeight; y++)
         {
             for (int x = 0; x < currentLoadedLevelData.gridWidth; x++)
@@ -1837,6 +1893,7 @@ private void RedrawHandPalette()
         // }
 
         // 5. Place Collectibles
+        
         foreach (var collectibleData in snapshot.collectibleStates)
         {
             TileInstance tile = gridManager.GetTileAt(collectibleData.gridX, collectibleData.gridY);
@@ -1845,7 +1902,7 @@ private void RedrawHandPalette()
                 PlaceOrRemoveCollectible(tile, collectibleData.type, collectibleData.value);
             }
         }
-
+Debug.Log("Step 5: Rebuilding player hand data...");
         // 6. Rebuild the Player's Hand data and visuals
         foreach (var handTileData in snapshot.playerHandState)
         {
@@ -1859,6 +1916,7 @@ private void RedrawHandPalette()
                 });
             }
         }
+        Debug.Log("Re-drawing hand palette visuals...");
         RedrawHandPalette();
         // Force the game into Puzzle Mode with the hand we just loaded.
         ApplyHandToBag();
@@ -1902,6 +1960,7 @@ private void RedrawHandPalette()
 
         // 5. Re-place Start and End Markers FROM THE ORIGINAL LEVEL DATA
         // The goals don't move, so we restore them from 'currentLoadedLevelData'.
+        Debug.Log("Step 6: Placing start and end markers...");
         var startGoalData = currentLoadedLevelData.startPosition;
         if (startGoalData != null)
         {
@@ -1916,6 +1975,7 @@ private void RedrawHandPalette()
         }
 
         // 6. Spawn the boat and RESTORE ITS STATE
+        Debug.Log("Step 7: Spawning and restoring boat state...");
         BoatController boat = boatManager.SpawnBoatWithoutPositioning(); // Spawn it without positioning
         if (boat != null && snapshot.boatPosition != null)
         {
@@ -1935,6 +1995,7 @@ private void RedrawHandPalette()
             }
         }
         // 10. Reset State for the New Run
+        Debug.Log("Step 8: Finalizing game state and starting timer...");
         if (HistoryManager.Instance != null)
         {
             HistoryManager.Instance.ResetUndoFlag();
@@ -1986,13 +2047,13 @@ private void RedrawHandPalette()
         //     HistoryManager.Instance.SaveState();
         // }
 
-
+Debug.Log("Yielding to FinalizeStateReconstruction...");
         // After everything is visually in place, run the logic finalization routine.
         yield return StartCoroutine(FinalizeStateReconstruction(snapshot, isUndoAction));
 
         if (GameManager.Instance != null) GameManager.Instance.SetReconstructing(false);
 
-        Debug.Log("<color=cyan>Level reconstruction from snapshot complete.</color>");
+        Debug.Log("<color=lime>--- LEVEL RECONSTRUCTION COMPLETE ---</color>");
     }
 
 
@@ -2097,7 +2158,7 @@ private void RedrawHandPalette()
 
         // Start the reconstruction using the animated coroutine
         StartCoroutine(ReconstructLevelFromDataCoroutine(currentEditorState));
-        RedrawHandPalette();
+        // RedrawHandPalette();
 }
 
 

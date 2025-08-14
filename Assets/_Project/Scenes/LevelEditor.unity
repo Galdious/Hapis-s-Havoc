@@ -5865,6 +5865,7 @@ MonoBehaviour:
   riverBankManager: {fileID: 1495770930}
   riverControls: {fileID: 1424900279}
   boatManager: {fileID: 1612799918}
+  uiManager: {fileID: 25834545}
   gridSetupPanel: {fileID: 873123898}
   widthInput: {fileID: 1024793628}
   heightInput: {fileID: 901683458}
@@ -5883,7 +5884,8 @@ MonoBehaviour:
   setEndToolButton: {fileID: 1402725039}
   toolSelectedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   paletteContainer: {fileID: 1480201045}
-  paletteSpacing: 1.5
+  editorPaletteSpacing: 1.5
+  playerHandSpacing: 2.5
   blockerMarkerPrefab: {fileID: 3578985545442099175, guid: b9cccfe652e0c4c988de0352c12b4191, type: 3}
   starCollectiblePrefab: {fileID: 1150640815076544162, guid: 1a4de4cc2793d40aba7676edff3cb287, type: 3}
   extraMoveCollectiblePrefab: {fileID: 1524352960819354318, guid: a57881d82202d413184a59d049dce4ea, type: 3}
@@ -9872,6 +9874,7 @@ MonoBehaviour:
   levelEditorManager: {fileID: 0}
   arrowPrefab: {fileID: 0}
   lockPrefab: {fileID: 2311842975052856536, guid: 43eec1e5240224bc7bf647d3e0d375e1, type: 3}
+  dropZonePrefab: {fileID: 7239221159779861972, guid: fe7c792374e554f39a1538b46b9d8e48, type: 3}
   blueMaterial: {fileID: 0}
   redMaterial: {fileID: 0}
   lockMaterial: {fileID: 2100000, guid: 450823a37bde345b1a2ff9f8d708c9aa, type: 2}

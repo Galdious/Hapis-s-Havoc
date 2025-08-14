@@ -8,6 +8,7 @@
  */
 
 using UnityEngine;
+using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -26,6 +27,7 @@ public class RiverControls : MonoBehaviour
     [Header("Arrow Settings")]
     public GameObject arrowPrefab;  // simple cube or arrow mesh
     public GameObject lockPrefab; // prefab for lock toggle buttons
+    public GameObject dropZonePrefab; // <<< ADD (for level editor drop zones)
     public Material blueMaterial;   // for blue/river arrows
     public Material redMaterial;    // for red/obstacle arrows
     public Material lockMaterial;   // <<< ADD (Default unlocked material)
@@ -46,6 +48,7 @@ public class RiverControls : MonoBehaviour
     private RowLockState[] rowLockStates; // <<< ADD
     private Dictionary<Renderer, Material> originalArrowMaterials = new Dictionary<Renderer, Material>(); // <<< ADD
     private GameManager gameManager;
+    private Canvas dropZoneCanvas;
 
     // ArrowButton class removed - now using PointerArrowButton
 
@@ -69,45 +72,45 @@ public class RiverControls : MonoBehaviour
         //CreateArrows();  // commented out for level editor mode
     }
 
-    private void ClearArrows()
+    
+    private void ClearArrowsAndDropZones()
     {
-        // 1. Destroy all existing arrow and lock GameObjects in the scene.
-        // We iterate through all children of the gridParent and destroy those specific objects.
+        // Destroy the canvas if it exists
+        if (dropZoneCanvas != null)
+        {
+            Destroy(dropZoneCanvas.gameObject);
+        }
+
+        // Destroy all arrow and lock GameObjects
         if (gridParent != null)
         {
-            // Use a list to avoid modifying the collection while iterating
             List<GameObject> objectsToDestroy = new List<GameObject>();
             foreach (Transform child in gridParent)
             {
-                // Check if the object is an arrow or a lock based on its name
                 if (child.name.StartsWith("Arrow_") || child.name.StartsWith("Lock_"))
                 {
                     objectsToDestroy.Add(child.gameObject);
                 }
             }
-
             foreach (GameObject obj in objectsToDestroy)
             {
-                // Use DestroyImmediate in editor mode to ensure cleanup before new objects spawn
-                // Use Destroy in play mode
-                if (Application.isEditor && !Application.isPlaying)
-                {
-                    DestroyImmediate(obj);
-                }
-                else
-                {
-                    Destroy(obj);
-                }
+                // Using Destroy instead of DestroyImmediate is safer in Play Mode
+                Destroy(obj);
             }
         }
 
-        // 2. Clear internal lists and arrays to prevent lingering references.
+        // Clear internal data structures
         leftArrows = null;
         rightArrows = null;
-        rowLockStates = null;
+        // rowLockStates = null;
         originalArrowMaterials.Clear();
+    }
 
-        Debug.Log("[RiverControls] Cleared all previous arrows and locks.");
+    public void InitializeLockStates(int rows)
+    {
+        // This method creates a fresh, default set of lock states.
+        rowLockStates = new RowLockState[rows];
+        Debug.Log($"[RiverControls] Initialized a new lock state array for {rows} rows.");
     }
 
 
@@ -134,7 +137,7 @@ public class RiverControls : MonoBehaviour
         for (int i = 0; i < newLockStates.Length; i++)
         {
             rowLockStates[i] = (RowLockState)newLockStates[i];
-            UpdateRowLockVisuals(i); // Update visuals for each row as it's loaded
+            // UpdateRowLockVisuals(i); // Update visuals for each row as it's loaded
         }
     }
 
@@ -142,27 +145,130 @@ public class RiverControls : MonoBehaviour
 
 
 
-    /// <summary>
-    /// Public method to be called by an external manager to generate arrows.
-    /// </summary>
-    public void GenerateArrowsForGrid()
+    // REPLACES the old GenerateArrowsForGrid method entirely.
+    public void GenerateControlsForGrid()
     {
-        // First, clear any old arrows and locks
-        ClearArrows();
+        // First, clear any old controls
+        ClearArrowsAndDropZones();
 
         // Initialize the internal arrays based on the new grid size
         int rows = gridManager.rows;
         leftArrows = new PointerArrowButton[rows, 2];
         rightArrows = new PointerArrowButton[rows, 2];
-        rowLockStates = new RowLockState[rows]; // <<< RESET THIS ARRAY
+
+
+
+
+        // --- NEW: Create the World Space Canvas dynamically ---
+        if (gameManager != null && gameManager.currentMode == OperatingMode.Playing)
+        {
+            GameObject canvasGO = new GameObject("DropZoneCanvas");
+            canvasGO.transform.SetParent(this.transform); // Attach to RiverControls
+            dropZoneCanvas = canvasGO.AddComponent<Canvas>();
+            dropZoneCanvas.renderMode = RenderMode.WorldSpace;
+            canvasGO.AddComponent<GraphicRaycaster>(); // Required for UI interaction
+
+
+            // Find the main camera to assign to the event camera
+            Camera mainCamera = Camera.main;
+            if (mainCamera != null)
+            {
+                dropZoneCanvas.worldCamera = mainCamera;
+            }
+            else
+            {
+                Debug.LogError("[RiverControls] Main Camera not found! Drop zones will not work.");
+            }
+
+            dropZoneCanvas.transform.rotation = Quaternion.Euler(90, 0, 0);
+
+        }
+
 
         for (int row = 0; row < rows; row++)
         {
-            CreateArrowsForRow(row);
+            // --- NEW: Mode-switching logic ---
+            if (gameManager != null && gameManager.currentMode == OperatingMode.Editor)
+            {
+                CreateArrowsForRow(row);
+            }
+            else // Playing Mode
+            {
+                if (dropZonePrefab != null)
+                {
+                    CreateDropZonesForRow(row);
+                }
+            }
         }
 
-        Debug.Log($"[RiverControls] Created {rows * 4} arrows for {rows} rows");
+        // --- NEW: Final step to apply the correct visual state after creation ---
+        // In Editor mode, we need to manually update the arrow visuals to match the loaded data.
+        // In Play mode, the drop zones' active state is already handled during their creation.
+        if (gameManager != null && gameManager.currentMode == OperatingMode.Editor)
+        {
+            for (int row = 0; row < rows; row++)
+            {
+                UpdateRowLockVisuals(row);
+            }
+        }
+
+
+        Debug.Log($"[RiverControls] Generated controls for {rows} rows in {gameManager.currentMode} mode.");
     }
+
+    
+    private void CreateDropZonesForRow(int row)
+    {
+        if (dropZoneCanvas == null) return;
+
+        Vector3 rowCenter = GetRowCenterPosition(row);
+        float dynamicArrowDistance = GetDynamicArrowDistance(); // We can reuse this for consistent positioning
+
+        // --- Your Dynamic Sizing Logic ---
+        float zoneWidth = gridManager.tileWidth * 1.5f;
+        float zoneHeight = gridManager.tileHeight + (gridManager.gapZ * 0.5f);
+
+        // --- Create Left Drop Zone ---
+        GameObject leftZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
+        leftZoneGO.name = $"DropZone_Row{row}_L";
+        RectTransform leftRect = leftZoneGO.GetComponent<RectTransform>();
+        // Position it correctly at the left edge of the grid
+        leftRect.position = rowCenter + Vector3.left * (dynamicArrowDistance - 2f); // Adjust positioning as needed
+        leftRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
+
+        RowDropZone leftZone = leftZoneGO.GetComponent<RowDropZone>();
+        leftZone.row = row;
+        leftZone.fromLeft = true;
+        leftZone.riverControls = this;
+
+        // Check lock state
+        if (rowLockStates[row] == RowLockState.LeftLocked || rowLockStates[row] == RowLockState.BothLocked)
+        {
+            leftZoneGO.SetActive(false);
+        }
+
+
+        // --- Create Right Drop Zone ---
+        GameObject rightZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
+        rightZoneGO.name = $"DropZone_Row{row}_R";
+        RectTransform rightRect = rightZoneGO.GetComponent<RectTransform>();
+        // Position it correctly at the right edge of the grid
+        rightRect.position = rowCenter + Vector3.right * (dynamicArrowDistance - 2f); // Adjust positioning as needed
+        rightRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
+
+        RowDropZone rightZone = rightZoneGO.GetComponent<RowDropZone>();
+        rightZone.row = row;
+        rightZone.fromLeft = false;
+        rightZone.riverControls = this;
+
+        // Check lock state
+        if (rowLockStates[row] == RowLockState.RightLocked || rowLockStates[row] == RowLockState.BothLocked)
+        {
+            rightZoneGO.SetActive(false);
+        }
+    }
+
+
 
 
     private void CreateArrows()
