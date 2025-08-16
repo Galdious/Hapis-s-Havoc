@@ -40,7 +40,10 @@ public class RiverControls : MonoBehaviour
     [Header("Visual Feedback")]
     public bool showHoverEffect = true;
     public Color hoverColor = Color.yellow;
-
+    [Tooltip("How far a row slides sideways when a tile is hovered over its drop zone.")]
+    public float rowSlideAmount = 0.2f;
+    [Tooltip("How long the row slide animation takes.")]
+    public float rowSlideDuration = 0.15f;
 
 
     private PointerArrowButton[,] leftArrows;   // [row, side] 0=blue, 1=red
@@ -49,6 +52,7 @@ public class RiverControls : MonoBehaviour
     private Dictionary<Renderer, Material> originalArrowMaterials = new Dictionary<Renderer, Material>(); // <<< ADD
     private GameManager gameManager;
     private Canvas dropZoneCanvas;
+    private Dictionary<int, Coroutine> runningRowAnimations = new Dictionary<int, Coroutine>();
 
     // ArrowButton class removed - now using PointerArrowButton
 
@@ -72,7 +76,73 @@ public class RiverControls : MonoBehaviour
         //CreateArrows();  // commented out for level editor mode
     }
 
-    
+    public void AnimateRowForDrop(int row, bool fromLeft)
+    {
+        if (runningRowAnimations.ContainsKey(row))
+        {
+            StopCoroutine(runningRowAnimations[row]);
+        }
+        runningRowAnimations[row] = StartCoroutine(AnimateRowPosition(row, fromLeft));
+    }
+        public void ResetRowAnimation(int row)
+    {
+        if (runningRowAnimations.ContainsKey(row))
+        {
+            StopCoroutine(runningRowAnimations[row]);
+        }
+        runningRowAnimations[row] = StartCoroutine(AnimateRowPosition(row, fromLeft: false, reverse: true));
+    }
+
+    private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = false)
+    {
+        float direction = fromLeft ? -1f : 1f;
+        float targetOffset = reverse ? 0f : rowSlideAmount * direction;
+
+        List<Transform> rowTiles = new List<Transform>();
+        List<Vector3> startPositions = new List<Vector3>();
+        for (int x = 0; x < gridManager.cols; x++)
+        {
+            TileInstance tile = gridManager.GetTileAt(x, row);
+            if (tile != null)
+            {
+                rowTiles.Add(tile.transform);
+                startPositions.Add(tile.transform.position);
+            }
+        }
+        if (rowTiles.Count == 0) yield break;
+
+        float currentOffset = rowTiles[0].transform.position.x - startPositions[0].x;
+
+        float elapsed = 0f;
+        while (elapsed < rowSlideDuration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = elapsed / rowSlideDuration;
+            float newOffset = Mathf.Lerp(currentOffset, targetOffset, progress);
+
+            for (int i = 0; i < rowTiles.Count; i++)
+            {
+                if (rowTiles[i] != null)
+                {
+                    rowTiles[i].position = new Vector3(startPositions[i].x + newOffset, startPositions[i].y, startPositions[i].z);
+                }
+            }
+            yield return null;
+        }
+
+        // Final snap to position
+        for (int i = 0; i < rowTiles.Count; i++)
+        {
+            if (rowTiles[i] != null)
+            {
+                rowTiles[i].position = new Vector3(startPositions[i].x + targetOffset, startPositions[i].y, startPositions[i].z);
+            }
+        }
+    }
+
+
+
+
     private void ClearArrowsAndDropZones()
     {
         // Destroy the canvas if it exists
@@ -222,50 +292,36 @@ public class RiverControls : MonoBehaviour
         if (dropZoneCanvas == null) return;
 
         Vector3 rowCenter = GetRowCenterPosition(row);
-        float dynamicArrowDistance = GetDynamicArrowDistance(); // We can reuse this for consistent positioning
 
-        // --- Your Dynamic Sizing Logic ---
+        float gridHalfWidth = (gridManager.cols * gridManager.tileWidth + (gridManager.cols - 1) * gridManager.gapX) / 2f;
         float zoneWidth = gridManager.tileWidth * 1.5f;
         float zoneHeight = gridManager.tileHeight + (gridManager.gapZ * 0.5f);
+        float offsetFromEdge = zoneWidth / 2f; // Position center of zone at the grid edge
 
-        // --- Create Left Drop Zone ---
+        // Left Drop Zone
         GameObject leftZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
         leftZoneGO.name = $"DropZone_Row{row}_L";
         RectTransform leftRect = leftZoneGO.GetComponent<RectTransform>();
-        // Position it correctly at the left edge of the grid
-        leftRect.position = rowCenter + Vector3.left * (dynamicArrowDistance - 2f); // Adjust positioning as needed
+        leftRect.position = new Vector3(rowCenter.x - gridHalfWidth - offsetFromEdge, rowCenter.y, rowCenter.z);
         leftRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
-
         RowDropZone leftZone = leftZoneGO.GetComponent<RowDropZone>();
         leftZone.row = row;
         leftZone.fromLeft = true;
         leftZone.riverControls = this;
-
-        // Check lock state
-        if (rowLockStates[row] == RowLockState.LeftLocked || rowLockStates[row] == RowLockState.BothLocked)
-        {
-            leftZoneGO.SetActive(false);
-        }
+        if (rowLockStates[row] == RowLockState.LeftLocked || rowLockStates[row] == RowLockState.BothLocked) leftZoneGO.SetActive(false);
 
 
-        // --- Create Right Drop Zone ---
+        // Right Drop Zone
         GameObject rightZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
         rightZoneGO.name = $"DropZone_Row{row}_R";
         RectTransform rightRect = rightZoneGO.GetComponent<RectTransform>();
-        // Position it correctly at the right edge of the grid
-        rightRect.position = rowCenter + Vector3.right * (dynamicArrowDistance - 2f); // Adjust positioning as needed
+        rightRect.position = new Vector3(rowCenter.x + gridHalfWidth + offsetFromEdge, rowCenter.y, rowCenter.z);
         rightRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
-
         RowDropZone rightZone = rightZoneGO.GetComponent<RowDropZone>();
         rightZone.row = row;
         rightZone.fromLeft = false;
         rightZone.riverControls = this;
-
-        // Check lock state
-        if (rowLockStates[row] == RowLockState.RightLocked || rowLockStates[row] == RowLockState.BothLocked)
-        {
-            rightZoneGO.SetActive(false);
-        }
+        if (rowLockStates[row] == RowLockState.RightLocked || rowLockStates[row] == RowLockState.BothLocked) rightZoneGO.SetActive(false);
     }
 
 

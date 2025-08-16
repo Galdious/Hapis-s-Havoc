@@ -328,7 +328,7 @@ public class GridManager : MonoBehaviour
             y * (tileHeight + gapZ));
     }
 
-    private Vector3 GetSpawnPosition(int rowIndex, bool fromLeft)
+    public Vector3 GetSpawnPosition(int rowIndex, bool fromLeft)
     {
         Vector3 rowCenter = GetWorldPosition(fromLeft ? 0 : cols - 1, rowIndex);
         float xOffset = fromLeft ? -spawnOffset : spawnOffset;
@@ -1063,6 +1063,220 @@ public class GridManager : MonoBehaviour
     // END OF NEW OVERLOAD
     // ------------------------------------------------------------
 
+    // ------------------------------------------------------------
+    // START OF SECOND OVERLOAD
+    // ------------------------------------------------------------
+
+    public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile handTile, GameObject newTileGO)
+    {
+        isPushingInProgress = true;
+
+        BoatController previouslySelectedBoat = null;
+        if (boatManager != null)
+        {
+            previouslySelectedBoat = boatManager.GetSelectedBoat();
+        }
+        if (previouslySelectedBoat != null)
+        {
+            previouslySelectedBoat.DeselectBoat();
+            yield return new WaitForSeconds(0.3f);
+        }
+
+        RiverControls riverControls = FindFirstObjectByType<RiverControls>();
+        if (riverControls != null)
+        {
+            riverControls.SetArrowCollidersEnabled(false);
+        }
+
+        int insertCol = fromLeft ? 0 : cols - 1;
+        int exitCol = fromLeft ? cols - 1 : 0;
+        TileInstance ejectingTile = grid[exitCol, rowIndex];
+
+        // --- Boat Parenting and Ejection Logic ---
+        float ejectedTileRotation = 0f;
+        if (ejectingTile != null)
+        {
+            ejectedTileRotation = ejectingTile.transform.eulerAngles.y;
+        }
+
+        BoatController ejectedBoat = null;
+        int originalSnapPoint = -1;
+        List<BoatController> boatsToParent = new List<BoatController>();
+
+        if (boatManager != null)
+        {
+            foreach (var boat in boatManager.GetPlayerBoats())
+            {
+                if (boat != null)
+                {
+                    TileInstance boatTile = boat.GetCurrentTile();
+                    if (boatTile == ejectingTile)
+                    {
+                        ejectedBoat = boat;
+                        originalSnapPoint = boat.GetCurrentSnapPoint();
+                        boat.transform.SetParent(null, true);
+                    }
+                    else
+                    {
+                        for (int x = 0; x < cols; x++)
+                        {
+                            if (grid[x, rowIndex] == boatTile)
+                            {
+                                boatsToParent.Add(boat);
+                                boat.transform.SetParent(boat.GetCurrentTile().transform, true);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (ejectedBoat != null)
+        {
+            yield return StartCoroutine(ejectedBoat.FadeOutForEjection());
+        }
+
+        // --- Core Change: We use the provided newTileGO ---
+        TileInstance newTile = newTileGO.GetComponent<TileInstance>();
+
+        // --- Animation Logic ---
+        List<Coroutine> essentialAnimations = new List<Coroutine>();
+        if (ejectedBoat != null)
+        {
+            essentialAnimations.Add(StartCoroutine(ejectedBoat.FadeOutForEjection()));
+        }
+        essentialAnimations.Add(StartCoroutine(SlideTileToPosition(newTile.transform, GetWorldPosition(insertCol, rowIndex))));
+
+        if (fromLeft)
+        {
+            for (int x = cols - 1; x >= 1; x--)
+            {
+                if (grid[x - 1, rowIndex] != null)
+                {
+                    grid[x, rowIndex] = grid[x - 1, rowIndex];
+                    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
+                }
+            }
+            grid[0, rowIndex] = newTile;
+        }
+        else // from right
+        {
+            for (int x = 0; x < cols - 1; x++)
+            {
+                if (grid[x + 1, rowIndex] != null)
+                {
+                    grid[x, rowIndex] = grid[x + 1, rowIndex];
+                    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
+                }
+            }
+            grid[cols - 1, rowIndex] = newTile;
+        }
+
+        if (ejectingTile != null)
+        {
+            StartCoroutine(EjectTileToAbyss(ejectingTile, !fromLeft));
+        }
+
+        foreach (var anim in essentialAnimations)
+        {
+            yield return anim;
+        }
+
+        // --- Post-Animation Logic ---
+        foreach (var boat in boatsToParent)
+        {
+            if (boat != null)
+            {
+                boat.transform.SetParent(null, true);
+            }
+        }
+
+        if (ejectedBoat != null)
+        {
+            ejectedBoat.ResetStateAfterEjection();
+            int targetRow = rowIndex + (ejectedBoat.starsCollected > 0 ? 1 : -1);
+
+            if (targetRow < 0)
+            {
+                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom));
+                ejectedBoat.enabled = true;
+            }
+            else if (targetRow >= rows)
+            {
+                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top));
+                ejectedBoat.enabled = true;
+            }
+            else
+            {
+                int landingCol = fromLeft ? cols - 1 : 0;
+                int searchDirection = (ejectedBoat.starsCollected > 0) ? 1 : -1;
+                int currentRow = targetRow;
+                RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
+                List<TileInstance> crossedReversedTiles = new List<TileInstance>();
+                TileInstance finalLandingTile = null;
+
+                while (currentRow >= 0 && currentRow < rows)
+                {
+                    TileInstance tileToCheck = GetTileAt(landingCol, currentRow);
+                    if (tileToCheck != null && tileToCheck.IsReversed)
+                    {
+                        crossedReversedTiles.Add(tileToCheck);
+                        currentRow += searchDirection;
+                    }
+                    else
+                    {
+                        finalLandingTile = tileToCheck;
+                        break;
+                    }
+                }
+
+                if (crossedReversedTiles.Count > 0)
+                {
+                    ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
+                }
+
+                if (finalLandingTile != null)
+                {
+                    int targetSnapPoint = originalSnapPoint;
+                    float newTileRotation = finalLandingTile.transform.eulerAngles.y;
+                    if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
+                    {
+                        targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
+                    }
+                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint));
+                    ejectedBoat.enabled = true;
+                    ejectedBoat.CheckForCollectibleOnCurrentTile();
+                }
+                else
+                {
+                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
+                    ejectedBoat.enabled = true;
+                }
+            }
+        }
+
+        if (ejectingTile != null && ejectingTile.originalTemplate != null && !isPuzzleMode)
+        {
+            bagManager.ReturnTile(ejectingTile.originalTemplate);
+        }
+
+        if (riverControls != null)
+        {
+            riverControls.SetArrowCollidersEnabled(true);
+        }
+        if (previouslySelectedBoat != null)
+        {
+            previouslySelectedBoat.SelectBoat();
+        }
+
+        HistoryManager.Instance.SaveState();
+        isPushingInProgress = false;
+    }
+
+
+    // ------------------------------------------------------------
+    // END OF SECOND OVERLOAD
+    // ------------------------------------------------------------
 
 
 

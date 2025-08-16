@@ -9,14 +9,20 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
+using System.Collections; 
 
-
+// [RequireComponent(typeof(CanvasGroup))]
 public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     // --- Public References (Set by LevelEditorManager) ---
-    [HideInInspector] public TileType myTileType; 
+    [HideInInspector] public TileType myTileType;
     [HideInInspector] public UIManager uiManager;
     [HideInInspector] public LevelEditorManager editorManager; // To call the push coroutine
+
+    // --- Settings ---
+    private float liftHeight = 0.5f;
+    private float returnAnimationTime = 0.2f;
+
 
     // --- Private State ---
     private Vector3 originalPosition;
@@ -26,6 +32,19 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     private Plane dragPlane;    // A mathematical plane to drag the object along
 
     private RowDropZone currentHoveredZone = null;
+    private CanvasGroup canvasGroup;
+    private bool isDragging = false;
+
+    private int originalLayer; // <<< --- ADD THIS LINE
+    private int draggableLayer;
+
+    void Awake()
+    {
+        canvasGroup = GetComponent<CanvasGroup>();
+        draggableLayer = LayerMask.NameToLayer("DraggableTile"); 
+    }
+
+
 
     void Start()
     {
@@ -40,6 +59,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     /// </summary>
     public void OnPointerClick(PointerEventData eventData)
     {
+        if (isDragging) return;
         // A click (not a drag) will rotate the tile.
         RotateTile();
     }
@@ -49,18 +69,25 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     /// </summary>
     public void OnBeginDrag(PointerEventData eventData)
     {
+        isDragging = true;
+        StopAllCoroutines(); // Stop any "return to hand" animation
+
+        originalLayer = gameObject.layer;
+        SetLayerRecursively(this.gameObject, draggableLayer);
+
         // --- Prepare the tile for dragging ---
         // 1. Visually lift it by bringing it to a top-level container so it renders over everything.
         if (uiManager != null) transform.SetParent(uiManager.transform, true);
 
-        // 2. Create a plane at the tile's height to drag along.
-        dragPlane = new Plane(Vector3.up, originalPosition);
+        Vector3 liftedPosition = originalPosition + Vector3.up * liftHeight;
+        dragPlane = new Plane(Vector3.up, liftedPosition);
 
         // 3. Calculate the initial offset. This makes the drag feel natural,
         // as the tile won't "jump" to its center when you start dragging.
         Ray ray = eventData.pressEventCamera.ScreenPointToRay(eventData.position);
         if (dragPlane.Raycast(ray, out float enter))
         {
+            transform.position = ray.GetPoint(enter);
             dragOffset = transform.position - ray.GetPoint(enter);
         }
     }
@@ -68,7 +95,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     /// <summary>
     /// Called by the Event System every frame a drag is in progress.
     /// </summary>
-        
+
     public void OnDrag(PointerEventData eventData)
     {
         // --- Move the tile with the pointer ---
@@ -104,6 +131,8 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     /// </summary>
     public void OnEndDrag(PointerEventData eventData)
     {
+        SetLayerRecursively(this.gameObject, originalLayer);
+
         // If we are currently hovering over a valid drop zone...
         if (currentHoveredZone != null)
         {
@@ -115,7 +144,8 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
             editorManager.StartCoroutine(editorManager.HandleDropZonePush(
                 currentHoveredZone.row,
                 currentHoveredZone.fromLeft,
-                myTileType
+                myTileType,
+                transform.position
             ));
 
             // The tile has been successfully used, so we destroy its GameObject.
@@ -124,15 +154,53 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         else // Otherwise, the drop was invalid.
         {
             // Return the tile to its original spot in the hand.
-            transform.SetParent(originalParent, true);
-            transform.position = originalPosition;
-            transform.rotation = originalRotation;
+            StartCoroutine(AnimateBackToHand());
         }
 
         // Reset the hover state.
         currentHoveredZone = null;
+        Invoke(nameof(ResetDragFlag), 0.1f);
     }
 
+   
+       private void ResetDragFlag()
+    {
+        isDragging = false;
+    }
+
+    private IEnumerator AnimateBackToHand() // FIX #7
+    {
+        transform.SetParent(originalParent, true);
+        Vector3 startPos = transform.position;
+        Quaternion startRot = transform.rotation;
+        float elapsed = 0f;
+        while (elapsed < returnAnimationTime)
+        {
+            elapsed += Time.deltaTime;
+            float progress = Mathf.SmoothStep(0, 1, elapsed / returnAnimationTime);
+            transform.position = Vector3.Lerp(startPos, originalPosition, progress);
+            transform.rotation = Quaternion.Slerp(startRot, originalRotation, progress);
+            yield return null;
+        }
+        transform.position = originalPosition;
+        transform.rotation = originalRotation;
+    }
+
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
     private void RotateTile()
     {
         if (myTileType == null) return;
@@ -141,11 +209,39 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         transform.Rotate(0, 180f, 0);
 
         // Update the underlying data to keep it in sync.
-        
+
 
         // Store the new "home" rotation for if we cancel a drag.
         originalRotation = transform.rotation;
 
         Debug.Log($"Hand tile '{myTileType.displayName}' rotated."); // Modified log
     }
+    
+
+
+    /// Sets the layer for this GameObject and all of its children.
+    private void SetLayerRecursively(GameObject obj, int newLayer)
+    {
+        if (obj == null) return;
+
+        obj.layer = newLayer;
+
+        foreach (Transform child in obj.transform)
+        {
+            if (child == null) continue;
+            SetLayerRecursively(child.gameObject, newLayer);
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
 }

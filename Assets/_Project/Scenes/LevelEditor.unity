@@ -5865,7 +5865,6 @@ MonoBehaviour:
   riverBankManager: {fileID: 1495770930}
   riverControls: {fileID: 1424900279}
   boatManager: {fileID: 1612799918}
-  uiManager: {fileID: 25834545}
   gridSetupPanel: {fileID: 873123898}
   widthInput: {fileID: 1024793628}
   heightInput: {fileID: 901683458}
@@ -8735,7 +8734,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.PhysicsRaycaster
   m_EventMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 55
   m_MaxRayIntersections: 0
 --- !u!114 &1186538724
 MonoBehaviour:
@@ -9885,6 +9884,8 @@ MonoBehaviour:
   arrowSpacing: 0.8
   showHoverEffect: 1
   hoverColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  rowSlideAmount: 0.2
+  rowSlideDuration: 0.15
 --- !u!4 &1424900280
 Transform:
   m_ObjectHideFlags: 0

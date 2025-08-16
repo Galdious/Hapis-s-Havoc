@@ -1440,35 +1440,56 @@ private void RedrawHandPalette()
         }
     }
 
-public IEnumerator HandleDropZonePush(int row, bool fromLeft, TileType tileType) // <-- IT NOW ACCEPTS a TileType
-{
-    HistoryManager.Instance.SaveState();
-
-    Debug.Log($"PUZZLE MODE: Pushing dropped hand tile: {tileType.displayName}");
-
-    // Find the FIRST available tile of this type in our hand data and remove it.
-    PuzzleHandTile tileToRemove = playerHand.FirstOrDefault(t => t.tileType == tileType);
-
-    if (tileToRemove != null)
+    public IEnumerator HandleDropZonePush(int row, bool fromLeft, TileType tileType, Vector3 dropPosition)
     {
-        // We found one. Remove it from the data list.
-        playerHand.Remove(tileToRemove);
+        HistoryManager.Instance.SaveState();
 
-        // Re-calculate the bag based on the now-smaller hand and update the UI counters.
+        // --- FIX #4: Seamless Animation Handoff ---
+        // 1. Find the first available data object for this tile type.
+        PuzzleHandTile tileDataToPush = playerHand.FirstOrDefault(t => t.tileType == tileType);
+        if (tileDataToPush == null)
+        {
+            Debug.LogError($"Attempted to use tile '{tileType.displayName}', but none were found in hand!");
+            yield break;
+        }
+
+        // 2. Consume the tile from the data list immediately.
+        playerHand.Remove(tileDataToPush);
         ApplyHandToBag();
-        // Redraw the hand palette to show the tile has been removed.
-        RedrawHandPalette();
+        RedrawHandPalette(); // Update UI
 
-        // Tell the GridManager to perform the push with the specific tile data from the hand.
-        yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileToRemove));
+        // 3. Create the real tile at the drop position, but make it invisible for a moment.
+        // We use the rotation from the tile data, not the visual tile's current rotation.
+        Quaternion startRotation = Quaternion.Euler(0, tileDataToPush.rotationY, tileDataToPush.isFlipped ? 180f : 0f);
+        GameObject newTileGO = Instantiate(gridManager.tilePrefab, dropPosition, startRotation, gridManager.gridParent);
+        newTileGO.name = "PushedTile";
+        
+        // Add editor component for consistency if we return to editor
+        var editorTile = newTileGO.AddComponent<EditorGridTile>();
+        var tileInstance = newTileGO.GetComponent<TileInstance>();
+        editorTile.editorManager = this;
+        editorTile.tileInstance = tileInstance;
+        
+        gridManager.InitializeTile(tileInstance, tileType, tileDataToPush.isFlipped);
+
+        // 4. Calculate the off-grid starting position for the push.
+        Vector3 pushStartPosition = gridManager.GetSpawnPosition(row, fromLeft); // We need to make this method public in GridManager
+
+        // 5. Animate the tile from its drop point to the push start point.
+        float handoffDuration = 0.2f; // How long the handoff animation takes
+        float elapsed = 0f;
+        while (elapsed < handoffDuration)
+        {
+            elapsed += Time.deltaTime;
+            newTileGO.transform.position = Vector3.Lerp(dropPosition, pushStartPosition, elapsed / handoffDuration);
+            yield return null;
+        }
+        newTileGO.transform.position = pushStartPosition;
+
+        // 6. NOW, tell the GridManager to perform the real push using the tile we just animated.
+        // We will need a new overload in GridManager to accept a pre-made GameObject.
+        yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileDataToPush, newTileGO));
     }
-    else
-    {
-        // This should not happen if the UI is correct, but it's a safe fallback.
-        Debug.LogError($"Attempted to use tile '{tileType.displayName}', but none were found in the hand data!");
-        yield break;
-    }
-}
 
 
 

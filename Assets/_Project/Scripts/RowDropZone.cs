@@ -51,7 +51,7 @@ public class RowDropZone : MonoBehaviour
 
         // --- NEW: Trigger the "make room" animation ---
         // We'll add these methods to RiverControls later. For now, the calls can stay.
-        // riverControls?.AnimateRowForDrop(row, fromLeft);
+        riverControls?.AnimateRowForDrop(row, fromLeft);
 
         Debug.Log($"Hovering over drop zone: Row {row}, From Left: {fromLeft}");
     }
@@ -70,6 +70,6 @@ public class RowDropZone : MonoBehaviour
         }
 
         // --- NEW: Reset the "make room" animation ---
-        // riverControls?.ResetRowAnimation(row);
+        riverControls?.ResetRowAnimation(row);
     }
 }
