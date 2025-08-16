@@ -72,13 +72,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         isDragging = true;
         StopAllCoroutines(); // Stop any "return to hand" animation
 
-        // --- NEW: Hide the counter on drag start ---
-        CounterIndicatorTag indicator = GetComponentInChildren<CounterIndicatorTag>();
-        if (indicator != null)
-        {
-            indicator.gameObject.SetActive(false);
-        }
-        // -----------------------------------------
+
     
         // --- NEW: Create a visual stand-in ---
         // 1. Instantiate a copy of ourself at our current position and rotation.
@@ -90,7 +84,13 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         standIn.AddComponent<HandTileStandIn>();
         // ------------------------------------
     
-
+        // --- NEW: Hide the counter on drag start ---
+        CounterIndicatorTag indicator = GetComponentInChildren<CounterIndicatorTag>();
+        if (indicator != null)
+        {
+            indicator.gameObject.SetActive(false);
+        }
+        // -----------------------------------------
 
 
 
@@ -158,12 +158,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         SetLayerRecursively(this.gameObject, originalLayer);
         editorManager.gridManager.SetGridTilesLayer("Default"); // Tell GridManager to make grid tiles interactable again
 
-        // Find and destroy the stand-in tile from the hand palette.
-        HandTileStandIn standIn = FindFirstObjectByType<HandTileStandIn>();
-        if (standIn != null)
-        {
-            Destroy(standIn.gameObject);
-        }
+
 
 
 
@@ -172,6 +167,14 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         // If we are currently hovering over a valid drop zone...
         if (currentHoveredZone != null)
         {
+
+            HandTileStandIn standIn = FindFirstObjectByType<HandTileStandIn>();
+            if (standIn != null)
+            {
+                Destroy(standIn.gameObject);
+            }
+
+
             // Tell the zone it's no longer being hovered over.
             currentHoveredZone.OnHoverExit();
 
@@ -204,7 +207,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         isDragging = false;
     }
 
-    private IEnumerator AnimateBackToHand() // FIX #7
+    private IEnumerator AnimateBackToHand()
     {
         transform.SetParent(originalParent, true);
         Vector3 startPos = transform.position;
@@ -220,6 +223,23 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         }
         transform.position = originalPosition;
         transform.rotation = originalRotation;
+
+        // Now that the animation is finished, destroy the stand-in.
+        HandTileStandIn standIn = FindFirstObjectByType<HandTileStandIn>();
+        if (standIn != null)
+        {
+            Destroy(standIn.gameObject);
+        }
+        
+        // Find our own counter (which is currently inactive) and turn it back on.
+        // The 'true' argument tells GetComponentInChildren to include inactive children in the search.
+        CounterIndicatorTag indicator = GetComponentInChildren<CounterIndicatorTag>(true);
+        if (indicator != null)
+        {
+            indicator.gameObject.SetActive(true);
+        }
+    
+        
     }
 
    
