@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 5700395973003252626}
   - component: {fileID: 5800028663753992096}
   - component: {fileID: 8022805585977558231}
+  - component: {fileID: 8791008842732884480}
   m_Layer: 0
   m_Name: CountIndicator_3D_Template
   m_TagString: Untagged
@@ -114,7 +115,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4278190335
   m_fontColor: {r: 1, g: 0, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -179,3 +180,15 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_renderer: {fileID: 5800028663753992096}
   m_maskType: 0
+--- !u!114 &8791008842732884480
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4678442367154475571}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10977d200731746fd888f358df1f1daf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CounterIndicatorTag

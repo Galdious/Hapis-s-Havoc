@@ -1440,9 +1440,11 @@ private void RedrawHandPalette()
         }
     }
 
-    public IEnumerator HandleDropZonePush(int row, bool fromLeft, TileType tileType, Vector3 dropPosition)
+    public IEnumerator HandleDropZonePush(int row, bool fromLeft, TileType tileType, GameObject droppedTileGO)
     {
         HistoryManager.Instance.SaveState();
+
+        GameObject newTileGO = droppedTileGO;
 
         // --- FIX #4: Seamless Animation Handoff ---
         // 1. Find the first available data object for this tile type.
@@ -1450,8 +1452,29 @@ private void RedrawHandPalette()
         if (tileDataToPush == null)
         {
             Debug.LogError($"Attempted to use tile '{tileType.displayName}', but none were found in hand!");
+            Destroy(newTileGO);
             yield break;
         }
+
+        // --- NEW: CLEANUP LOGIC ---
+        PlayableHandTile playableComponent = newTileGO.GetComponent<PlayableHandTile>();
+        if (playableComponent != null)
+        {
+            Destroy(playableComponent);
+        }
+
+        CounterIndicatorTag indicator = newTileGO.GetComponentInChildren<CounterIndicatorTag>();
+        if (indicator != null)
+        {
+            Destroy(indicator.gameObject);
+        }
+        // --- END OF NEW CLEANUP LOGIC ---
+    
+
+
+
+
+
 
         // 2. Consume the tile from the data list immediately.
         playerHand.Remove(tileDataToPush);
@@ -1459,87 +1482,29 @@ private void RedrawHandPalette()
         RedrawHandPalette(); // Update UI
 
         // 3. Create the real tile at the drop position, but make it invisible for a moment.
-        // We use the rotation from the tile data, not the visual tile's current rotation.
-        Quaternion startRotation = Quaternion.Euler(0, tileDataToPush.rotationY, tileDataToPush.isFlipped ? 180f : 0f);
-        GameObject newTileGO = Instantiate(gridManager.tilePrefab, dropPosition, startRotation, gridManager.gridParent);
-        newTileGO.name = "PushedTile";
-        
-        // Add editor component for consistency if we return to editor
-        var editorTile = newTileGO.AddComponent<EditorGridTile>();
-        var tileInstance = newTileGO.GetComponent<TileInstance>();
-        editorTile.editorManager = this;
-        editorTile.tileInstance = tileInstance;
-        
-        gridManager.InitializeTile(tileInstance, tileType, tileDataToPush.isFlipped);
+    // The tile is already instantiated. We just need to parent it correctly.
+    newTileGO.transform.SetParent(gridManager.gridParent);
 
-        // 4. Calculate the off-grid starting position for the push.
-        Vector3 pushStartPosition = gridManager.GetSpawnPosition(row, fromLeft); // We need to make this method public in GridManager
+    // Get the instance component from the tile.
+    var tileInstance = newTileGO.GetComponent<TileInstance>();
 
-        // 5. Animate the tile from its drop point to the push start point.
-        float handoffDuration = 0.2f; // How long the handoff animation takes
-        float elapsed = 0f;
-        while (elapsed < handoffDuration)
-        {
-            elapsed += Time.deltaTime;
-            newTileGO.transform.position = Vector3.Lerp(dropPosition, pushStartPosition, elapsed / handoffDuration);
-            yield return null;
-        }
-        newTileGO.transform.position = pushStartPosition;
+    // Animate the tile from its drop point to the push start point.
+    Vector3 dropPosition = newTileGO.transform.position;
+    Vector3 pushStartPosition = gridManager.GetSpawnPosition(row, fromLeft);
+    float handoffDuration = 0.2f;
+    float elapsed = 0f;
+    while (elapsed < handoffDuration)
+    {
+        elapsed += Time.deltaTime;
+        newTileGO.transform.position = Vector3.Lerp(dropPosition, pushStartPosition, elapsed / handoffDuration);
+        yield return null;
+    }
+    newTileGO.transform.position = pushStartPosition;
 
-        // 6. NOW, tell the GridManager to perform the real push using the tile we just animated.
-        // We will need a new overload in GridManager to accept a pre-made GameObject.
-        yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileDataToPush, newTileGO));
+    // Tell the GridManager to perform the real push using the tile we just animated.
+    yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileDataToPush, newTileGO));
     }
 
-
-
-    // should we leave it?
-    // public bool UseSelectedHandTile(int row, bool fromLeft, bool isForObstacleSide)
-    // {
-    //     // Check if a tile has been selected from the hand.
-    //     if (selectedHandTileForPush == null)
-    //     {
-    //         Debug.LogWarning("Arrow clicked, but no hand tile was selected. Performing default action.");
-    //         return false; // Tells RiverControls to do its normal push.
-    //     }
-
-    //     Debug.Log($"Pushing selected hand tile: {selectedHandTileForPush.tileType.displayName}");
-
-    //     // Here, we decide the flip state. If the RED arrow is clicked, we override the tile's saved flip state.
-    //     bool pushAsObstacle = isForObstacleSide;
-
-    //     // We create a temporary data object to send to the GridManager.
-    //     // This allows the red arrow to override the flip state for one push.
-    //     PuzzleHandTile tileToPush = new PuzzleHandTile(selectedHandTileForPush.tileType)
-    //     {
-    //         rotationY = selectedHandTileForPush.rotationY,
-    //         isFlipped = pushAsObstacle, // Use the state from the arrow click
-    //         id = selectedHandTileForPush.id
-    //     };
-
-    //     // ???
-    //     ClearHandHighlight();
-
-
-    //     // Tell the GridManager to perform the special push.
-    //     StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileToPush));
-
-    //     // Consume the tile from our data list by finding its unique ID.
-    //     var tileDataToRemove = playerHand.FirstOrDefault(t => t.id == selectedHandTileForPush.id);
-    //     if (tileDataToRemove != null)
-    //     {
-    //         playerHand.Remove(tileDataToRemove);
-    //     }
-
-    //     // Update the counter text for the tile type we just used.
-    //     UpdateSingleCounter(selectedHandTileForPush.tileType);
-
-    //     // Clear the selection state so you can't push the same tile twice.
-    //     selectedHandTileForPush = null;
-
-    //     // Tell RiverControls that we handled the push successfully.
-    //     return true;
-    // }
 
 
     private void ClearHandHighlight()

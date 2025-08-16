@@ -72,6 +72,28 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         isDragging = true;
         StopAllCoroutines(); // Stop any "return to hand" animation
 
+        // --- NEW: Hide the counter on drag start ---
+        CounterIndicatorTag indicator = GetComponentInChildren<CounterIndicatorTag>();
+        if (indicator != null)
+        {
+            indicator.gameObject.SetActive(false);
+        }
+        // -----------------------------------------
+    
+        // --- NEW: Create a visual stand-in ---
+        // 1. Instantiate a copy of ourself at our current position and rotation.
+        GameObject standIn = Instantiate(this.gameObject, transform.position, transform.rotation, originalParent);
+        standIn.name = $"{this.gameObject.name} (Stand-In)";
+        // 2. Destroy the PlayableHandTile script on the stand-in so it's not interactive.
+        Destroy(standIn.GetComponent<PlayableHandTile>());
+        // 3. Add our marker script so we can find it later.
+        standIn.AddComponent<HandTileStandIn>();
+        // ------------------------------------
+    
+
+
+
+
         originalLayer = gameObject.layer;
         SetLayerRecursively(this.gameObject, draggableLayer);
 
@@ -136,6 +158,17 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         SetLayerRecursively(this.gameObject, originalLayer);
         editorManager.gridManager.SetGridTilesLayer("Default"); // Tell GridManager to make grid tiles interactable again
 
+        // Find and destroy the stand-in tile from the hand palette.
+        HandTileStandIn standIn = FindFirstObjectByType<HandTileStandIn>();
+        if (standIn != null)
+        {
+            Destroy(standIn.gameObject);
+        }
+
+
+
+
+
         // If we are currently hovering over a valid drop zone...
         if (currentHoveredZone != null)
         {
@@ -148,11 +181,11 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
                 currentHoveredZone.row,
                 currentHoveredZone.fromLeft,
                 myTileType,
-                transform.position
+                this.gameObject
             ));
 
             // The tile has been successfully used, so we destroy its GameObject.
-            Destroy(gameObject);
+            // Destroy(gameObject);
         }
         else // Otherwise, the drop was invalid.
         {
