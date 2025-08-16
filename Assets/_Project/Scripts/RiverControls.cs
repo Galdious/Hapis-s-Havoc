@@ -93,52 +93,58 @@ public class RiverControls : MonoBehaviour
         runningRowAnimations[row] = StartCoroutine(AnimateRowPosition(row, fromLeft: false, reverse: true));
     }
 
-    private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = false)
+private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = false)
+{
+    // The direction the ROW should move.
+    // If a tile comes FROM THE LEFT, the row must shift RIGHT (+1).
+    // If a tile comes FROM THE RIGHT, the row must shift LEFT (-1).
+    float direction = fromLeft ? 1f : -1f; // <<< --- THIS LOGIC IS NOW CORRECT
+    float targetOffset = reverse ? 0f : rowSlideAmount * direction;
+
+    List<Transform> rowTiles = new List<Transform>();
+    List<Vector3> basePositions = new List<Vector3>(); // Use a different name to avoid confusion
+    for (int x = 0; x < gridManager.cols; x++)
     {
-        float direction = fromLeft ? -1f : 1f;
-        float targetOffset = reverse ? 0f : rowSlideAmount * direction;
-
-        List<Transform> rowTiles = new List<Transform>();
-        List<Vector3> startPositions = new List<Vector3>();
-        for (int x = 0; x < gridManager.cols; x++)
+        TileInstance tile = gridManager.GetTileAt(x, row);
+        if (tile != null)
         {
-            TileInstance tile = gridManager.GetTileAt(x, row);
-            if (tile != null)
-            {
-                rowTiles.Add(tile.transform);
-                startPositions.Add(tile.transform.position);
-            }
+            rowTiles.Add(tile.transform);
+            // We need the tile's original, centered grid position as the base
+            basePositions.Add(gridManager.GetWorldPosition(x, row));
         }
-        if (rowTiles.Count == 0) yield break;
+    }
+    if (rowTiles.Count == 0) yield break;
 
-        float currentOffset = rowTiles[0].transform.position.x - startPositions[0].x;
+    // Calculate the offset at the start of the animation
+    float startOffset = rowTiles[0].transform.position.x - basePositions[0].x;
 
-        float elapsed = 0f;
-        while (elapsed < rowSlideDuration)
-        {
-            elapsed += Time.deltaTime;
-            float progress = elapsed / rowSlideDuration;
-            float newOffset = Mathf.Lerp(currentOffset, targetOffset, progress);
+    float elapsed = 0f;
+    while (elapsed < rowSlideDuration)
+    {
+        elapsed += Time.deltaTime;
+        float progress = elapsed / rowSlideDuration;
+        float newOffset = Mathf.Lerp(startOffset, targetOffset, progress);
 
-            for (int i = 0; i < rowTiles.Count; i++)
-            {
-                if (rowTiles[i] != null)
-                {
-                    rowTiles[i].position = new Vector3(startPositions[i].x + newOffset, startPositions[i].y, startPositions[i].z);
-                }
-            }
-            yield return null;
-        }
-
-        // Final snap to position
         for (int i = 0; i < rowTiles.Count; i++)
         {
             if (rowTiles[i] != null)
             {
-                rowTiles[i].position = new Vector3(startPositions[i].x + targetOffset, startPositions[i].y, startPositions[i].z);
+                // Always calculate from the original base position
+                rowTiles[i].position = new Vector3(basePositions[i].x + newOffset, basePositions[i].y, basePositions[i].z);
             }
         }
+        yield return null;
     }
+
+    // Final snap to position
+    for (int i = 0; i < rowTiles.Count; i++)
+    {
+        if (rowTiles[i] != null)
+        {
+            rowTiles[i].position = new Vector3(basePositions[i].x + targetOffset, basePositions[i].y, basePositions[i].z);
+        }
+    }
+}
 
 
 

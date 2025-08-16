@@ -320,7 +320,7 @@ public class GridManager : MonoBehaviour
     // 6.  Position calculation
     // ------------------------------------------------------------
 
-    private Vector3 GetWorldPosition(int x, int y)
+    public Vector3 GetWorldPosition(int x, int y)
     {
         return boardOrigin + new Vector3(
             x * (tileWidth + gapX),
