@@ -18,6 +18,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     [HideInInspector] public TileType myTileType;
     [HideInInspector] public UIManager uiManager;
     [HideInInspector] public LevelEditorManager editorManager; // To call the push coroutine
+    [HideInInspector] public int handCount = 0; 
 
     // --- Settings ---
     private float liftHeight = 0.5f;
@@ -73,16 +74,18 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         StopAllCoroutines(); // Stop any "return to hand" animation
 
 
-    
-        // --- NEW: Create a visual stand-in ---
-        // 1. Instantiate a copy of ourself at our current position and rotation.
-        GameObject standIn = Instantiate(this.gameObject, transform.position, transform.rotation, originalParent);
-        standIn.name = $"{this.gameObject.name} (Stand-In)";
-        // 2. Destroy the PlayableHandTile script on the stand-in so it's not interactive.
-        Destroy(standIn.GetComponent<PlayableHandTile>());
-        // 3. Add our marker script so we can find it later.
-        standIn.AddComponent<HandTileStandIn>();
-        // ------------------------------------
+
+        // Only create a stand-in if this is NOT the last tile of its type.
+        if (handCount > 1)
+        {
+            // 1. Instantiate a copy of ourself at our current position and rotation.
+            GameObject standIn = Instantiate(this.gameObject, transform.position, transform.rotation, originalParent);
+            standIn.name = $"{this.gameObject.name} (Stand-In)";
+            // 2. Destroy the PlayableHandTile script on the stand-in so it's not interactive.
+            Destroy(standIn.GetComponent<PlayableHandTile>());
+            // 3. Add our marker script so we can find it later.
+            standIn.AddComponent<HandTileStandIn>();
+        }
     
         // --- NEW: Hide the counter on drag start ---
         CounterIndicatorTag indicator = GetComponentInChildren<CounterIndicatorTag>();
@@ -230,7 +233,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         {
             Destroy(standIn.gameObject);
         }
-        
+
         // Find our own counter (which is currently inactive) and turn it back on.
         // The 'true' argument tells GetComponentInChildren to include inactive children in the search.
         CounterIndicatorTag indicator = GetComponentInChildren<CounterIndicatorTag>(true);

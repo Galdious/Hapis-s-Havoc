@@ -751,9 +751,10 @@ private void RedrawHandPalette()
         TileType type = group.Key;
         List<PuzzleHandTile> tilesOfType = group.Value;
         PuzzleHandTile representativeTile = tilesOfType.First();
+        int count = tilesOfType.Count; 
 
         // <<< THIS IS THE CORRECTED LAYOUT LOGIC >>>
-        Vector3 spawnPos;
+            Vector3 spawnPos;
         if (currentMode == OperatingMode.Editor)
         {
              // Vertical layout for the side palette
@@ -790,20 +791,27 @@ private void RedrawHandPalette()
                 // Use our cached, safe reference to the UIManager.
                 // This avoids the static instance issue and is much more robust.
                 playableTile.uiManager = this.uiManager; 
+                playableTile.handCount = count;
     
             }
 
 
         if (countIndicatorPrefab != null)
         {
-            GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
-            indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
-            var text = indicatorGO.GetComponentInChildren<TMP_Text>();
-            if (text)
-            {
-                text.text = $"x{tilesOfType.Count}";
-                handCounters[type] = text;
-            }
+                if (count > 1)
+                {
+
+                    GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
+                    indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
+                    indicatorGO.AddComponent<CounterIndicatorTag>();
+                    var text = indicatorGO.GetComponentInChildren<TMP_Text>();
+                    if (text)
+                    {
+                        text.text = $"x{tilesOfType.Count}";
+                        handCounters[type] = text;
+                    }
+                }
+            
         }
         index++;
     }
