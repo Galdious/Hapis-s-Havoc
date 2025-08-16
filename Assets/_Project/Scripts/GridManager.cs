@@ -1560,7 +1560,43 @@ private TileType FindTileTypeByName(string name)
     return null;
 }
 
+    /// Sets the layer for all tiles currently on the grid.
+    /// This is used to make them temporarily invisible to UI raycasts during a drag.
+    public void SetGridTilesLayer(string layerName)
+    {
+        int newLayer = LayerMask.NameToLayer(layerName);
+        if (newLayer == -1)
+        {
+            Debug.LogError($"[GridManager] The layer '{layerName}' does not exist. Please create it in the Layer settings.");
+            return;
+        }
 
+        if (grid == null) return;
+
+        for (int y = 0; y < rows; y++)
+        {
+            for (int x = 0; x < cols; x++)
+            {
+                TileInstance tile = GetTileAt(x, y);
+                if (tile != null)
+                {
+                    // We must set the layer on the parent and all children to ensure the collider is affected.
+                    SetLayerRecursively(tile.gameObject, newLayer);
+                }
+            }
+        }
+    }
+
+    private void SetLayerRecursively(GameObject obj, int newLayer)
+    {
+        if (obj == null) return;
+        obj.layer = newLayer;
+        foreach (Transform child in obj.transform)
+        {
+            if (child == null) continue;
+            SetLayerRecursively(child.gameObject, newLayer);
+        }
+    }
 
 
 

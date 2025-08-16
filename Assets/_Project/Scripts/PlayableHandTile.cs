@@ -75,6 +75,8 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         originalLayer = gameObject.layer;
         SetLayerRecursively(this.gameObject, draggableLayer);
 
+        editorManager.gridManager.SetGridTilesLayer("DraggableTile"); // Tell GridManager to hide grid tiles
+
         // --- Prepare the tile for dragging ---
         // 1. Visually lift it by bringing it to a top-level container so it renders over everything.
         if (uiManager != null) transform.SetParent(uiManager.transform, true);
@@ -132,6 +134,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     public void OnEndDrag(PointerEventData eventData)
     {
         SetLayerRecursively(this.gameObject, originalLayer);
+        editorManager.gridManager.SetGridTilesLayer("Default"); // Tell GridManager to make grid tiles interactable again
 
         // If we are currently hovering over a valid drop zone...
         if (currentHoveredZone != null)
