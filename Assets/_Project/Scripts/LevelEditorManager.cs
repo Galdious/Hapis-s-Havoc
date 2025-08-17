@@ -684,19 +684,33 @@ public class LevelEditorManager : MonoBehaviour
     /// </summary>
     private void UpdateSingleCounter(TileType type)
     {
-        if (handCounters.ContainsKey(type))
+    if (handCounters.ContainsKey(type))
+    {
+        TMP_Text counterText = handCounters[type];
+        if (counterText != null)
         {
-            TMP_Text counterText = handCounters[type];
-            if (counterText != null)
+            // Determine the current operating mode.
+            OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
+
+            if (currentMode == OperatingMode.Editor)
             {
+                // In Editor mode, show the detailed debug text.
                 int initialCount = initialHandBlueprint.ContainsKey(type) ? initialHandBlueprint[type] : 0;
                 int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
 
                 counterText.text = $"x{initialCount} ({currentAmountInBag} left)";
                 counterText.color = (currentAmountInBag > 0) ? Color.white : Color.grey;
             }
+            else // In Playing mode
+            {
+                // In Play mode, show the simple count based on what's physically in the hand.
+                int countInHand = playerHand.Count(t => t.tileType == type);
+                counterText.text = $"x{countInHand}";
+                
+            }
         }
     }
+}
 
 
 
