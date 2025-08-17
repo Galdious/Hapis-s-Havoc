@@ -555,7 +555,7 @@ public class LevelEditorManager : MonoBehaviour
         }
 
         Debug.Log($"Generated 3D Brush Palette with {tileCount} tiles.");
-    
+
 
         // Adjust the main camera to see everything
         //AdjustCameraView();
@@ -684,109 +684,109 @@ public class LevelEditorManager : MonoBehaviour
     /// </summary>
     private void UpdateSingleCounter(TileType type)
     {
-    if (handCounters.ContainsKey(type))
-    {
-        TMP_Text counterText = handCounters[type];
-        if (counterText != null)
+        if (handCounters.ContainsKey(type))
         {
-            // Determine the current operating mode.
-            OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
+            TMP_Text counterText = handCounters[type];
+            if (counterText != null)
+            {
+                // Determine the current operating mode.
+                OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
 
+                if (currentMode == OperatingMode.Editor)
+                {
+                    // In Editor mode, show the detailed debug text.
+                    int initialCount = initialHandBlueprint.ContainsKey(type) ? initialHandBlueprint[type] : 0;
+                    int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
+
+                    counterText.text = $"x{initialCount} ({currentAmountInBag} left)";
+                    counterText.color = (currentAmountInBag > 0) ? Color.white : Color.grey;
+                }
+                else // In Playing mode
+                {
+                    // In Play mode, show the simple count based on what's physically in the hand.
+                    int countInHand = playerHand.Count(t => t.tileType == type);
+                    counterText.text = $"x{countInHand}";
+
+                }
+            }
+        }
+    }
+
+
+
+
+
+
+    private void RedrawHandPalette()
+    {
+        // Determine which container to use based on the current game mode.
+        OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
+        Transform targetContainer = (currentMode == OperatingMode.Editor) ? editorHandContainer : playerHandContainer;
+
+        if (targetContainer == null) return;
+
+        // Clear the children of BOTH containers to be safe before redrawing.
+        if (editorHandContainer != null) foreach (Transform child in editorHandContainer) { Destroy(child.gameObject); }
+        if (playerHandContainer != null) foreach (Transform child in playerHandContainer) { Destroy(child.gameObject); }
+        handCounters.Clear();
+
+        // <<< THIS IS THE CORRECTED DYNAMIC POSITIONING LOGIC >>>
+        if (gridManager != null)
+        {
             if (currentMode == OperatingMode.Editor)
             {
-                // In Editor mode, show the detailed debug text.
-                int initialCount = initialHandBlueprint.ContainsKey(type) ? initialHandBlueprint[type] : 0;
-                int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
-
-                counterText.text = $"x{initialCount} ({currentAmountInBag} left)";
-                counterText.color = (currentAmountInBag > 0) ? Color.white : Color.grey;
+                // Position the Editor Hand to the RIGHT of the grid.
+                float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
+                float gridRightEdgeX = gridWidth / 2f;
+                float arrowSpaceBuffer = 4f;
+                float paletteX = gridRightEdgeX + arrowSpaceBuffer;
+                targetContainer.position = new Vector3(paletteX, 0, 0);
             }
-            else // In Playing mode
+            else // Playing Mode
             {
-                // In Play mode, show the simple count based on what's physically in the hand.
-                int countInHand = playerHand.Count(t => t.tileType == type);
-                counterText.text = $"x{countInHand}";
-                
+                // Position the Player Hand to the BOTTOM of the grid.
+                float gridHeight = (gridManager.rows - 1) * (gridManager.tileHeight + gridManager.gapZ);
+                float gridBottomEdgeZ = -gridHeight / 2f;
+                float buffer = 2f; // A small buffer space
+                float paletteZ = gridBottomEdgeZ - buffer;
+                targetContainer.position = new Vector3(0, 0, paletteZ);
             }
         }
-    }
-}
 
+        // Group the hand tiles by their type
+        var groupedHand = playerHand.GroupBy(t => t.tileType).ToDictionary(g => g.Key, g => g.ToList());
 
+        float spacing = (currentMode == OperatingMode.Editor) ? editorPaletteSpacing : playerHandSpacing;
+        float startPos = (groupedHand.Count - 1) * spacing / 2f;
+        int index = 0;
 
-
-
-
-private void RedrawHandPalette()
-{
-    // Determine which container to use based on the current game mode.
-    OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
-    Transform targetContainer = (currentMode == OperatingMode.Editor) ? editorHandContainer : playerHandContainer;
-
-    if (targetContainer == null) return;
-
-    // Clear the children of BOTH containers to be safe before redrawing.
-    if(editorHandContainer != null) foreach (Transform child in editorHandContainer) { Destroy(child.gameObject); }
-    if(playerHandContainer != null) foreach (Transform child in playerHandContainer) { Destroy(child.gameObject); }
-    handCounters.Clear();
-
-    // <<< THIS IS THE CORRECTED DYNAMIC POSITIONING LOGIC >>>
-    if (gridManager != null)
-    {
-        if (currentMode == OperatingMode.Editor)
+        foreach (var group in groupedHand.OrderBy(g => g.Key.displayName))
         {
-            // Position the Editor Hand to the RIGHT of the grid.
-            float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
-            float gridRightEdgeX = gridWidth / 2f;
-            float arrowSpaceBuffer = 4f;
-            float paletteX = gridRightEdgeX + arrowSpaceBuffer;
-            targetContainer.position = new Vector3(paletteX, 0, 0);
-        }
-        else // Playing Mode
-        {
-            // Position the Player Hand to the BOTTOM of the grid.
-            float gridHeight = (gridManager.rows - 1) * (gridManager.tileHeight + gridManager.gapZ);
-            float gridBottomEdgeZ = -gridHeight / 2f;
-            float buffer = 2f; // A small buffer space
-            float paletteZ = gridBottomEdgeZ - buffer;
-            targetContainer.position = new Vector3(0, 0, paletteZ);
-        }
-    }
+            TileType type = group.Key;
+            List<PuzzleHandTile> tilesOfType = group.Value;
+            PuzzleHandTile representativeTile = tilesOfType.First();
+            int count = tilesOfType.Count;
 
-    // Group the hand tiles by their type
-    var groupedHand = playerHand.GroupBy(t => t.tileType).ToDictionary(g => g.Key, g => g.ToList());
-
-    float spacing = (currentMode == OperatingMode.Editor) ? editorPaletteSpacing : playerHandSpacing;
-    float startPos = (groupedHand.Count - 1) * spacing / 2f;
-    int index = 0;
-
-    foreach (var group in groupedHand.OrderBy(g => g.Key.displayName))
-    {
-        TileType type = group.Key;
-        List<PuzzleHandTile> tilesOfType = group.Value;
-        PuzzleHandTile representativeTile = tilesOfType.First();
-        int count = tilesOfType.Count; 
-
-        // <<< THIS IS THE CORRECTED LAYOUT LOGIC >>>
+            // <<< THIS IS THE CORRECTED LAYOUT LOGIC >>>
             Vector3 spawnPos;
-        if (currentMode == OperatingMode.Editor)
-        {
-             // Vertical layout for the side palette
-            spawnPos = new Vector3(0, 0, startPos - (index * spacing));
-        }
-        else // Playing Mode
-        {
-             // Horizontal layout for the bottom palette
-            spawnPos = new Vector3(startPos - (index * spacing), 0, 0);
-        }
-        
-        // The rest of the instantiation logic remains the same
-        GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
-        tileGO.transform.SetParent(targetContainer, false); // Use 'false' to respect the local spawn position
-        tileGO.name = "HandPalette_" + type.displayName;
+            if (currentMode == OperatingMode.Editor)
+            {
+                // Vertical layout for the side palette
+                spawnPos = new Vector3(0, 0, startPos - (index * spacing));
+            }
+            else // Playing Mode
+            {
+                // Horizontal layout for the bottom palette
+                spawnPos = new Vector3(startPos - (index * spacing), 0, 0);
+            }
 
-        var tileInstance = tileGO.GetComponent<TileInstance>();
-        gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
+            // The rest of the instantiation logic remains the same
+            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
+            tileGO.transform.SetParent(targetContainer, false); // Use 'false' to respect the local spawn position
+            tileGO.name = "HandPalette_" + type.displayName;
+
+            var tileInstance = tileGO.GetComponent<TileInstance>();
+            gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
 
             if (currentMode == OperatingMode.Editor)
             {
@@ -804,14 +804,14 @@ private void RedrawHandPalette()
 
                 // Use our cached, safe reference to the UIManager.
                 // This avoids the static instance issue and is much more robust.
-                playableTile.uiManager = this.uiManager; 
+                playableTile.uiManager = this.uiManager;
                 playableTile.handCount = count;
-    
+
             }
 
 
-        if (countIndicatorPrefab != null)
-        {
+            if (countIndicatorPrefab != null)
+            {
                 if (count > 1)
                 {
 
@@ -825,11 +825,11 @@ private void RedrawHandPalette()
                         handCounters[type] = text;
                     }
                 }
-            
+
+            }
+            index++;
         }
-        index++;
     }
-}
 
     public void UpdateHandCounters()
     {
@@ -1437,6 +1437,8 @@ private void RedrawHandPalette()
             // A hand tile IS selected. Proceed with the puzzle push.
             Debug.Log($"PUZZLE MODE: Pushing selected hand tile: {selectedHandTileForPush.tileType.displayName}");
 
+            bool wasLastOfType = playerHand.Count(t => t.tileType == selectedHandTileForPush.tileType) == 1;
+
             // Immediately consume the tile from our local data. This prevents re-use.
             PuzzleHandTile tileToPush = new PuzzleHandTile(selectedHandTileForPush.tileType)
             {
@@ -1449,6 +1451,11 @@ private void RedrawHandPalette()
             selectedHandTileForPush = null; // Deselect immediately
 
             ApplyHandToBag();
+            if (wasLastOfType)
+            {
+                yield return StartCoroutine(AnimateHandReCenteringCoroutine());
+            }
+
 
             // Now, tell GridManager to push this specific tile and wait for it to finish.
             // GridManager will announce OnTileConsumed, which triggers the UI update.
@@ -1491,40 +1498,50 @@ private void RedrawHandPalette()
             Destroy(indicator.gameObject);
         }
         // --- END OF NEW CLEANUP LOGIC ---
-    
 
-
-
-
-
+        // Check if this is the last tile of its type BEFORE we consume it.
+        bool wasLastOfType = playerHand.Count(t => t.tileType == tileType) == 1;
 
         // 2. Consume the tile from the data list immediately.
         playerHand.Remove(tileDataToPush);
         ApplyHandToBag();
-        RedrawHandPalette(); // Update UI
+
+        // If we just used the last of a type, animate the hand re-centering.
+        // Otherwise, we still need to update the counter on the stand-in tile.
+        if (wasLastOfType)
+        {
+            yield return StartCoroutine(AnimateHandReCenteringCoroutine());
+        }
+        else
+        {
+            // If other tiles of this type remain, just redraw the palette instantly
+            // to update the counter on the stand-in tile. This feels responsive.
+            RedrawHandPalette();
+        }
+
 
         // 3. Create the real tile at the drop position, but make it invisible for a moment.
-    // The tile is already instantiated. We just need to parent it correctly.
-    newTileGO.transform.SetParent(gridManager.gridParent);
+        // The tile is already instantiated. We just need to parent it correctly.
+        newTileGO.transform.SetParent(gridManager.gridParent);
 
-    // Get the instance component from the tile.
-    var tileInstance = newTileGO.GetComponent<TileInstance>();
+        // Get the instance component from the tile.
+        var tileInstance = newTileGO.GetComponent<TileInstance>();
 
-    // Animate the tile from its drop point to the push start point.
-    Vector3 dropPosition = newTileGO.transform.position;
-    Vector3 pushStartPosition = gridManager.GetSpawnPosition(row, fromLeft);
-    float handoffDuration = 0.2f;
-    float elapsed = 0f;
-    while (elapsed < handoffDuration)
-    {
-        elapsed += Time.deltaTime;
-        newTileGO.transform.position = Vector3.Lerp(dropPosition, pushStartPosition, elapsed / handoffDuration);
-        yield return null;
-    }
-    newTileGO.transform.position = pushStartPosition;
+        // Animate the tile from its drop point to the push start point.
+        Vector3 dropPosition = newTileGO.transform.position;
+        Vector3 pushStartPosition = gridManager.GetSpawnPosition(row, fromLeft);
+        float handoffDuration = 0.2f;
+        float elapsed = 0f;
+        while (elapsed < handoffDuration)
+        {
+            elapsed += Time.deltaTime;
+            newTileGO.transform.position = Vector3.Lerp(dropPosition, pushStartPosition, elapsed / handoffDuration);
+            yield return null;
+        }
+        newTileGO.transform.position = pushStartPosition;
 
-    // Tell the GridManager to perform the real push using the tile we just animated.
-    yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileDataToPush, newTileGO));
+        // Tell the GridManager to perform the real push using the tile we just animated.
+        yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileDataToPush, newTileGO));
     }
 
 
@@ -1794,7 +1811,7 @@ private void RedrawHandPalette()
 
             // We must wait for the reconstruction to finish.
             yield return StartCoroutine(ReconstructLevelFromDataCoroutine(initialSnapshot));
-            
+
             // --- ADD FADE IN ---
             yield return ScreenFader.Instance.FadeIn();
         }
@@ -1819,7 +1836,7 @@ private void RedrawHandPalette()
     public IEnumerator ReconstructLevelFromDataCoroutine(GameStateSnapshot snapshot, bool isUndoAction = false)
     {
 
-        if(GameManager.Instance != null) GameManager.Instance.SetReconstructing(true);
+        if (GameManager.Instance != null) GameManager.Instance.SetReconstructing(true);
         Debug.Log("<color=yellow>--- STARTING LEVEL RECONSTRUCTION ---</color>");
 
         // 1. Clear the current scene state
@@ -1836,9 +1853,9 @@ private void RedrawHandPalette()
         endTile = null;
         endBank = null;
         // Clear goal markers, we will restore them from the CURRENT level data later
-        
+
         foreach (var marker in FindObjectsByType<GoalMarker>(FindObjectsSortMode.None)) { Destroy(marker.gameObject); }
-Debug.Log($"Step 2: Creating {currentLoadedLevelData.gridWidth}x{currentLoadedLevelData.gridHeight} grid from blueprint...");
+        Debug.Log($"Step 2: Creating {currentLoadedLevelData.gridWidth}x{currentLoadedLevelData.gridHeight} grid from blueprint...");
         // We use the grid dimensions FROM THE SNAPSHOT.
         List<Coroutine> gridAnimations = gridManager.CreateGridFromEditor(currentLoadedLevelData.gridWidth, currentLoadedLevelData.gridHeight, snapshot.tileStates);
 
@@ -1901,7 +1918,7 @@ Debug.Log($"Step 2: Creating {currentLoadedLevelData.gridWidth}x{currentLoadedLe
         // }
 
         // 5. Place Collectibles
-        
+
         foreach (var collectibleData in snapshot.collectibleStates)
         {
             TileInstance tile = gridManager.GetTileAt(collectibleData.gridX, collectibleData.gridY);
@@ -1910,7 +1927,7 @@ Debug.Log($"Step 2: Creating {currentLoadedLevelData.gridWidth}x{currentLoadedLe
                 PlaceOrRemoveCollectible(tile, collectibleData.type, collectibleData.value);
             }
         }
-Debug.Log("Step 5: Rebuilding player hand data...");
+        Debug.Log("Step 5: Rebuilding player hand data...");
         // 6. Rebuild the Player's Hand data and visuals
         foreach (var handTileData in snapshot.playerHandState)
         {
@@ -2023,7 +2040,7 @@ Debug.Log("Step 5: Rebuilding player hand data...");
         }
         // Tell the GameManager about our findings
         GameManager.Instance.SetLevelInfo(totalStars);
-        
+
 
         // 9. Spawn the test boat in its starting position
         // This now works because Step 2 fixed SetStartPosition to update these variables!
@@ -2055,7 +2072,7 @@ Debug.Log("Step 5: Rebuilding player hand data...");
         //     HistoryManager.Instance.SaveState();
         // }
 
-Debug.Log("Yielding to FinalizeStateReconstruction...");
+        Debug.Log("Yielding to FinalizeStateReconstruction...");
         // After everything is visually in place, run the logic finalization routine.
         yield return StartCoroutine(FinalizeStateReconstruction(snapshot, isUndoAction));
 
@@ -2098,7 +2115,7 @@ Debug.Log("Yielding to FinalizeStateReconstruction...");
             // Only re-select the boat if this was triggered by an Undo action.
             boat.SelectBoat();
         }
-        
+
         // We need to wait for the boat's "lift" animation to finish before checking for game over,
         // as some checks might depend on the boat being in the correct state.
         // The LiftAndBobBoat coroutine has a hardcoded duration of 0.3f. Let's wait for that.
@@ -2110,7 +2127,7 @@ Debug.Log("Yielding to FinalizeStateReconstruction...");
         {
             GameManager.Instance.EvaluateGameStateAfterMove(boat);
         }
-        
+
         Debug.Log("<color=lime>[FinalizeState]</color> Post-undo logic executed. Boat selected, game state evaluated.");
     }
 
@@ -2167,9 +2184,87 @@ Debug.Log("Yielding to FinalizeStateReconstruction...");
         // Start the reconstruction using the animated coroutine
         StartCoroutine(ReconstructLevelFromDataCoroutine(currentEditorState));
         // RedrawHandPalette();
-}
+    }
 
 
+
+
+
+
+
+
+
+    /// <summary>
+    /// Animates the remaining hand tiles to their new, centered positions after a type is depleted.
+    /// </summary>
+    private IEnumerator AnimateHandReCenteringCoroutine()
+    {
+        // A brief delay can make the sequence feel more natural.
+        yield return new WaitForSeconds(0.1f);
+
+        float duration = 0.25f; // How long the slide animation takes.
+
+        // 1. Get all current visual tiles and their starting local positions.
+        Dictionary<PlayableHandTile, Vector3> startPositions = new Dictionary<PlayableHandTile, Vector3>();
+        List<PlayableHandTile> tilesToAnimate = new List<PlayableHandTile>();
+        if (playerHandContainer != null)
+        {
+            foreach (Transform child in playerHandContainer)
+            {
+                var playableTile = child.GetComponent<PlayableHandTile>();
+                if (playableTile != null)
+                {
+                    tilesToAnimate.Add(playableTile);
+                    startPositions[playableTile] = child.localPosition;
+                }
+            }
+        }
+
+        // If there are no tiles left to animate (e.g., the hand is now empty), we're done.
+        if (tilesToAnimate.Count == 0) yield break;
+
+        // 2. Calculate the target local positions based on the UPDATED playerHand data.
+        Dictionary<TileType, Vector3> targetPositions = new Dictionary<TileType, Vector3>();
+        var groupedHand = playerHand.GroupBy(t => t.tileType).ToDictionary(g => g.Key, g => g.ToList());
+
+        float spacing = playerHandSpacing;
+        float startPos = (groupedHand.Count - 1) * spacing / 2f;
+        int index = 0;
+
+        // We sort by name to ensure a consistent, predictable layout every time.
+        foreach (var group in groupedHand.OrderBy(g => g.Key.displayName))
+        {
+            Vector3 targetPos = new Vector3(startPos - (index * spacing), 0, 0);
+            targetPositions[group.Key] = targetPos;
+            index++;
+        }
+
+        // 3. Animate the tiles from their start to their target positions.
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+
+            foreach (var tile in tilesToAnimate)
+            {
+                if (targetPositions.TryGetValue(tile.myTileType, out Vector3 target))
+                {
+                    tile.transform.localPosition = Vector3.Lerp(startPositions[tile], target, progress);
+                }
+            }
+            yield return null;
+        }
+
+        // 4. Final snap to ensure perfect alignment.
+        foreach (var tile in tilesToAnimate)
+        {
+            if (targetPositions.TryGetValue(tile.myTileType, out Vector3 target))
+            {
+                tile.transform.localPosition = target;
+            }
+        }
+    }
 
 
 }
