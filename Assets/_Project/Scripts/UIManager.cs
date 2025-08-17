@@ -10,9 +10,17 @@ public class UIManager : MonoBehaviour
     // Singleton pattern
     public static UIManager Instance { get; private set; }
 
+    [Header("Button References")]
+    [SerializeField] private Button editor_undoButton;
+    [SerializeField] private Button editor_restartButton;
+    [SerializeField] private Button player_undoButton;
+    [SerializeField] private Button player_restartButton;
+
+
     [Header("Scene References")]
     [Tooltip("The LevelEditorManager is needed to handle restarts.")]
     [SerializeField] private LevelEditorManager levelEditorManager;
+    [SerializeField] private HistoryManager historyManager;
 
     [Header("UI Panels")]
     [Tooltip("Drag the 'LevelCompletePanel' GameObject here.")]
@@ -51,6 +59,11 @@ public class UIManager : MonoBehaviour
     [Tooltip("The parent object for the player's hand palette (bottom).")]
     [SerializeField] private GameObject playerHandContainer;
 
+    [Header("Text References")]
+    [SerializeField] private TMP_Text editor_currentLevelText;
+    [SerializeField] private TMP_Text player_currentLevelText;
+
+
 
 
     private void Awake()
@@ -72,6 +85,19 @@ public class UIManager : MonoBehaviour
         {
             levelEditorManager = FindFirstObjectByType<LevelEditorManager>();
         }
+
+        if (historyManager == null)
+        {
+            historyManager = FindFirstObjectByType<HistoryManager>();
+        }
+
+        // Assign the click listeners from this central location
+        if (editor_undoButton != null) editor_undoButton.onClick.AddListener(historyManager.Undo);
+        if (player_undoButton != null) player_undoButton.onClick.AddListener(historyManager.Undo);
+
+        if (editor_restartButton != null) editor_restartButton.onClick.AddListener(HandleRestart);
+        if (player_restartButton != null) player_restartButton.onClick.AddListener(HandleRestart);
+        
 
         // Ensure all panels are hidden at the start of the game
         if (levelCompletePanel != null) levelCompletePanel.SetActive(false);
@@ -170,34 +196,66 @@ public class UIManager : MonoBehaviour
 
 public void SwitchToMode(OperatingMode mode)
 {
-    if (mode == OperatingMode.Editor)
-    {
-        // Show all Editor UI
-        if(editorUI_Container != null) editorUI_Container.SetActive(true);
-        if(editorBrushPalette != null) editorBrushPalette.SetActive(true);
-        if(editorHandContainer != null) editorHandContainer.SetActive(true);
+        if (mode == OperatingMode.Editor)
+        {
+            // Show all Editor UI
+            if (editorUI_Container != null) editorUI_Container.SetActive(true);
+            if (editorBrushPalette != null) editorBrushPalette.SetActive(true);
+            if (editorHandContainer != null) editorHandContainer.SetActive(true);
 
-        // Hide all Player UI
-        if(playerUI_Container != null) playerUI_Container.SetActive(false);
-        if(playerHandContainer != null) playerHandContainer.SetActive(false);
-    }
-    else // Switching to Playing mode
-    {
-        // Hide all Editor UI
-        if(editorUI_Container != null) editorUI_Container.SetActive(false);
-        if(editorBrushPalette != null) editorBrushPalette.SetActive(false);
-        if(editorHandContainer != null) editorHandContainer.SetActive(false);
+            // Hide all Player UI
+            if (playerUI_Container != null) playerUI_Container.SetActive(false);
+            if (playerHandContainer != null) playerHandContainer.SetActive(false);
 
-        // Show all Player UI
-        if(playerUI_Container != null) playerUI_Container.SetActive(true);
-        if(playerHandContainer != null) playerHandContainer.SetActive(true);
-    }
+            if (editor_restartButton != null) editor_restartButton.interactable = false;
+        }
+        else // Switching to Playing mode
+        {
+            // Hide all Editor UI
+            if (editorUI_Container != null) editorUI_Container.SetActive(false);
+            if (editorBrushPalette != null) editorBrushPalette.SetActive(false);
+            if (editorHandContainer != null) editorHandContainer.SetActive(false);
+
+            // Show all Player UI
+            if (playerUI_Container != null) playerUI_Container.SetActive(true);
+            if (playerHandContainer != null) playerHandContainer.SetActive(true);
+            
+            if (player_restartButton != null) player_restartButton.interactable = true;
+        }
 }
 
 
+    public void UpdateAllUndoButtons()
+    {
+        if (historyManager != null)
+        {
+            historyManager.UpdateUndoButton(editor_undoButton, player_undoButton);
+        }
+    }
+
+    public void SetEditorRestartButtonInteractable(bool isInteractable)
+    {
+        if (editor_restartButton != null)
+        {
+            editor_restartButton.interactable = isInteractable;
+        }
+    }
 
 
+    public void UpdateCurrentLevelName(string levelName)
+    {
+        if (editor_currentLevelText != null)
+        {
+            editor_currentLevelText.text = levelName;
+            // We know the editor text needs a forced update to be reliable.
+            editor_currentLevelText.ForceMeshUpdate();
+        }
 
+        if (player_currentLevelText != null)
+        {
+            player_currentLevelText.text = levelName;
+        }
+    }
 
 
 

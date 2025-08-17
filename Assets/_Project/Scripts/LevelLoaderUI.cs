@@ -20,9 +20,7 @@ public class LevelLoaderUI : MonoBehaviour
     [Tooltip("Drag the main LevelEditorManager GameObject here.")]
     [SerializeField] private LevelEditorManager editorManager;
 
-    [Tooltip("Drag the 'CurrentLevel_Text' UI element here.")]
-    [SerializeField] private TMP_Text currentLevelText;
-    [SerializeField] private UnityEngine.UI.Button restartButton;
+
 
     [Header("Settings")]
     [Tooltip("The name of the subfolder inside 'Assets' where levels are stored.")]
@@ -53,14 +51,8 @@ public class LevelLoaderUI : MonoBehaviour
         // Add a listener that calls our method whenever the user picks a new option
         levelDropdown.onValueChanged.AddListener(OnDropdownValueChanged);
 
-        if (restartButton != null)
-        {
-            // The button should not be clickable until a level is loaded.
-            restartButton.interactable = false;
-            // Tell the button to call our manager's restart method when clicked.
-            restartButton.onClick.AddListener(editorManager.RestartCurrentLevel);
-        }
-    
+
+
     }
 
     /// <summary>
@@ -108,7 +100,7 @@ public class LevelLoaderUI : MonoBehaviour
                 displayNames.Add(levelName);
             }
         }
-        
+
         levelDropdown.AddOptions(displayNames);
     }
 
@@ -121,7 +113,7 @@ public class LevelLoaderUI : MonoBehaviour
         // Ignore the first "Select..." option.
         if (index == 0)
         {
-            if (currentLevelText != null) currentLevelText.text = "No Level Loaded";
+            UIManager.Instance.UpdateCurrentLevelName("No Level Loaded");
             return;
         }
 
@@ -134,14 +126,23 @@ public class LevelLoaderUI : MonoBehaviour
             editorManager.LoadLevelFromFile(selectedPath);
 
             // Update the display text to show what's loaded.
-            if (currentLevelText != null)
-            {
-                currentLevelText.text = $"{levelDropdown.options[index].text}";
-            }
-
-            // A level is now loaded, so we can enable the restart button!
-            if (restartButton != null) restartButton.interactable = true;
-        
+            UIManager.Instance.UpdateCurrentLevelName(levelDropdown.options[index].text);
         }
+
+        UIManager.Instance.SetEditorRestartButtonInteractable(true);
+
+
     }
+    
+
+
+
+
+
+
+
+
+
+
+
 }

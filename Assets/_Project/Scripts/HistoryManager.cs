@@ -8,6 +8,7 @@
 using System.Collections;   
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class HistoryManager : MonoBehaviour
 {
@@ -23,7 +24,7 @@ public class HistoryManager : MonoBehaviour
     [SerializeField] private int maxHistorySteps = 20;
 
     [Header("UI")]
-    [SerializeField] private UnityEngine.UI.Button undoButton;
+    // [SerializeField] private UnityEngine.UI.Button undoButton;
 
     // A Stack is the perfect data structure for Undo (Last-In, First-Out).
     private Stack<GameStateSnapshot> historyStack = new Stack<GameStateSnapshot>();
@@ -49,11 +50,11 @@ public class HistoryManager : MonoBehaviour
     private void Start()
     {
         // Add this listener
-        if (undoButton != null)
-        {
-            undoButton.onClick.AddListener(Undo); 
-        }
-        UpdateUndoButton();
+        // if (undoButton != null)
+        // {
+        //     undoButton.onClick.AddListener(Undo); 
+        // }
+        UIManager.Instance.UpdateAllUndoButtons();
     }
 
 
@@ -65,7 +66,7 @@ public class HistoryManager : MonoBehaviour
     public void ClearHistory()
     {
         historyStack.Clear();
-        UpdateUndoButton();
+        UIManager.Instance.UpdateAllUndoButtons();
         Debug.Log("[HistoryManager] Undo history cleared.");
     }
 
@@ -108,7 +109,7 @@ public void SaveState(GameStateSnapshot snapshotToSave = null)
     // --- END OF NEW LOGIC ---
 
     historyStack.Push(snapshot);
-    UpdateUndoButton();
+    UIManager.Instance.UpdateAllUndoButtons();
 
     Debug.Log($"[HistoryManager] State saved. History now contains {historyStack.Count} steps.");
 }
@@ -142,7 +143,7 @@ public void SaveState(GameStateSnapshot snapshotToSave = null)
             // This calls the now-public method in LevelEditorManager.
             yield return StartCoroutine(editorManager.ReconstructLevelFromDataCoroutine(previousState, true));
 
-            UpdateUndoButton(); // Update button state after undoing
+            UIManager.Instance.UpdateAllUndoButtons(); // Update button state after undoing
         }
         else
         {
@@ -159,14 +160,19 @@ public void SaveState(GameStateSnapshot snapshotToSave = null)
 
 
 
-    public void UpdateUndoButton()
+    public void UpdateUndoButton(Button editorButton, Button playerButton)
     {
-        if (undoButton != null)
+        bool isInteractable = historyStack.Count > 1;
+        if (editorButton != null)
         {
-            // The button is interactable if there is a state to go back to.
-            undoButton.interactable = historyStack.Count > 1;
+            editorButton.interactable = isInteractable;
+        }
+        if (playerButton != null)
+        {
+            playerButton.interactable = isInteractable;
         }
     }
+
 
     public void ResetUndoFlag()
     {
