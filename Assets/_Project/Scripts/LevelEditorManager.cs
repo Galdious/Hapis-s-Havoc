@@ -717,7 +717,7 @@ public class LevelEditorManager : MonoBehaviour
 
 
 
-    private void RedrawHandPalette()
+    public void RedrawHandPalette()
     {
         // Determine which container to use based on the current game mode.
         OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;

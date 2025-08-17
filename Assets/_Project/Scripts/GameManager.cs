@@ -333,10 +333,19 @@ public class GameManager : MonoBehaviour
             uiManager.SwitchToMode(OperatingMode.Editor);
         }
 
-        // Tell the RiverControls to update its visuals (e.g., show the locks again)
+
+        
+        // Tell RiverControls to completely regenerate its visuals for the new mode.
+        // This will destroy the drop zones and create the arrows and locks.
         if (FindFirstObjectByType<RiverControls>() is RiverControls controls)
         {
-            controls.UpdateControlsForMode();
+            controls.GenerateControlsForGrid(); // <-- THIS IS THE CORRECT, POWERFUL CALL
+        }
+
+        // Finally, tell the Level Editor to redraw its hand palette.
+        if (FindFirstObjectByType<LevelEditorManager>() is LevelEditorManager editor)
+        {
+            editor.RedrawHandPalette();
         }
     
 
