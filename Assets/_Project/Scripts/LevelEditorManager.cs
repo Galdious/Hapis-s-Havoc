@@ -53,22 +53,24 @@ public class LevelEditorManager : MonoBehaviour
     public Button flipToolButton;
     public Button toggleBlockerToolButton;
     public Button placeCollectibleToolButton;
-    public Button addToHandButton;      // <-- ADD
+    public Button addToHandButton;      
     public Button removeFromHandButton;
-    public Button applyHandBagButton;     // <-- ADD
+    public Button applyHandBagButton;     
     public Button applySandboxBagButton;
     public Button setStartToolButton;
     public Button setEndToolButton;
-    public Color toolSelectedColor = Color.yellow; // <-- ADD THIS
-    private Color toolDefaultColor;                // <-- ADD THIS
+    public Color toolSelectedColor = Color.yellow; 
+    private Color toolDefaultColor;                
 
     [Header("3D Palette Settings")]
     public Transform paletteContainer; // The empty GameObject we created
     [Tooltip("The VERTICAL spacing between tiles in the editor palette.")]
-    public float editorPaletteSpacing = 1.5f; // <<< RENAME this from paletteSpacing
+    public float editorPaletteSpacing = 1.2f;
+    [Tooltip("The HORIZONTAL spacing between the two columns in the editor palette.")]
+    public float editorPaletteColumnSpacing = 2.2f; 
 
     [Tooltip("The HORIZONTAL spacing between tiles in the player hand.")]
-    public float playerHandSpacing = 2.5f; // <<< ADD THIS LINE
+    public float playerHandSpacing = 2.5f; 
 
     [Header("Editor Visuals")]
     public GameObject blockerMarkerPrefab;
@@ -492,7 +494,6 @@ public class LevelEditorManager : MonoBehaviour
     // --- THIS IS OUR NEW PALETTE GENERATION METHOD ---
     void Generate3DPalette()
     {
-
         foreach (Transform child in paletteContainer)
         {
             Destroy(child.gameObject);
@@ -505,41 +506,39 @@ public class LevelEditorManager : MonoBehaviour
             return;
         }
 
-        // --- START OF NEW POSITIONING LOGIC ---
+        // --- START OF NEW TWO-COLUMN POSITIONING LOGIC ---
 
-        // 1. Calculate the X position for the palette
-        // Get the total width of the grid itself
+        // 1. Calculate the base X position for the whole palette container
         float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
-        // The grid is centered, so its leftmost edge is at -(gridWidth / 2)
         float gridLeftEdgeX = -gridWidth / 2f;
-        // Ask RiverControls how much space its arrows use (we'll add a buffer for this)
-        // Let's assume the arrows and their spacing take up about 3-4 units.
-        // A better way would be to get this from RiverControls directly if it's dynamic.
         float arrowSpaceBuffer = 4f;
-        // Set the final X position for our container
         float paletteX = gridLeftEdgeX - arrowSpaceBuffer;
+        paletteContainer.position = new Vector3(paletteX, 0, 0);
 
-
-        // 2. Calculate the starting Z position to center the column
+        // 2. Calculate positioning for the tiles INSIDE the container
         int tileCount = library.tileTypes.Count;
-        // Get the total height of the entire column
-        float totalPaletteHeight = (tileCount - 1) * editorPaletteSpacing;
-        // The starting Z is half the total height shifted downwards
+        // The number of rows in our palette grid
+        int paletteRowCount = Mathf.CeilToInt(tileCount / 2.0f);
+        // The total vertical height of the palette
+        float totalPaletteHeight = (paletteRowCount - 1) * editorPaletteSpacing;
+        // The starting Z position to center the columns vertically
         float startZ = totalPaletteHeight / 2f;
 
 
-        // 3. Set the final position of our container object
-        paletteContainer.position = new Vector3(paletteX, 0, 0);
-
-        // --- END OF NEW POSITIONING LOGIC ---
-
-
+        // 3. Loop through and place each tile
         for (int i = 0; i < tileCount; i++)
         {
             TileType type = library.tileTypes[i];
 
-            // Calculate the LOCAL position for this tile inside the container
-            Vector3 localSpawnPos = new Vector3(0, 0, startZ - (i * editorPaletteSpacing));
+            // Determine the tile's position in our 2-column palette grid
+            int col = i % 2; // 0 for the first column, 1 for the second
+            int row = i / 2; // Increments every two tiles
+
+            // Calculate the LOCAL position for this tile
+            // The X is offset to center the two columns around the container's origin
+            float localX = (col - 0.5f) * editorPaletteColumnSpacing;
+            float localZ = startZ - (row * editorPaletteSpacing);
+            Vector3 localSpawnPos = new Vector3(localX, 0, localZ);
 
             // Instantiate the tile at the correct local position and rotation
             GameObject tileGO = Instantiate(gridManager.tilePrefab, localSpawnPos, Quaternion.identity);
@@ -553,11 +552,9 @@ public class LevelEditorManager : MonoBehaviour
             paletteTile.editorManager = this;
             paletteTile.myTileType = type;
         }
+        // --- END OF NEW TWO-COLUMN POSITIONING LOGIC ---
 
-        Debug.Log($"Generated 3D Brush Palette with {tileCount} tiles.");
-
-
-
+        Debug.Log($"Generated 3D Brush Palette with {tileCount} tiles in a two-column layout.");
     }
 
     public void OnPaletteTileClicked(PaletteTile clickedTile)
