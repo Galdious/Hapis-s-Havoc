@@ -158,13 +158,31 @@ public class UIManager : MonoBehaviour
     // --- Public Methods for Button OnClick() Events (these are unchanged) ---
     public void HandleRestart()
     {
-
-        ResetToGameplayUI();
-        if (levelEditorManager != null)
+        // First, check what mode we are currently in.
+        if (GameManager.Instance != null && GameManager.Instance.currentMode == OperatingMode.Editor)
         {
-            levelEditorManager.RestartCurrentLevel();
+            // --- EDITOR RESTART ---
+            // If we're in the editor, just tell the manager to restart.
+            // DO NOT change the UI or the game mode.
+            if (levelEditorManager != null)
+            {
+                levelEditorManager.RestartCurrentLevel();
+            }
         }
         else
+        {
+            // --- PLAYTEST RESTART ---
+            // If we are in play mode, we DO want to reset the UI and then restart.
+            ResetToGameplayUI();
+            if (levelEditorManager != null)
+            {
+                levelEditorManager.RestartCurrentLevel();
+            }
+        }
+
+        // This is a failsafe in case the LevelEditorManager isn't found,
+        // which shouldn't happen in the main scene.
+        if (levelEditorManager == null)
         {
             Debug.LogError("[UIManager] Cannot restart: LevelEditorManager not found!");
         }
