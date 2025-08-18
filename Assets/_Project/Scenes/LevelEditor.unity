@@ -5892,6 +5892,7 @@ MonoBehaviour:
   toolSelectedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   paletteContainer: {fileID: 1480201045}
   editorPaletteSpacing: 1.5
+  editorPaletteColumnSpacing: 2.2
   playerHandSpacing: 2.5
   blockerMarkerPrefab: {fileID: 3578985545442099175, guid: b9cccfe652e0c4c988de0352c12b4191, type: 3}
   starCollectiblePrefab: {fileID: 1150640815076544162, guid: 1a4de4cc2793d40aba7676edff3cb287, type: 3}
@@ -5925,7 +5926,8 @@ MonoBehaviour:
     m_RotationOrder: 4
   editorHandContainer: {fileID: 856487395}
   playerHandContainer: {fileID: 1590933493}
-  countIndicatorPrefab: {fileID: 4678442367154475571, guid: e2f032132d5f74ac9a8db738f656adad, type: 3}
+  editorCounterPrefab: {fileID: 4678442367154475571, guid: e2f032132d5f74ac9a8db738f656adad, type: 3}
+  playerCounterPrefab: {fileID: 3068789621375450200, guid: 8d0ba052071f642d2b6145e56d21e942, type: 3}
 --- !u!4 &820239331
 Transform:
   m_ObjectHideFlags: 0

@@ -88,10 +88,17 @@ public class LevelEditorManager : MonoBehaviour
     [Header("Puzzle Hand Setup")]
     public Transform editorHandContainer; // The 3D container on the right
     public Transform playerHandContainer;
-    public GameObject countIndicatorPrefab; // The TextMeshPro prefab for the "x2" counter
+    [Tooltip("The PREFAB for the simple text counter used in the EDITOR.")]
+    public GameObject editorCounterPrefab; // The simple TextMeshPro prefab
+
+    [Tooltip("The PREFAB for the dynamic, intelligent counter used in PLAY MODE.")]
+    public GameObject playerCounterPrefab; // Our new prefab with the CounterController script
+
 
     private List<PuzzleHandTile> playerHand = new List<PuzzleHandTile>();
-    private Dictionary<TileType, TMP_Text> handCounters = new Dictionary<TileType, TMP_Text>();
+    private Dictionary<TileType, CounterController> playerHandCounters = new Dictionary<TileType, CounterController>();
+    private Dictionary<TileType, TMP_Text> editorHandCounters = new Dictionary<TileType, TMP_Text>();
+
 
     private GameObject currentlyHighlightedHandTile;
 
@@ -670,7 +677,7 @@ public class LevelEditorManager : MonoBehaviour
         {
             playerHand.Remove(tileToRemove);
             Debug.Log($"Removed {type.displayName} from hand.");
-            UpdateSingleCounter(type);
+            // UpdateSingleCounter(type);
         }
     }
 
@@ -678,35 +685,9 @@ public class LevelEditorManager : MonoBehaviour
 
     /// Updates the text for a single tile type in the hand palette.
 
-    private void UpdateSingleCounter(TileType type)
-    {
-        if (handCounters.ContainsKey(type))
-        {
-            TMP_Text counterText = handCounters[type];
-            if (counterText != null)
-            {
-                // Determine the current operating mode.
-                OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
 
-                if (currentMode == OperatingMode.Editor)
-                {
-                    // In Editor mode, show the detailed debug text.
-                    int initialCount = initialHandBlueprint.ContainsKey(type) ? initialHandBlueprint[type] : 0;
-                    int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
 
-                    counterText.text = $"x{initialCount} ({currentAmountInBag} left)";
-                    counterText.color = (currentAmountInBag > 0) ? Color.white : Color.grey;
-                }
-                else // In Playing mode
-                {
-                    // In Play mode, show the simple count based on what's physically in the hand.
-                    int countInHand = playerHand.Count(t => t.tileType == type);
-                    counterText.text = $"x{countInHand}";
 
-                }
-            }
-        }
-    }
 
 
 
@@ -715,23 +696,22 @@ public class LevelEditorManager : MonoBehaviour
 
     public void RedrawHandPalette()
     {
-        // Determine which container to use based on the current game mode.
         OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
         Transform targetContainer = (currentMode == OperatingMode.Editor) ? editorHandContainer : playerHandContainer;
 
         if (targetContainer == null) return;
 
-        // Clear the children of BOTH containers to be safe before redrawing.
+        // Clear children of BOTH containers and BOTH dictionaries
         if (editorHandContainer != null) foreach (Transform child in editorHandContainer) { Destroy(child.gameObject); }
         if (playerHandContainer != null) foreach (Transform child in playerHandContainer) { Destroy(child.gameObject); }
-        handCounters.Clear();
+        editorHandCounters.Clear();
+        playerHandCounters.Clear();
 
-        // <<< THIS IS THE CORRECTED DYNAMIC POSITIONING LOGIC >>>
+        // Position the container (logic is unchanged)
         if (gridManager != null)
         {
             if (currentMode == OperatingMode.Editor)
             {
-                // Position the Editor Hand to the RIGHT of the grid.
                 float gridWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX) + gridManager.tileWidth;
                 float gridRightEdgeX = gridWidth / 2f;
                 float arrowSpaceBuffer = 4f;
@@ -740,18 +720,15 @@ public class LevelEditorManager : MonoBehaviour
             }
             else // Playing Mode
             {
-                // Position the Player Hand to the BOTTOM of the grid.
                 float gridHeight = (gridManager.rows - 1) * (gridManager.tileHeight + gridManager.gapZ);
                 float gridBottomEdgeZ = -gridHeight / 2f;
-                float buffer = 2f; // A small buffer space
+                float buffer = 2f;
                 float paletteZ = gridBottomEdgeZ - buffer;
                 targetContainer.position = new Vector3(0, 0, paletteZ);
             }
         }
 
-        // Group the hand tiles by their type
         var groupedHand = playerHand.GroupBy(t => t.tileType).ToDictionary(g => g.Key, g => g.ToList());
-
         float spacing = (currentMode == OperatingMode.Editor) ? editorPaletteSpacing : playerHandSpacing;
         float startPos = (groupedHand.Count - 1) * spacing / 2f;
         int index = 0;
@@ -759,100 +736,109 @@ public class LevelEditorManager : MonoBehaviour
         foreach (var group in groupedHand.OrderBy(g => g.Key.displayName))
         {
             TileType type = group.Key;
-            List<PuzzleHandTile> tilesOfType = group.Value;
-            PuzzleHandTile representativeTile = tilesOfType.First();
-            int count = tilesOfType.Count;
+            PuzzleHandTile representativeTile = group.Value.First();
+            int count = group.Value.Count;
 
-            // <<< THIS IS THE CORRECTED LAYOUT LOGIC >>>
-            Vector3 spawnPos;
-            if (currentMode == OperatingMode.Editor)
-            {
-                // Vertical layout for the side palette
-                spawnPos = new Vector3(0, 0, startPos - (index * spacing));
-            }
-            else // Playing Mode
-            {
-                // Horizontal layout for the bottom palette
-                spawnPos = new Vector3(startPos - (index * spacing), 0, 0);
-            }
+            Vector3 spawnPos = (currentMode == OperatingMode.Editor)
+                ? new Vector3(0, 0, startPos - (index * spacing)) // Vertical layout
+                : new Vector3(startPos - (index * spacing), 0, 0); // Horizontal layout
 
-            // The rest of the instantiation logic remains the same
             GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
-            tileGO.transform.SetParent(targetContainer, false); // Use 'false' to respect the local spawn position
+            tileGO.transform.SetParent(targetContainer, false);
             tileGO.name = "HandPalette_" + type.displayName;
 
             var tileInstance = tileGO.GetComponent<TileInstance>();
             gridManager.InitializeTile(tileInstance, type, representativeTile.isFlipped);
 
+            // --- NEW CONDITIONAL LOGIC ---
             if (currentMode == OperatingMode.Editor)
             {
-                // In the editor, use the simple click handler.
+                // --- EDITOR-SPECIFIC SETUP ---
                 var handTileClicker = tileGO.AddComponent<HandPaletteTile>();
                 handTileClicker.editorManager = this;
                 handTileClicker.myTileType = type;
-            }
-            else // Playing Mode
-            {
-                // In play mode, use the full-featured draggable tile script.
-                var playableTile = tileGO.AddComponent<PlayableHandTile>();
-                playableTile.myTileType = type;
-                playableTile.editorManager = this;
 
-                // Use our cached, safe reference to the UIManager.
-                // This avoids the static instance issue and is much more robust.
-                playableTile.uiManager = this.uiManager;
-                playableTile.handCount = count;
-
-            }
-
-
-            if (countIndicatorPrefab != null)
-            {
-                if (count > 1)
+                if (editorCounterPrefab != null && count > 0) // Changed to > 0 to always show
                 {
-
-                    GameObject indicatorGO = Instantiate(countIndicatorPrefab, tileGO.transform);
+                    GameObject indicatorGO = Instantiate(editorCounterPrefab, tileGO.transform);
+                    // Set its local position and rotation. This will rotate with the tile.
                     indicatorGO.transform.localPosition = new Vector3(0, 0.7f, -0.7f);
-                    indicatorGO.AddComponent<CounterIndicatorTag>();
+                    indicatorGO.transform.localRotation = Quaternion.Euler(90f, 0, 0);
+
                     var text = indicatorGO.GetComponentInChildren<TMP_Text>();
                     if (text)
                     {
-                        text.text = $"x{tilesOfType.Count}";
-                        handCounters[type] = text;
+                        editorHandCounters[type] = text;
                     }
                 }
+            }
+            else // --- PLAYING-MODE-SPECIFIC SETUP ---
+            {
+                var playableTile = tileGO.AddComponent<PlayableHandTile>();
+                playableTile.myTileType = type;
+                playableTile.editorManager = this;
+                playableTile.uiManager = this.uiManager;
+                playableTile.handCount = count;
 
+                if (playerCounterPrefab != null && count > 1)
+                {
+                    GameObject counterGO = Instantiate(playerCounterPrefab, targetContainer);
+                    counterGO.name = $"Counter_{type.displayName}";
+                    var counterController = counterGO.GetComponent<CounterController>();
+                    if (counterController != null)
+                    {
+                        counterController.Initialize(tileGO.transform, count);
+                        playerHandCounters[type] = counterController;
+                    }
+                }
             }
             index++;
         }
-        // After creating all the visual elements, run the update logic to apply the
-        // correct, mode-aware text formatting.
+
+        // After creating all visuals, run the update to set the correct text.
         UpdateHandCounters();
-    
     }
 
+
     public void UpdateHandCounters()
+{
+    OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
+
+    if (currentMode == OperatingMode.Editor)
     {
-        if (gridManager.isPuzzleMode)
+        // --- Logic for the EDITOR counters ---
+        foreach (var pair in editorHandCounters)
         {
-            // In puzzle mode, we update all counters based on the blueprint.
-            foreach (var pair in handCounters)
+            TileType type = pair.Key;
+            TMP_Text counterText = pair.Value;
+
+            if (counterText != null)
             {
-                UpdateSingleCounter(pair.Key);
-            }
-        }
-        else
-        {
-            // In sandbox mode, all counters should just show their hand definition.
-            foreach (var pair in handCounters)
-            {
-                TMP_Text counterText = pair.Value;
-                int countInHand = playerHand.Count(t => t.tileType == pair.Key);
-                counterText.text = $"x{countInHand}";
-                counterText.color = Color.white;
+                int countInHand = playerHand.Count(t => t.tileType == type);
+                int countInBag = gridManager.bagManager.GetCountOfTileType(type);
+                
+                // This gives you the desired "x3 (3 left)" format
+                counterText.text = $"x{countInHand} ({countInBag} left)";
             }
         }
     }
+    else // --- Logic for the PLAYER counters ---
+    {
+        // For players, we only care about what's left in the bag.
+        foreach (var pair in playerHandCounters)
+        {
+            TileType type = pair.Key;
+            CounterController counter = pair.Value;
+
+            if (counter != null)
+            {
+                int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
+                counter.UpdateCount(currentAmountInBag);
+            }
+        }
+    }
+}
+
 
 
 
