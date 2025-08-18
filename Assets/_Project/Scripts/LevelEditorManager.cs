@@ -2114,11 +2114,12 @@ public class LevelEditorManager : MonoBehaviour
 
         // 2. Re-select the boat. This will lift it, start the bobbing animation, and find its valid moves.
         // This is crucial for player experience, so it feels like a proper turn state.
-        if (isUndoAction)
-        {
+        // HERE WE CAN USE THE IF FOR THE BOAT NOT TO BE SELECTED AT A START OF A LEVEL
+        //if (isUndoAction)
+        //{
             // Only re-select the boat if this was triggered by an Undo action.
             boat.SelectBoat();
-        }
+        //}
 
         // We need to wait for the boat's "lift" animation to finish before checking for game over,
         // as some checks might depend on the boat being in the correct state.
