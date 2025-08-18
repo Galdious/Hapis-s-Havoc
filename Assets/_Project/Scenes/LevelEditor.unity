@@ -171,6 +171,8 @@ MonoBehaviour:
   editorBrushPalette: {fileID: 1480201044}
   editorHandContainer: {fileID: 856487394}
   playerHandContainer: {fileID: 1590933492}
+  editor_currentLevelText: {fileID: 859460501}
+  player_currentLevelText: {fileID: 862995368}
 --- !u!4 &25834546
 Transform:
   m_ObjectHideFlags: 0
@@ -1490,7 +1492,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LevelLoaderUI
   editorManager: {fileID: 820239330}
-  currentLevelText: {fileID: 862995368}
   levelsSubfolderName: Levels
 --- !u!1 &161169357
 GameObject:
@@ -4068,7 +4069,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HistoryManager
   editorManager: {fileID: 820239330}
   maxHistorySteps: 20
-  undoButton: {fileID: 1172947500}
 --- !u!4 &557651205
 Transform:
   m_ObjectHideFlags: 0

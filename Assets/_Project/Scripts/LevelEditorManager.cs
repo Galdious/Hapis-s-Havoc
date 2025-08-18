@@ -829,6 +829,10 @@ public class LevelEditorManager : MonoBehaviour
             }
             index++;
         }
+        // After creating all the visual elements, run the update logic to apply the
+        // correct, mode-aware text formatting.
+        UpdateHandCounters();
+    
     }
 
     public void UpdateHandCounters()
