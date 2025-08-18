@@ -2164,6 +2164,9 @@ public class LevelEditorManager : MonoBehaviour
 
     public void PlaytestCurrentLevel()
     {
+        // Set our camera to the player view
+        if (CameraManager.Instance != null) CameraManager.Instance.SwitchToPlayerView();
+
         // Set the game mode
         if (GameManager.Instance != null)
         {

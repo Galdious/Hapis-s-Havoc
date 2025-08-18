@@ -318,6 +318,9 @@ public class GameManager : MonoBehaviour
 
     public void EnterEditorMode()
     {
+        // Set our camera to the editor view
+        if (CameraManager.Instance != null) CameraManager.Instance.SwitchToEditorView();
+
         Debug.Log("<color=orange>Returning to EDITOR Mode.</color>");
 
         // Stop the game logic and timer
