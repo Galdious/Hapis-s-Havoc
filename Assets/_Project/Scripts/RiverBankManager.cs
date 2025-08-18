@@ -49,9 +49,8 @@ public class RiverBankManager : MonoBehaviour
     }
 
 
-/// <summary>
+
 /// Destroys existing bank GameObjects to prepare for regeneration.
-/// </summary>
 private void ClearBanks()
 {
     if (topBankParent != null)
@@ -66,9 +65,8 @@ private void ClearBanks()
     bottomBankSpawns.Clear();
 }
 
-/// <summary>
+
 /// Public method to be called by an external manager to generate the banks.
-/// </summary>
 public void GenerateBanksForGrid()
 {
     ClearBanks();

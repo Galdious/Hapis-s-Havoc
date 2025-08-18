@@ -97,7 +97,7 @@ public class LevelEditorManager : MonoBehaviour
     private class EditorBrush
     {
         public TileType tileType;
-        // public float currentRotationY = 0f;
+        
         public PaletteTile sourcePaletteTile;
     }
     private EditorBrush currentBrush;
@@ -557,8 +557,7 @@ public class LevelEditorManager : MonoBehaviour
         Debug.Log($"Generated 3D Brush Palette with {tileCount} tiles.");
 
 
-        // Adjust the main camera to see everything
-        //AdjustCameraView();
+
     }
 
     public void OnPaletteTileClicked(PaletteTile clickedTile)
@@ -657,7 +656,7 @@ public class LevelEditorManager : MonoBehaviour
         }
     }
 
-    // --- ADD the core hand logic methods ---
+
     private void AddToHand(TileType type)
     {
         // Add a new instance of our data class to the list.
@@ -679,9 +678,9 @@ public class LevelEditorManager : MonoBehaviour
     }
 
 
-    /// <summary>
+
     /// Updates the text for a single tile type in the hand palette.
-    /// </summary>
+
     private void UpdateSingleCounter(TileType type)
     {
         if (handCounters.ContainsKey(type))
@@ -926,7 +925,7 @@ public class LevelEditorManager : MonoBehaviour
                     break;
             }
 
-            // --- THIS IS THE FIX ---
+
             // We now get the value from the prefab itself instead of hardcoding it.
             int value = 0;
             if (prefabToSpawn != null)
@@ -976,8 +975,7 @@ public class LevelEditorManager : MonoBehaviour
                 collectibleInstance.type = type;
                 collectibleInstance.value = value; // Set the value from the loaded data
             }
-            // Don't need to log this during a level load, it clutters the console.
-            // Debug.Log($"Placed {type} on tile {tile.name}");
+
         }
     }
     private void UpdateBlockerVisual(TileInstance tile)
@@ -1208,17 +1206,10 @@ public class LevelEditorManager : MonoBehaviour
         {
             visualizer.DrawPaths();
         }
-        // --- END OF CRITICAL FIX ---
+
     }
 
 
-
-    // void AdjustCameraView()
-    // {
-    //     // This is a simple auto-adjust. You can fine-tune these values.
-    //     Camera.main.transform.position = new Vector3(-5, 15, 5);
-    //     Camera.main.transform.rotation = Quaternion.Euler(60, 0, 0);
-    // }
 
 
 
@@ -1247,7 +1238,7 @@ public class LevelEditorManager : MonoBehaviour
     }
 
     /// Removes the highlight from the currently selected palette tile.
-    /// </summary>
+
     private void ClearPaletteHighlight()
     {
         if (currentlyHighlightedPaletteTile == null) return;
@@ -1268,7 +1259,7 @@ public class LevelEditorManager : MonoBehaviour
     }
 
     /// Smoothly animates a tile's transform up or down.
-    /// </summary>
+
     private IEnumerator LiftTileSmooth(Transform tileTransform, bool lift)
     {
         if (tileTransform == null) yield break;
@@ -1587,10 +1578,10 @@ public class LevelEditorManager : MonoBehaviour
         if (currentBagMode == mode) EventSystem.current.SetSelectedGameObject(null);
     }
 
-    /// <summary>
+
     /// Gathers all the current level data from the editor, converts it to JSON,
     /// and saves it to a file in the persistent data path.
-    /// </summary>
+
     public void SaveLevel()
     {
         // 1. Get the filename from the input field. If it's empty, do nothing.
@@ -1711,10 +1702,10 @@ public class LevelEditorManager : MonoBehaviour
         }
     }
 
-    /// <summary>
+
     /// Loads level data from a JSON file. For now, it just loads it into memory
     /// and prints it to the console to verify it works.
-    /// </summary>
+
 
 
     public void LoadLevelFromFile(string path)
@@ -1902,24 +1893,7 @@ public class LevelEditorManager : MonoBehaviour
             }
         }
 
-        // 4. Initialize each tile's state from the loaded data
-        // THIS LOOP IS NOW ONLY HERE ONCE.
-        // foreach (var tileData in data.tiles)
-        // {
-        //     TileInstance tileInstance = gridManager.GetTileAt(tileData.gridX, tileData.gridY);
-        //     TileType type = FindTileTypeByName(tileData.tileTypeName);
 
-        //     if (tileInstance != null && type != null)
-        //     {
-        //         tileInstance.GetComponent<PathVisualizer>()?.CleanUpPaths();
-        //         tileInstance.transform.rotation = Quaternion.Euler(0, tileData.rotationY, tileData.isFlipped ? 180f : 0);
-        //         gridManager.InitializeTile(tileInstance, type, tileData.isFlipped);
-
-        //         // Directly set the blocker data and update the visual
-        //         tileInstance.IsHardBlocker = tileData.isHardBlocker;
-        //         UpdateBlockerVisual(tileInstance);
-        //     }
-        // }
 
         // 5. Place Collectibles
 
@@ -1950,42 +1924,9 @@ public class LevelEditorManager : MonoBehaviour
         // Force the game into Puzzle Mode with the hand we just loaded.
         ApplyHandToBag();
 
-        // // 7. Update UI Fields
-        // widthInput.text = data.gridWidth.ToString();
-        // heightInput.text = data.gridHeight.ToString();
-        // maxMovesInput.text = data.maxMoves.ToString();
 
-        // // 8. Place Start and End Markers by reading the new, robust GoalData structure
-        // if (data.startPosition != null)
-        // {
-        //     if (data.startPosition.isBankGoal)
-        //     {
-        //         // Load a bank start position
-        //         SetStartPosition(null, data.startPosition.bankSide, null);
-        //     }
-        //     else if (data.startPosition.tileX != -1)
-        //     {
-        //         // Load a tile start position
-        //         TileInstance tile = gridManager.GetTileAt(data.startPosition.tileX, data.startPosition.tileY);
-        //         Debug.Log($"[Reconstruct] Reading snapPointIndex from JSON: {data.startPosition.snapPointIndex}. Calling SetStartPosition...");
-        //         SetStartPosition(tile, null, data.startPosition.snapPointIndex);
-        //     }
-        // }
 
-        // if (data.endPosition != null)
-        // {
-        //     if (data.endPosition.isBankGoal)
-        //     {
-        //         // Load a bank end position
-        //         SetEndPosition(null, data.endPosition.bankSide);
-        //     }
-        //     else if (data.endPosition.tileX != -1)
-        //     {
-        //         // Load a tile end position
-        //         TileInstance tile = gridManager.GetTileAt(data.endPosition.tileX, data.endPosition.tileY);
-        //         SetEndPosition(tile, null);
-        //     }
-        // }
+
 
         // 5. Re-place Start and End Markers FROM THE ORIGINAL LEVEL DATA
         // The goals don't move, so we restore them from 'currentLoadedLevelData'.
@@ -2046,11 +1987,7 @@ public class LevelEditorManager : MonoBehaviour
         GameManager.Instance.SetLevelInfo(totalStars);
 
 
-        // 9. Spawn the test boat in its starting position
-        // This now works because Step 2 fixed SetStartPosition to update these variables!
-        // Debug.Log($"[Reconstruct] Spawning boat with startSnapPointIndex: {startSnapPointIndex}");
 
-        //Debug.Break();
 
         // boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
         GameManager.Instance.UpdateLevelState(currentLoadedLevelData, activeEndMarker);
@@ -2069,12 +2006,7 @@ public class LevelEditorManager : MonoBehaviour
             GameManager.Instance.StartLevelTimer();
         }
 
-        // // Clear any history from a previous level and save the initial state.
-        // if (HistoryManager.Instance != null)
-        // {
-        //     HistoryManager.Instance.ClearHistory();
-        //     HistoryManager.Instance.SaveState();
-        // }
+
 
         Debug.Log("Yielding to FinalizeStateReconstruction...");
         // After everything is visually in place, run the logic finalization routine.
@@ -2202,9 +2134,9 @@ public class LevelEditorManager : MonoBehaviour
 
 
 
-    /// <summary>
+
     /// Animates the remaining hand tiles to their new, centered positions after a type is depleted.
-    /// </summary>
+
     private IEnumerator AnimateHandReCenteringCoroutine()
     {
         // A brief delay can make the sequence feel more natural.

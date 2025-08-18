@@ -298,9 +298,7 @@ public class GridManager : MonoBehaviour
         rb.isKinematic = true; // Controlled during sliding
         rb.mass = 1f;
 
-        // // Random 0° / 180° spin (physical only – no path remap)
-        // if (template.canRotate180 && Random.value > 0.5f)
-        //     go.transform.Rotate(0f, 180f, 0f);
+
 
         // Initialize tile with proper side
         TileInstance ti = go.GetComponent<TileInstance>();
@@ -356,9 +354,7 @@ public class GridManager : MonoBehaviour
     // 7.  Hapi's Havoc Push Mechanics - Public API
     // ------------------------------------------------------------
 
-    /// <summary>
     /// Push a row horizontally, inserting new tile from specified side with chosen face
-    /// </summary>
     /// <param name="rowIndex">Which row (0-5)</param>
     /// <param name="fromLeft">True = insert from left side, False = from right side</param>
     /// <param name="showObstacleSide">True = red obstacle side, False = blue river side</param>
@@ -410,11 +406,6 @@ public class GridManager : MonoBehaviour
             yield return new WaitForSeconds(0.3f);
         }
 
-        // ^^^ END OF CORRECTED LOGIC ^^^
-
-
-
-
 
 
         // Disable arrow colliders during push to prevent interference
@@ -449,7 +440,6 @@ public class GridManager : MonoBehaviour
 
 
         //This part finds any boats that need to be saved or parented befroe the tiles move
-        // --- START OF BLOCK TO ADD (Part 1) ---
         float ejectedTileRotation = 0f;
         if (ejectingTile != null)
         {
@@ -498,7 +488,6 @@ public class GridManager : MonoBehaviour
         }
 
 
-        // --- END OF BLOCK TO ADD (Part 1) ---
 
         // Create new tile at spawn position (outside grid)
         GameObject newTileGO = Instantiate(tilePrefab, spawnPos, Quaternion.identity, gridParent);
@@ -513,14 +502,12 @@ public class GridManager : MonoBehaviour
         newRb.isKinematic = true; // Controlled during sliding
         newRb.mass = 1f;
 
-        // TUTAJ
+
         float yRotation = (newTileTemplate.canRotate180 && Random.value > 0.5f) ? 180f : 0f;
         float xRotation = showObstacleSide ? 180f : 0f;
         newTileGO.transform.rotation = Quaternion.Euler(xRotation, yRotation, 0f);
 
-        // // Random rotation
-        // if (newTileTemplate.canRotate180 && Random.value > 0.5f)
-        //     newTileGO.transform.Rotate(0f, 180f, 0f);
+
 
         TileInstance newTile = newTileGO.GetComponent<TileInstance>();
         InitializeTile(newTile, newTileTemplate, showObstacleSide);
@@ -594,7 +581,7 @@ public class GridManager : MonoBehaviour
 
 
 
-        // --- START OF CORRECTED BLOCK ---
+
         // BOAT STICKING LOGIC (Part 2: Un-parent)
         foreach (var boat in boatsToParent)
         {
@@ -684,10 +671,7 @@ public class GridManager : MonoBehaviour
 
 
         }
-        // --- END OF BLOCK TO ADD (Part 2) ---
 
-
-        // --- END OF CORRECTED BLOCK ---
 
         // Return ejected tile to bag (extract its template data)
         if (ejectingTile != null && ejectingTile.originalTemplate != null)
@@ -716,14 +700,14 @@ public class GridManager : MonoBehaviour
         }
 
 
-        // vvv ADD THIS FINAL STEP vvv
+
         // STEP 3: If we had a boat selected at the start, re-select it now.
         if (previouslySelectedBoat != null)
         {
             // This will lift it and find its new valid moves automatically.
             previouslySelectedBoat.SelectBoat();
         }
-        // ^^^ END OF FINAL STEP ^^^
+
 
         HistoryManager.Instance.SaveState();
 
@@ -766,7 +750,7 @@ public class GridManager : MonoBehaviour
             yield return new WaitForSeconds(0.3f);
         }
 
-        // ^^^ END OF CORRECTED LOGIC ^^^
+
 
 
         RiverControls riverControls = FindFirstObjectByType<RiverControls>();
@@ -845,7 +829,7 @@ public class GridManager : MonoBehaviour
         }
 
 
-        // --- END OF BLOCK TO ADD (Part 1) ---
+
 
         // Create new tile at spawn position (outside grid)
         GameObject newTileGO = Instantiate(tilePrefab, spawnPos, Quaternion.identity, gridParent);
@@ -1008,10 +992,7 @@ public class GridManager : MonoBehaviour
 
 
         }
-        // --- END OF BLOCK TO ADD (Part 2) ---
 
-
-        // --- END OF CORRECTED BLOCK ---
 
         // Return ejected tile to bag (extract its template data)
         if (ejectingTile != null && ejectingTile.originalTemplate != null)
@@ -1039,7 +1020,7 @@ public class GridManager : MonoBehaviour
             riverControls.SetArrowCollidersEnabled(true);
         }
 
-        // vvv ADD THIS FINAL STEP vvv
+
         // STEP 3: If we had a boat selected at the start, re-select it now.
         if (previouslySelectedBoat != null)
         {
@@ -1395,7 +1376,7 @@ public class GridManager : MonoBehaviour
 
 
 
-        // --- THIS IS THE CORRECTED FINAL BLOCK ---
+
         // Clean up the tile GameObject itself
         if (tile != null && tile.gameObject != null)
         {

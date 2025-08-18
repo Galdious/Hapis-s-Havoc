@@ -140,11 +140,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         }
     }
 
-
-    /// <summary>
     /// Sets the boat's internal state to be on a specific tile without moving the transform.
     /// This is used for initialization.
-    /// </summary>
     public void InitializeStateOnTile(TileInstance tile, int snapPointIndex)
     {
         if (tile == null) return;
@@ -367,7 +364,6 @@ private IEnumerator FadeOutCoroutine()
 }
     public void SelectBoat()
     {
-        // --- ADD THIS LINE ---
         // First, clear any highlights that might exist from a previous state.
         // This wipes the slate clean before we do anything else.
         ClearHighlights();
@@ -581,7 +577,6 @@ public void ApplyPenaltiesForForcedMove(List<TileInstance> crossedTiles)
 
 /// Instantly stops animations and updates internal state for a forced move (like ejection).
 /// This does NOT animate the boat, leaving it frozen for another script to control.
-/// </summary>
 public void PrepareForForcedMove()
 {
     if (boatManager != null) boatManager.ClearSelectedBoat();
@@ -627,11 +622,7 @@ public void PrepareForForcedMove()
         return (-1, -1);
     }
     
-    // ┌──────────────────────────────────────────────────┐
-    // │ │
-    // │ --- !!! THIS IS THE FIRST CHANGED METHOD (v03) !!! --- │
-    // │ │
-    // └──────────────────────────────────────────────────┘
+
     void HighlightBankForDocking(RiverBankManager.BankSide side)
     {
         if (riverBankManager == null) return;
@@ -658,11 +649,7 @@ public void PrepareForForcedMove()
         }
     }
 
-    // ┌──────────────────────────────────────────────────┐
-    // │ │
-    // │ --- !!! THIS IS THE SECOND CHANGED METHOD (v03) !!! --- │
-    // │ │
-    // └──────────────────────────────────────────────────┘
+
     void ClearHighlights()
     {
         // Restore tile materials

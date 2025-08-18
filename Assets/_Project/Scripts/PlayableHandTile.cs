@@ -55,9 +55,8 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         originalParent = transform.parent;
     }
 
-    /// <summary>
+
     /// Called by the Event System on a short, complete click (down and up without dragging).
-    /// </summary>
     public void OnPointerClick(PointerEventData eventData)
     {
         if (isDragging) return;
@@ -65,9 +64,8 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         RotateTile();
     }
 
-    /// <summary>
+
     /// Called by the Event System at the moment a drag is detected.
-    /// </summary>
     public void OnBeginDrag(PointerEventData eventData)
     {
         isDragging = true;
@@ -119,9 +117,8 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         }
     }
 
-    /// <summary>
+
     /// Called by the Event System every frame a drag is in progress.
-    /// </summary>
 
     public void OnDrag(PointerEventData eventData)
     {
@@ -153,18 +150,13 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         }
     }
 
-    /// <summary>
+
     /// Called by the Event System when the drag is released.
-    /// </summary>
+
     public void OnEndDrag(PointerEventData eventData)
     {
         SetLayerRecursively(this.gameObject, originalLayer);
         editorManager.gridManager.SetGridTilesLayer("Default"); // Tell GridManager to make grid tiles interactable again
-
-
-
-
-
 
 
         // If we are currently hovering over a valid drop zone...
@@ -190,8 +182,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
                 this.gameObject
             ));
 
-            // The tile has been successfully used, so we destroy its GameObject.
-            // Destroy(gameObject);
+
         }
         else // Otherwise, the drop was invalid.
         {
@@ -245,20 +236,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         
     }
 
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
+
    
     private void RotateTile()
     {
@@ -291,13 +269,6 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
             SetLayerRecursively(child.gameObject, newLayer);
         }
     }
-
-
-
-
-
-
-
 
 
 

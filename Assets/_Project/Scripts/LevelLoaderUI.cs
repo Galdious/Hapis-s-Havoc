@@ -55,9 +55,9 @@ public class LevelLoaderUI : MonoBehaviour
 
     }
 
-    /// <summary>
+
     /// Finds all level files and fills the dropdown with their names.
-    /// </summary>
+
     void PopulateDropdown()
     {
         levelDropdown.ClearOptions();
@@ -104,9 +104,9 @@ public class LevelLoaderUI : MonoBehaviour
         levelDropdown.AddOptions(displayNames);
     }
 
-    /// <summary>
+
     /// Called when the user selects an item from the dropdown.
-    /// </summary>
+
     /// <param name="index">The index of the selected option.</param>
     private void OnDropdownValueChanged(int index)
     {

@@ -664,30 +664,6 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
         }
 
 
-
-        // OLD VERSION: This was the original code that enabled/disabled colliders for all rows.
-
-        // for (int row = startRow; row < endRow; row++)
-        // {
-        //     // vvv ADD THIS CHECK vvv
-        //     // Even if we're asked to enable them, if the row is locked, KEEP them disabled.
-        //     bool finalEnabledState = enabled && !rowLockStates[row];
-        //     // ^^^ END OF ADDED CHECK ^^^
-
-        //     for (int side = 0; side < 2; side++)
-        //     {
-        //         if (leftArrows[row, side]?.gameObject != null)
-        //         {
-        //             var collider = leftArrows[row, side].GetComponent<Collider>();
-        //             if (collider != null) collider.enabled = finalEnabledState; // Use the new final state
-        //         }
-        //         if (rightArrows[row, side]?.gameObject != null)
-        //         {
-        //             var collider = rightArrows[row, side].GetComponent<Collider>();
-        //             if (collider != null) collider.enabled = finalEnabledState; // Use the new final state
-        //         }
-        //     }
-        // }
     }
 
 

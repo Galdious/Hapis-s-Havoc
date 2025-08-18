@@ -38,9 +38,9 @@ public class ScreenFader : MonoBehaviour
         
     }
 
-    /// <summary>
+
     /// Coroutine to fade the screen from transparent to fully opaque (black).
-    /// </summary>
+
     public IEnumerator FadeOut()
     {
         Debug.Log("<color=orange>FADE OUT: Starting fade to black.</color>");
@@ -57,9 +57,9 @@ public class ScreenFader : MonoBehaviour
         canvasGroup.alpha = 1;
     }
 
-    /// <summary>
+
     /// Coroutine to fade the screen from fully opaque (black) to transparent.
-    /// </summary>
+
     public IEnumerator FadeIn()
     {
         Debug.Log("<color=lime>FADE IN: Starting fade to clear.</color>");

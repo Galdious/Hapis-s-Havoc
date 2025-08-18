@@ -35,10 +35,8 @@ public class TileBagManager : MonoBehaviour
     // 2. PRIVATE RUNTIME DATA
     // ===========================================================
 
-    /// <summary>
     /// The actual “bag” we’ll draw from while the game runs.
     /// Stores references to TileType templates.
-    /// </summary>
     private List<TileType> bag = new List<TileType>();
 
     // ===========================================================
@@ -70,10 +68,8 @@ public class TileBagManager : MonoBehaviour
     // 4. BAG CONSTRUCTION
     // ===========================================================
 
-    /// <summary>
     /// Clears bag and refills it based on quantities in TileLibrary.
     /// Tiles with Quantity ≤ 0 are skipped (not in play this session).
-    /// </summary>
     public void BuildBag()
     {
         bag.Clear();
@@ -132,41 +128,41 @@ public class TileBagManager : MonoBehaviour
     }
 
 
-public void BuildBagFromHand(Dictionary<TileType, int> hand)
-{
-    bag.Clear();
-
-    if (hand == null) return;
-
-    foreach (var pair in hand)
+    public void BuildBagFromHand(Dictionary<TileType, int> hand)
     {
-        TileType type = pair.Key;
-        int quantity = pair.Value;
-        
-        for (int i = 0; i < quantity; i++)
+        bag.Clear();
+
+        if (hand == null) return;
+
+        foreach (var pair in hand)
         {
-            bag.Add(type);
+            TileType type = pair.Key;
+            int quantity = pair.Value;
+            
+            for (int i = 0; i < quantity; i++)
+            {
+                bag.Add(type);
+            }
         }
+
+        Shuffle(bag);
+        Debug.Log($"[TileBagManager] Bag built from player hand with {bag.Count} tiles.");
     }
 
-    Shuffle(bag);
-    Debug.Log($"[TileBagManager] Bag built from player hand with {bag.Count} tiles.");
-}
 
 
-
-public int GetCountOfTileType(TileType type)
-{
-    int count = 0;
-    foreach (TileType tileInBag in bag)
+    public int GetCountOfTileType(TileType type)
     {
-        if (tileInBag == type)
+        int count = 0;
+        foreach (TileType tileInBag in bag)
         {
-            count++;
+            if (tileInBag == type)
+            {
+                count++;
+            }
         }
+        return count;
     }
-    return count;
-}
 
 
 

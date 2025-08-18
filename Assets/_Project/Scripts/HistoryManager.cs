@@ -23,8 +23,7 @@ public class HistoryManager : MonoBehaviour
     [Tooltip("The maximum number of undo steps to store.")]
     [SerializeField] private int maxHistorySteps = 20;
 
-    [Header("UI")]
-    // [SerializeField] private UnityEngine.UI.Button undoButton;
+
 
     // A Stack is the perfect data structure for Undo (Last-In, First-Out).
     private Stack<GameStateSnapshot> historyStack = new Stack<GameStateSnapshot>();
@@ -49,20 +48,15 @@ public class HistoryManager : MonoBehaviour
 
     private void Start()
     {
-        // Add this listener
-        // if (undoButton != null)
-        // {
-        //     undoButton.onClick.AddListener(Undo); 
-        // }
         UIManager.Instance.UpdateAllUndoButtons();
     }
 
 
 
 
-    /// <summary>
+
     /// Clears the entire undo history. Should be called when a new level is loaded.
-    /// </summary>
+
     public void ClearHistory()
     {
         historyStack.Clear();
@@ -70,9 +64,9 @@ public class HistoryManager : MonoBehaviour
         Debug.Log("[HistoryManager] Undo history cleared.");
     }
 
-    /// <summary>
+
     /// Takes a snapshot of the current game state and pushes it onto the undo stack.
-    /// </summary>
+
 public void SaveState(GameStateSnapshot snapshotToSave = null)
 {
             if (isUndoing)
@@ -106,7 +100,7 @@ public void SaveState(GameStateSnapshot snapshotToSave = null)
             return;
         }
     }
-    // --- END OF NEW LOGIC ---
+
 
     historyStack.Push(snapshot);
     UIManager.Instance.UpdateAllUndoButtons();

@@ -3,14 +3,6 @@
  *  -----------------------------------------------------------
  *  Logs every connection a DominoTile spawns with, plus the
  *  scene-object name and (optionally) the design-time tile name.
- *
- *  How to use:
- *    1.  Put this file in Assets/Scripts.
- *    2.  Add the component to your DominoTile prefab.
- *    3.  (Optional)  If TileInstance exposes a ScriptableObject
- *        or string with the tile’s design name, uncomment ONE
- *        of the lines in section (1) below that matches.
- *    4.  Play – Unity’s Console will show a line for every tile.
  *────────────────────────────────────────────────────────────*/
 using UnityEngine;
 using System.Text;

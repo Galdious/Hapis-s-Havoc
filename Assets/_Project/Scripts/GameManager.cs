@@ -68,25 +68,6 @@ public class GameManager : MonoBehaviour
         currentState = GameState.Loading;
     }
 
-    /// <summary>
-    /// Called by the LevelEditorManager after it finishes loading a level.
-    /// This gives the GameManager all the info it needs about the current puzzle.
-    /// </summary>
-    // public void InitializeLevel(LevelData data, GameObject endMarker)
-    // {
-    //     currentLevelData = data;
-    //     // --- ADD THIS LINE ---
-    //     activeEndMarker = endMarker; 
-
-    //     currentState = GameState.Playing;
-
-    //     //START THE TIMER ---
-    //     levelStartTime = Time.time;
-    //     isTimerRunning = true;
-    //     Debug.Log("<color=orange>[Playtest Timer]</color> Timer started.");
-
-    //     Debug.Log($"<color=green>[GameManager]</color> Initialized with level. End marker tracking enabled.");
-    // }
 
     public void StartLevelTimer()
     {
@@ -127,11 +108,8 @@ public class GameManager : MonoBehaviour
         Debug.Log($"<color=orange>[Playtest Timer]</color> Level Time: <b>{timeText}</b>");
     }
 
-
-    /// <summary>
     /// This is the master method that evaluates the game state after every boat move.
     /// It checks for win and loss conditions in the correct order of priority.
-    /// </summary>
     public void EvaluateGameStateAfterMove(BoatController boat)
     {
         // Don't do anything if the game is not in the 'Playing' state.
@@ -175,12 +153,7 @@ public class GameManager : MonoBehaviour
             reason = $"<color=red>LEVEL FAILED!</color> Out of movement points.";
         }
 
-        // // Now, if any of the above conditions were met...
-        // if (isGameOver)
-        // {
-        //     StopTimerAndLogResult();
-        //     Debug.Log(reason); // This will now always print the correct reason.
-        // }
+
 
         if (isGameOver)
         {
@@ -219,11 +192,6 @@ public class GameManager : MonoBehaviour
     }
 
 
-
-    /// <summary>
-    /// Called by the End GoalMarker's OnDestroy() method.
-    /// This is an event-driven way to handle the loss condition.
-    /// </summary>
     public void OnEndGoalDestroyed()
     {
         if (isReconstructing) return;
@@ -284,23 +252,7 @@ public class GameManager : MonoBehaviour
     }
 
 
-    // public void EnterPlayMode()
-    // {
-    //     Debug.Log("<color=cyan>Switching to PLAY Mode.</color>");
-    //     currentMode = OperatingMode.Playing;
 
-    //     // Hide the editor UI and show the player UI
-    //     if (uiManager != null)
-    //     {
-    //         uiManager.SwitchToMode(OperatingMode.Playing);
-    //     }
-
-    //     // Restart the level from its base state to begin the playtest
-    //     if (FindFirstObjectByType<LevelEditorManager>() is LevelEditorManager editor)
-    //     {
-    //         editor.RestartCurrentLevel();
-    //     }
-    // }
 
 
     public void SetReconstructing(bool status)

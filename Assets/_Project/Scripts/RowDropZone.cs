@@ -36,9 +36,8 @@ public class RowDropZone : MonoBehaviour
         }
     }
 
-    /// <summary>
+
     /// This is called BY the PlayableHandTile script when a drag enters our bounds.
-    /// </summary>
     public void OnHoverEnter()
     {
         if (isHovered) return;
@@ -56,9 +55,8 @@ public class RowDropZone : MonoBehaviour
         Debug.Log($"Hovering over drop zone: Row {row}, From Left: {fromLeft}");
     }
 
-    /// <summary>
+
     /// This is called BY the PlayableHandTile script when a drag leaves our bounds.
-    /// </summary>
     public void OnHoverExit()
     {
         if (!isHovered) return;

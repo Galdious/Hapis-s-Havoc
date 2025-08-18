@@ -15,7 +15,7 @@ public class BoatManager : MonoBehaviour
     public GameObject boatPrefab;
     public int boatsPerPlayer = 2;
 
-    [Header("UI References")] // <<< ADD THIS HEADER AND FIELD
+    [Header("UI References")] 
     public TMP_Text editor_starCounterText;
     public TMP_Text editor_moveCounterText;
     public TMP_Text player_starCounterText;

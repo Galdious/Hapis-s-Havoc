@@ -43,11 +43,6 @@ public class PointerArrowButton : MonoBehaviour, IPointerClickHandler, IPointerE
 
 
 
-
-
-
-
-
     public void OnPointerClick(PointerEventData eventData)
     {
         if (controller != null)
