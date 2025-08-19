@@ -190,8 +190,12 @@ public class UIManager : MonoBehaviour
 
     public void HandleNextLevel()
     {
-        Debug.Log("TODO: Implement 'Next Level' logic. For now, returning to menu.");
-        HandleReturnToMenu();
+        // Tell the GameManager, which holds the current level state, to handle it.
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.LoadNextLevel();
+        }
+    
     }
 
     public void HandleReturnToMenu()

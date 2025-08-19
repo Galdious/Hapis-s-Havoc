@@ -1,6 +1,8 @@
 /* GameManager.cs */
 using UnityEngine;
 using System.Collections;
+using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 
 
 
@@ -383,9 +385,53 @@ public class GameManager : MonoBehaviour
         currentLevelData = data;
         currentLevelInfo = info;
     }
-    
 
 
+
+    public void LoadNextLevel()
+    {
+        if (currentLevelInfo == null)
+        {
+            Debug.LogError("Cannot load next level: The current level's info is unknown.");
+            // As a fallback, just go to the level select screen.
+            SceneManager.LoadScene("LevelSelect");
+            return;
+        }
+
+        // 1. Get the full, sorted list of all levels.
+        List<LevelInfo> allLevels = LevelFinder.GetAllLevels();
+        if (allLevels.Count == 0) return;
+
+        // 2. Find the index of our current level in that list.
+        int currentIndex = -1;
+        for (int i = 0; i < allLevels.Count; i++)
+        {
+            if (allLevels[i].FilePath == currentLevelInfo.FilePath)
+            {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        // 3. Determine the next level.
+        int nextIndex = currentIndex + 1;
+        if (currentIndex != -1 && nextIndex < allLevels.Count)
+        {
+            // If a next level exists...
+            LevelInfo nextLevel = allLevels[nextIndex];
+            Debug.Log($"<color=lime>Loading next level: {nextLevel.Description}</color>");
+
+            // 4. Set the instruction and reload the current scene.
+            LevelSelectManager.LevelToLoad = nextLevel.FilePath;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
+        else
+        {
+            // 5. If this was the last level, just go back to the level select screen.
+            Debug.Log("Last level completed! Returning to Level Select.");
+            SceneManager.LoadScene("LevelSelect");
+        }
+    }
 
 
 
