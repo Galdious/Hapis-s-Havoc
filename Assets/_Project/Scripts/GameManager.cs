@@ -31,6 +31,7 @@ public class GameManager : MonoBehaviour
     public GameState currentState;
     public OperatingMode currentMode { get; private set; } = OperatingMode.Editor;
     public LevelData currentLevelData { get; private set; }
+    public LevelInfo currentLevelInfo { get; private set; }
     private GameObject activeEndMarker;
 
     [Header("Scoring")]
@@ -68,21 +69,21 @@ public class GameManager : MonoBehaviour
 
     }
 
-private void Start()
-{
-    // Check if there is an instruction to load a level.
-    if (!string.IsNullOrEmpty(LevelSelectManager.LevelToLoad))
+    private void Start()
     {
-        // If so, start our new "waiter" coroutine.
-        // DO NOT load the level directly from here.
-        StartCoroutine(LoadLevelAfterSceneIsReady());
+        // Check if there is an instruction to load a level.
+        if (!string.IsNullOrEmpty(LevelSelectManager.LevelToLoad))
+        {
+            // If so, start our new "waiter" coroutine.
+            // DO NOT load the level directly from here.
+            StartCoroutine(LoadLevelAfterSceneIsReady());
+        }
+        else
+        {
+            // If we are just opening the editor scene normally, set the default state.
+            currentState = GameState.Loading;
+        }
     }
-    else
-    {
-        // If we are just opening the editor scene normally, set the default state.
-        currentState = GameState.Loading;
-    }
-}
 
     private IEnumerator LoadLevelAfterSceneIsReady()
     {
@@ -211,6 +212,29 @@ private void Start()
                     int maxMoves = boat.maxMovementPoints;
                     int movesUsed = maxMoves - boat.currentMovementPoints;
 
+                        if (currentLevelInfo != null)
+                        {
+                            // 1. Create the unique key for this level. e.g., "Level_01_01_Stars"
+                            string levelKey = $"Level_{currentLevelInfo.WorldNumber:00}_{currentLevelInfo.LevelNumber:00}_Stars";
+
+                            // 2. Get the previously saved score for this level (defaults to 0 if it doesn't exist).
+                            int oldBestScore = PlayerPrefs.GetInt(levelKey, 0);
+
+                            // 3. Only save if the new score is better than the old one.
+                            if (finalScore > oldBestScore)
+                            {
+                                PlayerPrefs.SetInt(levelKey, finalScore);
+                                // Save the data to disk immediately.
+                                PlayerPrefs.Save();
+                                Debug.Log($"<color=yellow>[GameManager]</color> New high score for {levelKey}: {finalScore} stars! (Old score: {oldBestScore}). Progress saved.");
+                            }
+                            else
+                            {
+                                Debug.Log($"<color=white>[GameManager]</color> Score for {levelKey} was {finalScore}, but best is {oldBestScore}. Progress not saved.");
+                            }
+                        }
+
+
                     // Tell the UI Manager to show the results
                     if (uiManager != null)
                     {
@@ -331,7 +355,7 @@ private void Start()
         }
 
 
-        
+
         // Tell RiverControls to completely regenerate its visuals for the new mode.
         // This will destroy the drop zones and create the arrows and locks.
         if (FindFirstObjectByType<RiverControls>() is RiverControls controls)
@@ -344,7 +368,7 @@ private void Start()
         {
             editor.RedrawHandPalette();
         }
-    
+
 
         // Optional: you could choose to reload the level to its last saved state here,
         // or leave it as it was at the end of the playtest. For now, we'll leave it.
@@ -354,7 +378,12 @@ private void Start()
 
 
 
-
+    public void SetCurrentLevel(LevelData data, LevelInfo info)
+    {
+        currentLevelData = data;
+        currentLevelInfo = info;
+    }
+    
 
 
 

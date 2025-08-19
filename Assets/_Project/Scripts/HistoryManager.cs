@@ -133,13 +133,18 @@ public void SaveState(GameStateSnapshot snapshotToSave = null)
             // Peek at the PREVIOUS state, which we are restoring
             GameStateSnapshot previousState = historyStack.Peek();
 
+            LevelInfo currentLevelInfo = GameManager.Instance.currentLevelInfo;
+
+
             // We now wait for the reconstruction to fully complete.
             // This calls the now-public method in LevelEditorManager.
-                yield return StartCoroutine(editorManager.ReconstructLevelFromDataCoroutine(
-                    editorManager.currentLoadedLevelData, // <<< PASS THE LEVEL DATA
-                    previousState,                        // <<< PASS THE SNAPSHOT
-                    true                                  // <<< PASS THE UNDO FLAG
-                ));
+            yield return StartCoroutine(editorManager.ReconstructLevelFromDataCoroutine(
+                editorManager.currentLoadedLevelData,
+                currentLevelInfo, // <<< Pass the info
+                previousState,
+                true
+            ));
+
 
 
             UIManager.Instance.UpdateAllUndoButtons(); // Update button state after undoing

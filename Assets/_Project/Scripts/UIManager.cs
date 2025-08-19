@@ -32,7 +32,7 @@ public class UIManager : MonoBehaviour
     [Tooltip("Drag the parent GameObject containing all editor UI (tool buttons, palettes, etc.).")]
     [SerializeField] private GameObject editorUI_Container;
     [Tooltip("Drag the parent GameObject containing all player-facing gameplay UI.")]
-    [SerializeField] private GameObject playerUI_Container; 
+    [SerializeField] private GameObject playerUI_Container;
 
 
     [Header("Level Complete Stats")]
@@ -97,7 +97,7 @@ public class UIManager : MonoBehaviour
 
         if (editor_restartButton != null) editor_restartButton.onClick.AddListener(HandleRestart);
         if (player_restartButton != null) player_restartButton.onClick.AddListener(HandleRestart);
-        
+
 
         // Ensure all panels are hidden at the start of the game
         if (levelCompletePanel != null) levelCompletePanel.SetActive(false);
@@ -111,7 +111,7 @@ public class UIManager : MonoBehaviour
         if (levelCompletePanel != null)
         {
             levelCompletePanel.SetActive(true);
-            if(playerUI_Container != null) playerUI_Container.SetActive(false); // Hide the editor UI
+            if (playerUI_Container != null) playerUI_Container.SetActive(false); // Hide the editor UI
 
             // 1. Update Star Rating
             for (int i = 0; i < starRatingImages.Count; i++)
@@ -145,7 +145,7 @@ public class UIManager : MonoBehaviour
         if (levelFailedPanel != null)
         {
             levelFailedPanel.SetActive(true);
-            if(playerUI_Container != null) playerUI_Container.SetActive(false); // Hide the editor UI
+            if (playerUI_Container != null) playerUI_Container.SetActive(false); // Hide the editor UI
 
             // Update failure reason text
             if (failureReasonText != null)
@@ -206,14 +206,14 @@ public class UIManager : MonoBehaviour
         // We now have two potential UIs to show, so we need to know which mode to return to.
         // For now, restarting will always take us back to the player UI.
         SwitchToMode(OperatingMode.Playing);
-    
+
     }
 
 
 
 
-public void SwitchToMode(OperatingMode mode)
-{
+    public void SwitchToMode(OperatingMode mode)
+    {
         if (mode == OperatingMode.Editor)
         {
             // Show all Editor UI
@@ -237,10 +237,10 @@ public void SwitchToMode(OperatingMode mode)
             // Show all Player UI
             if (playerUI_Container != null) playerUI_Container.SetActive(true);
             if (playerHandContainer != null) playerHandContainer.SetActive(true);
-            
+
             if (player_restartButton != null) player_restartButton.interactable = true;
         }
-}
+    }
 
 
     public void UpdateAllUndoButtons()
@@ -273,6 +273,16 @@ public void SwitchToMode(OperatingMode mode)
         {
             player_currentLevelText.text = levelName;
         }
+    }
+
+
+
+
+
+    public void HandleReturnToLevelSelect()
+    {
+        Debug.Log("[UIManager] Returning to Level Select scene.");
+        SceneManager.LoadScene("LevelSelect");
     }
 
 

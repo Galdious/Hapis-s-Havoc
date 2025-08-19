@@ -1711,13 +1711,16 @@ public class LevelEditorManager : MonoBehaviour
 
             if (loadedData != null)
             {
+
+                var levelInfo = new LevelInfo(path);
+
                 currentLoadedLevelData = loadedData;
 
                 // Also update the UI with the loaded level's name!
                 if (UIManager.Instance != null)
                 {
                     string displayName = new LevelInfo(path).Description;
-                    UIManager.Instance.UpdateCurrentLevelName(displayName);
+                    UIManager.Instance.UpdateCurrentLevelName($"World {levelInfo.WorldNumber}-{levelInfo.LevelNumber}: {levelInfo.Description}");
                 }
 
                 // Clear history for a new level.
@@ -1736,7 +1739,7 @@ public class LevelEditorManager : MonoBehaviour
                 }
 
 
-                StartCoroutine(ReconstructLevelFromDataCoroutine(loadedData, initialSnapshot)); // Start reconstruction
+                StartCoroutine(ReconstructLevelFromDataCoroutine(loadedData, levelInfo, initialSnapshot));
 
                 Debug.Log($"<color=cyan>Successfully loaded level data from: {path}</color>");
 
@@ -1782,6 +1785,8 @@ public class LevelEditorManager : MonoBehaviour
         // First, check if we actually have a level loaded to restart.
         if (currentLoadedLevelData != null)
         {
+            LevelInfo currentLevelInfo = GameManager.Instance.currentLevelInfo;
+
             Debug.Log($"<color=yellow>Restarting level...</color>");
 
 
@@ -1800,7 +1805,7 @@ public class LevelEditorManager : MonoBehaviour
             }
 
             // We must wait for the reconstruction to finish.
-            yield return StartCoroutine(ReconstructLevelFromDataCoroutine(currentLoadedLevelData, initialSnapshot));
+            yield return StartCoroutine(ReconstructLevelFromDataCoroutine(currentLoadedLevelData, currentLevelInfo, initialSnapshot));
 
             // --- ADD FADE IN ---
             yield return ScreenFader.Instance.FadeIn();
@@ -1823,7 +1828,7 @@ public class LevelEditorManager : MonoBehaviour
         return gridManager.bagManager.tileLibrary.tileTypes.FirstOrDefault(t => t.displayName == name);
     }
 
-    public IEnumerator ReconstructLevelFromDataCoroutine(LevelData levelData, GameStateSnapshot snapshot, bool isUndoAction = false)
+    public IEnumerator ReconstructLevelFromDataCoroutine(LevelData levelData, LevelInfo levelInfo, GameStateSnapshot snapshot, bool isUndoAction = false)
     {
 
         if (GameManager.Instance != null) GameManager.Instance.SetReconstructing(true);
@@ -1992,8 +1997,10 @@ public class LevelEditorManager : MonoBehaviour
 
 
 
-        // boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
+        // Pass the CORRECT LevelData and LevelInfo objects to the GameManager.
+        GameManager.Instance.SetCurrentLevel(levelData, levelInfo);
         GameManager.Instance.UpdateLevelState(levelData, activeEndMarker);
+
 
 
         if (maxMovesInput != null)
@@ -2122,6 +2129,7 @@ public class LevelEditorManager : MonoBehaviour
         // Create a snapshot of the level exactly as it is in the editor right now
         GameStateSnapshot currentEditorState = CreateCurrentStateSnapshot();
 
+
         // This is a new play session, so clear any previous history
         if (HistoryManager.Instance != null)
         {
@@ -2129,8 +2137,10 @@ public class LevelEditorManager : MonoBehaviour
             HistoryManager.Instance.SaveState(currentEditorState); // Save the starting state
         }
 
+        LevelInfo currentLevelInfo = GameManager.Instance.currentLevelInfo;
+
         // Start the reconstruction using the animated coroutine
-        StartCoroutine(ReconstructLevelFromDataCoroutine(currentLoadedLevelData, currentEditorState));
+        StartCoroutine(ReconstructLevelFromDataCoroutine(currentLoadedLevelData, currentLevelInfo, currentEditorState));
         // RedrawHandPalette();
     }
 
@@ -2235,6 +2245,11 @@ public class LevelEditorManager : MonoBehaviour
     }
 
 
+    private string GetLevelPath(int width, int height)
+    {
+        // This is a placeholder path, you may need to adjust it based on your file structure.
+        return $"Assets/Levels/{width}x{height}.json";
+    }
 
 
 }
