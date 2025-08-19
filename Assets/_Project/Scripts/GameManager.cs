@@ -1,5 +1,8 @@
 /* GameManager.cs */
 using UnityEngine;
+using System.Collections;
+
+
 
 // This enum will track the overall state of the game.
 public enum GameState
@@ -21,6 +24,8 @@ public class GameManager : MonoBehaviour
     [Header("Scene References")]
     [SerializeField] private GridManager gridManager;
     [SerializeField] private UIManager uiManager;
+    [SerializeField] private LevelEditorManager levelEditorManager;
+
 
     [Header("Game State")]
     public GameState currentState;
@@ -63,10 +68,47 @@ public class GameManager : MonoBehaviour
 
     }
 
-    private void Start()
+private void Start()
+{
+    // Check if there is an instruction to load a level.
+    if (!string.IsNullOrEmpty(LevelSelectManager.LevelToLoad))
     {
+        // If so, start our new "waiter" coroutine.
+        // DO NOT load the level directly from here.
+        StartCoroutine(LoadLevelAfterSceneIsReady());
+    }
+    else
+    {
+        // If we are just opening the editor scene normally, set the default state.
         currentState = GameState.Loading;
     }
+}
+
+    private IEnumerator LoadLevelAfterSceneIsReady()
+    {
+        // --- THIS IS THE MAGIC LINE ---
+        // Wait for the end of the current frame. By the time the next frame starts,
+        // every other script in the scene will have executed its Awake() and Start() methods.
+        yield return null;
+
+        // Now that the scene is fully initialized, we can safely issue our commands.
+        Debug.Log("<color=lime>[GameManager]</color> Scene is ready. Proceeding with level load.");
+
+        if (levelEditorManager != null)
+        {
+            // Use our powerful method that handles everything.
+            levelEditorManager.LoadAndPlayLevel(LevelSelectManager.LevelToLoad);
+        }
+        else
+        {
+            Debug.LogError("[GameManager] Cannot load level! The reference to LevelEditorManager is missing.");
+        }
+
+        // IMPORTANT: Clear the instruction so it doesn't try to load again if this scene is reloaded.
+        LevelSelectManager.LevelToLoad = null;
+    }
+
+
 
 
     public void StartLevelTimer()

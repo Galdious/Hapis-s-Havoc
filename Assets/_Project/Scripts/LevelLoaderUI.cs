@@ -1,18 +1,8 @@
-/*
- *  LevelLoaderUI.cs
- *  ---------------------------------------------------------------
- *  Manages the level loading dropdown in the editor.
- *  - Automatically finds all .json files in the specified levels folder.
- *  - Populates a TMPro Dropdown with formatted level names.
- *  - Handles future folder structures (e.g., "Worlds/World1/level.json").
- *  - Tells the LevelEditorManager which file to load when a selection is made.
- */
-
+/* LevelLoaderUI.cs (Updated) */
 using UnityEngine;
 using TMPro;
-using System.IO;
 using System.Collections.Generic;
-using System.Linq;
+using System.Linq; // We need this for the .Select() method
 
 public class LevelLoaderUI : MonoBehaviour
 {
@@ -20,94 +10,55 @@ public class LevelLoaderUI : MonoBehaviour
     [Tooltip("Drag the main LevelEditorManager GameObject here.")]
     [SerializeField] private LevelEditorManager editorManager;
 
-
-
-    [Header("Settings")]
-    [Tooltip("The name of the subfolder inside 'Assets' where levels are stored.")]
-    [SerializeField] private string levelsSubfolderName = "Levels";
-
     // --- Private Fields ---
     private TMP_Dropdown levelDropdown;
-    // This list will store the full file path for each entry in the dropdown.
-    private List<string> levelFilePaths = new List<string>();
+    // This list will now store the full LevelInfo object for each entry.
+    private List<LevelInfo> levelDataList = new List<LevelInfo>();
 
     void Start()
     {
         levelDropdown = GetComponent<TMP_Dropdown>();
-        if (levelDropdown == null)
+        if (levelDropdown == null || editorManager == null)
         {
-            Debug.LogError("[LevelLoaderUI] Could not find the Dropdown component on this GameObject!", this);
-            return;
-        }
-
-        if (editorManager == null)
-        {
-            Debug.LogError("[LevelLoaderUI] The LevelEditorManager reference is not set in the Inspector!", this);
+            Debug.LogError("[LevelLoaderUI] A required reference is missing!", this);
             return;
         }
 
         PopulateDropdown();
-
-        // Add a listener that calls our method whenever the user picks a new option
         levelDropdown.onValueChanged.AddListener(OnDropdownValueChanged);
-
-
-
     }
-
-
-    /// Finds all level files and fills the dropdown with their names.
 
     void PopulateDropdown()
     {
         levelDropdown.ClearOptions();
-        levelFilePaths.Clear();
+        levelDataList.Clear();
 
         // Add a default, non-selectable option at the top.
         levelDropdown.options.Add(new TMP_Dropdown.OptionData("Select a Level..."));
-        levelFilePaths.Add(null); // Add a null path for the default option.
+        levelDataList.Add(null); // Add a null entry for the default option.
 
-        string fullPath = Path.Combine(Application.dataPath, levelsSubfolderName);
+        // --- CORE CHANGE ---
+        // Get the complete, sorted list of levels from our new utility.
+        List<LevelInfo> allLevels = LevelFinder.GetAllLevels();
 
-        if (!Directory.Exists(fullPath))
+        if (allLevels.Count == 0)
         {
-            Debug.LogWarning($"[LevelLoaderUI] The levels directory does not exist at: {fullPath}. Creating it now.");
-            Directory.CreateDirectory(fullPath);
-            return; // No files to load yet.
+            Debug.LogWarning("[LevelLoaderUI] LevelFinder returned no levels. Is your 'Levels' folder empty?");
+            return;
         }
 
-        // Get all .json files, searching in all subdirectories (for our future "Worlds" feature)
-        string[] files = Directory.GetFiles(fullPath, "*.json", SearchOption.AllDirectories);
+        // Store the full LevelInfo objects.
+        levelDataList.AddRange(allLevels);
 
-        List<string> displayNames = new List<string>();
-
-        foreach (string filePath in files)
-        {
-            // Store the full path so we know exactly which file to load.
-            levelFilePaths.Add(filePath);
-
-            // --- Create a user-friendly display name ---
-            string levelName = Path.GetFileNameWithoutExtension(filePath);
-            DirectoryInfo parentDir = Directory.GetParent(filePath);
-
-            // If the level is inside a subfolder (like "World1"), prepend the folder name.
-            if (parentDir.Name != levelsSubfolderName)
-            {
-                displayNames.Add($"{parentDir.Name} / {levelName}");
-            }
-            else
-            {
-                displayNames.Add(levelName);
-            }
-        }
+        // Create the user-friendly display names for the dropdown.
+        // e.g., "World 1-1: The First Step"
+        List<string> displayNames = allLevels.Select(level =>
+            $"World {level.WorldNumber}-{level.LevelNumber}: {level.Description}"
+        ).ToList();
 
         levelDropdown.AddOptions(displayNames);
     }
 
-
-    /// Called when the user selects an item from the dropdown.
-
-    /// <param name="index">The index of the selected option.</param>
     private void OnDropdownValueChanged(int index)
     {
         // Ignore the first "Select..." option.
@@ -117,32 +68,17 @@ public class LevelLoaderUI : MonoBehaviour
             return;
         }
 
-        // Get the full file path corresponding to the selection.
-        string selectedPath = levelFilePaths[index];
+        // Get the full LevelInfo object corresponding to the selection.
+        LevelInfo selectedLevel = levelDataList[index];
 
-        if (!string.IsNullOrEmpty(selectedPath))
+        if (selectedLevel != null)
         {
             // Tell the editor manager to load this specific file.
-            editorManager.LoadLevelFromFile(selectedPath);
+            editorManager.LoadLevelFromFile(selectedLevel.FilePath);
 
             // Update the display text to show what's loaded.
             UIManager.Instance.UpdateCurrentLevelName(levelDropdown.options[index].text);
+            UIManager.Instance.SetEditorRestartButtonInteractable(true);
         }
-
-        UIManager.Instance.SetEditorRestartButtonInteractable(true);
-
-
     }
-    
-
-
-
-
-
-
-
-
-
-
-
 }

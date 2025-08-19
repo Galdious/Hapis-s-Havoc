@@ -53,24 +53,24 @@ public class LevelEditorManager : MonoBehaviour
     public Button flipToolButton;
     public Button toggleBlockerToolButton;
     public Button placeCollectibleToolButton;
-    public Button addToHandButton;      
+    public Button addToHandButton;
     public Button removeFromHandButton;
-    public Button applyHandBagButton;     
+    public Button applyHandBagButton;
     public Button applySandboxBagButton;
     public Button setStartToolButton;
     public Button setEndToolButton;
-    public Color toolSelectedColor = Color.yellow; 
-    private Color toolDefaultColor;                
+    public Color toolSelectedColor = Color.yellow;
+    private Color toolDefaultColor;
 
     [Header("3D Palette Settings")]
     public Transform paletteContainer; // The empty GameObject we created
     [Tooltip("The VERTICAL spacing between tiles in the editor palette.")]
     public float editorPaletteSpacing = 1.2f;
     [Tooltip("The HORIZONTAL spacing between the two columns in the editor palette.")]
-    public float editorPaletteColumnSpacing = 2.2f; 
+    public float editorPaletteColumnSpacing = 2.2f;
 
     [Tooltip("The HORIZONTAL spacing between tiles in the player hand.")]
-    public float playerHandSpacing = 2.5f; 
+    public float playerHandSpacing = 2.5f;
 
     [Header("Editor Visuals")]
     public GameObject blockerMarkerPrefab;
@@ -109,12 +109,12 @@ public class LevelEditorManager : MonoBehaviour
     private class EditorBrush
     {
         public TileType tileType;
-        
+
         public PaletteTile sourcePaletteTile;
     }
     private EditorBrush currentBrush;
     private PuzzleHandTile selectedHandTileForPush = null;
-    private LevelData currentLoadedLevelData;
+    public LevelData currentLoadedLevelData;
 
 
     // This will store the original material of the highlighted palette tile
@@ -783,8 +783,8 @@ public class LevelEditorManager : MonoBehaviour
                 playableTile.uiManager = this.uiManager;
                 playableTile.handCount = count;
 
-                playableTile.animationSettings = this.handAnimationSettings; 
-                
+                playableTile.animationSettings = this.handAnimationSettings;
+
                 if (playerCounterPrefab != null && count > 1)
                 {
                     GameObject counterGO = Instantiate(playerCounterPrefab, targetContainer);
@@ -806,43 +806,43 @@ public class LevelEditorManager : MonoBehaviour
 
 
     public void UpdateHandCounters()
-{
-    OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
-
-    if (currentMode == OperatingMode.Editor)
     {
-        // --- Logic for the EDITOR counters ---
-        foreach (var pair in editorHandCounters)
-        {
-            TileType type = pair.Key;
-            TMP_Text counterText = pair.Value;
+        OperatingMode currentMode = (GameManager.Instance != null) ? GameManager.Instance.currentMode : OperatingMode.Editor;
 
-            if (counterText != null)
+        if (currentMode == OperatingMode.Editor)
+        {
+            // --- Logic for the EDITOR counters ---
+            foreach (var pair in editorHandCounters)
             {
-                int countInHand = playerHand.Count(t => t.tileType == type);
-                int countInBag = gridManager.bagManager.GetCountOfTileType(type);
-                
-                // This gives you the desired "x3 (3 left)" format
-                counterText.text = $"x{countInHand} ({countInBag} left)";
+                TileType type = pair.Key;
+                TMP_Text counterText = pair.Value;
+
+                if (counterText != null)
+                {
+                    int countInHand = playerHand.Count(t => t.tileType == type);
+                    int countInBag = gridManager.bagManager.GetCountOfTileType(type);
+
+                    // This gives you the desired "x3 (3 left)" format
+                    counterText.text = $"x{countInHand} ({countInBag} left)";
+                }
+            }
+        }
+        else // --- Logic for the PLAYER counters ---
+        {
+            // For players, we only care about what's left in the bag.
+            foreach (var pair in playerHandCounters)
+            {
+                TileType type = pair.Key;
+                CounterController counter = pair.Value;
+
+                if (counter != null)
+                {
+                    int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
+                    counter.UpdateCount(currentAmountInBag);
+                }
             }
         }
     }
-    else // --- Logic for the PLAYER counters ---
-    {
-        // For players, we only care about what's left in the bag.
-        foreach (var pair in playerHandCounters)
-        {
-            TileType type = pair.Key;
-            CounterController counter = pair.Value;
-
-            if (counter != null)
-            {
-                int currentAmountInBag = gridManager.bagManager.GetCountOfTileType(type);
-                counter.UpdateCount(currentAmountInBag);
-            }
-        }
-    }
-}
 
 
 
@@ -1713,6 +1713,13 @@ public class LevelEditorManager : MonoBehaviour
             {
                 currentLoadedLevelData = loadedData;
 
+                // Also update the UI with the loaded level's name!
+                if (UIManager.Instance != null)
+                {
+                    string displayName = new LevelInfo(path).Description;
+                    UIManager.Instance.UpdateCurrentLevelName(displayName);
+                }
+
                 // Clear history for a new level.
                 if (HistoryManager.Instance != null)
                 {
@@ -1729,7 +1736,7 @@ public class LevelEditorManager : MonoBehaviour
                 }
 
 
-                StartCoroutine(ReconstructLevelFromDataCoroutine(initialSnapshot)); // Start reconstruction
+                StartCoroutine(ReconstructLevelFromDataCoroutine(loadedData, initialSnapshot)); // Start reconstruction
 
                 Debug.Log($"<color=cyan>Successfully loaded level data from: {path}</color>");
 
@@ -1793,7 +1800,7 @@ public class LevelEditorManager : MonoBehaviour
             }
 
             // We must wait for the reconstruction to finish.
-            yield return StartCoroutine(ReconstructLevelFromDataCoroutine(initialSnapshot));
+            yield return StartCoroutine(ReconstructLevelFromDataCoroutine(currentLoadedLevelData, initialSnapshot));
 
             // --- ADD FADE IN ---
             yield return ScreenFader.Instance.FadeIn();
@@ -1816,7 +1823,7 @@ public class LevelEditorManager : MonoBehaviour
         return gridManager.bagManager.tileLibrary.tileTypes.FirstOrDefault(t => t.displayName == name);
     }
 
-    public IEnumerator ReconstructLevelFromDataCoroutine(GameStateSnapshot snapshot, bool isUndoAction = false)
+    public IEnumerator ReconstructLevelFromDataCoroutine(LevelData levelData, GameStateSnapshot snapshot, bool isUndoAction = false)
     {
 
         if (GameManager.Instance != null) GameManager.Instance.SetReconstructing(true);
@@ -1840,7 +1847,7 @@ public class LevelEditorManager : MonoBehaviour
         foreach (var marker in FindObjectsByType<GoalMarker>(FindObjectsSortMode.None)) { Destroy(marker.gameObject); }
         Debug.Log($"Step 2: Creating {currentLoadedLevelData.gridWidth}x{currentLoadedLevelData.gridHeight} grid from blueprint...");
         // We use the grid dimensions FROM THE SNAPSHOT.
-        List<Coroutine> gridAnimations = gridManager.CreateGridFromEditor(currentLoadedLevelData.gridWidth, currentLoadedLevelData.gridHeight, snapshot.tileStates);
+        List<Coroutine> gridAnimations = gridManager.CreateGridFromEditor(levelData.gridWidth, levelData.gridHeight, snapshot.tileStates);
 
 
         // --- THIS IS OUR FADE-OUT/FADE-IN TRANSITION (Optional but cool) ---
@@ -1855,18 +1862,26 @@ public class LevelEditorManager : MonoBehaviour
                 if (anim != null) yield return anim;
             }
         }
+
         Debug.Log("Grid visual creation complete.");
-        // Debug.Log("All tile animations complete. Proceeding...");
-        Debug.Log("Step 3: Generating banks and setting lock states...");
-        riverBankManager.GenerateBanksForGrid();
-        //riverControls.SetLockStates(data.lockedRows); 
+        Debug.Log("Step 3: Initializing and setting river control states...");
+
+        // 1. (NEW!) Create the internal array for the lock states first, using the new grid's height.
+        riverControls.InitializeLockStates(levelData.gridHeight);
+
+        // 2. NOW it is safe to set the loaded data, because the array exists.
         riverControls.SetLockStatesFromInts(snapshot.lockedRowsState);
+
+        // 3. With all data in place, now generate the final visuals for the banks and controls.
+        riverBankManager.GenerateBanksForGrid();
         riverControls.GenerateControlsForGrid();
+
+
         Debug.Log("Banks and controls generated.");
 
         // 3. Place all the tiles and add their editor components
         Debug.Log("Step 4: Placing collectibles and editor components...");
-        for (int y = 0; y < currentLoadedLevelData.gridHeight; y++)
+        for (int y = 0; y < levelData.gridHeight; y++)
         {
             for (int x = 0; x < currentLoadedLevelData.gridWidth; x++)
             {
@@ -1919,13 +1934,13 @@ public class LevelEditorManager : MonoBehaviour
         // 5. Re-place Start and End Markers FROM THE ORIGINAL LEVEL DATA
         // The goals don't move, so we restore them from 'currentLoadedLevelData'.
         Debug.Log("Step 6: Placing start and end markers...");
-        var startGoalData = currentLoadedLevelData.startPosition;
+        var startGoalData = levelData.startPosition;
         if (startGoalData != null)
         {
             if (startGoalData.isBankGoal) SetStartPosition(null, startGoalData.bankSide, null);
             else if (startGoalData.tileX != -1) SetStartPosition(gridManager.GetTileAt(startGoalData.tileX, startGoalData.tileY), null, startGoalData.snapPointIndex);
         }
-        var endGoalData = currentLoadedLevelData.endPosition;
+        var endGoalData = levelData.endPosition;
         if (endGoalData != null)
         {
             if (endGoalData.isBankGoal) SetEndPosition(null, endGoalData.bankSide);
@@ -1978,12 +1993,12 @@ public class LevelEditorManager : MonoBehaviour
 
 
         // boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
-        GameManager.Instance.UpdateLevelState(currentLoadedLevelData, activeEndMarker);
+        GameManager.Instance.UpdateLevelState(levelData, activeEndMarker);
 
 
         if (maxMovesInput != null)
         {
-            maxMovesInput.text = currentLoadedLevelData.maxMoves.ToString();
+            maxMovesInput.text = levelData.maxMoves.ToString();
         }
 
 
@@ -2001,6 +2016,11 @@ public class LevelEditorManager : MonoBehaviour
         yield return StartCoroutine(FinalizeStateReconstruction(snapshot, isUndoAction));
 
         if (GameManager.Instance != null) GameManager.Instance.SetReconstructing(false);
+
+        // Ensure the editor's brush palette is always generated after a level load.
+        Generate3DPalette();
+        // Ensure the grid setup panel is hidden, as we are now in an active level.
+        if (gridSetupPanel != null) gridSetupPanel.SetActive(false);
 
         Debug.Log("<color=lime>--- LEVEL RECONSTRUCTION COMPLETE ---</color>");
     }
@@ -2037,8 +2057,8 @@ public class LevelEditorManager : MonoBehaviour
         // HERE WE CAN USE THE IF FOR THE BOAT NOT TO BE SELECTED AT A START OF A LEVEL
         //if (isUndoAction)
         //{
-            // Only re-select the boat if this was triggered by an Undo action.
-            boat.SelectBoat();
+        // Only re-select the boat if this was triggered by an Undo action.
+        boat.SelectBoat();
         //}
 
         // We need to wait for the boat's "lift" animation to finish before checking for game over,
@@ -2110,7 +2130,7 @@ public class LevelEditorManager : MonoBehaviour
         }
 
         // Start the reconstruction using the animated coroutine
-        StartCoroutine(ReconstructLevelFromDataCoroutine(currentEditorState));
+        StartCoroutine(ReconstructLevelFromDataCoroutine(currentLoadedLevelData, currentEditorState));
         // RedrawHandPalette();
     }
 
@@ -2193,6 +2213,28 @@ public class LevelEditorManager : MonoBehaviour
             }
         }
     }
+
+
+
+
+
+    /// The main entry point for starting a level from an external scene like a menu.
+    /// It sets the game to Play Mode and then loads the specified level file.
+    public void LoadAndPlayLevel(string levelPath)
+    {
+        // First, switch the game's entire state to "Playing".
+        // This handles the camera, UI, game mode, and prepares for a play session.
+        // We can reuse the core logic from PlaytestCurrentLevel for this.
+        if (CameraManager.Instance != null) CameraManager.Instance.SwitchToPlayerView();
+        if (GameManager.Instance != null) GameManager.Instance.SetOperatingMode(OperatingMode.Playing);
+        if (UIManager.Instance != null) UIManager.Instance.SwitchToMode(OperatingMode.Playing);
+
+        // Now, with the game in the correct mode, load the level from the file.
+        // This will trigger the reconstruction coroutine.
+        LoadLevelFromFile(levelPath);
+    }
+
+
 
 
 }

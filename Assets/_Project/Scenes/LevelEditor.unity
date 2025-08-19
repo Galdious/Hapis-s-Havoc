@@ -1492,7 +1492,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LevelLoaderUI
   editorManager: {fileID: 820239330}
-  levelsSubfolderName: Levels
 --- !u!1 &161169357
 GameObject:
   m_ObjectHideFlags: 0
@@ -5928,6 +5927,7 @@ MonoBehaviour:
   playerHandContainer: {fileID: 1590933493}
   editorCounterPrefab: {fileID: 4678442367154475571, guid: e2f032132d5f74ac9a8db738f656adad, type: 3}
   playerCounterPrefab: {fileID: 3068789621375450200, guid: 8d0ba052071f642d2b6145e56d21e942, type: 3}
+  handAnimationSettings: {fileID: 11400000, guid: 85b1faafe6b0d47719b2306ee46e2b6e, type: 2}
 --- !u!4 &820239331
 Transform:
   m_ObjectHideFlags: 0
@@ -8238,6 +8238,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   gridManager: {fileID: 806644534}
   uiManager: {fileID: 0}
+  levelEditorManager: {fileID: 820239330}
   currentState: 0
   movePenaltyThreshold: 0
 --- !u!4 &1041370791
