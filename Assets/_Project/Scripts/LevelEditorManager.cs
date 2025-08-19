@@ -94,6 +94,9 @@ public class LevelEditorManager : MonoBehaviour
     [Tooltip("The PREFAB for the dynamic, intelligent counter used in PLAY MODE.")]
     public GameObject playerCounterPrefab; // Our new prefab with the CounterController script
 
+    [Header("Hand Animation")]
+    [Tooltip("The settings asset that defines how hand tiles animate when rotated.")]
+    public HandTileAnimationSettings handAnimationSettings;
 
     private List<PuzzleHandTile> playerHand = new List<PuzzleHandTile>();
     private Dictionary<TileType, CounterController> playerHandCounters = new Dictionary<TileType, CounterController>();
@@ -780,6 +783,8 @@ public class LevelEditorManager : MonoBehaviour
                 playableTile.uiManager = this.uiManager;
                 playableTile.handCount = count;
 
+                playableTile.animationSettings = this.handAnimationSettings; 
+                
                 if (playerCounterPrefab != null && count > 1)
                 {
                     GameObject counterGO = Instantiate(playerCounterPrefab, targetContainer);

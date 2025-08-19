@@ -20,18 +20,10 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     [HideInInspector] public LevelEditorManager editorManager; // To call the push coroutine
     [HideInInspector] public int handCount = 0; 
 
+    [HideInInspector] public HandTileAnimationSettings animationSettings; // It will receive the settings from the manager.
 
-    [Header("Animation Settings")]
-    [Tooltip("How long the rotation animation takes in seconds.")]
-    [SerializeField] private float rotationDuration = 0.25f;
-    [Tooltip("The curve of the rotation animation for easing.")]
-    [SerializeField] private AnimationCurve rotationCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
     
     private bool isRotating = false; // Prevents spam-clicking
-
-
-
-
 
 
 
@@ -289,6 +281,16 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
 
     private IEnumerator AnimateRotationCoroutine()
     {
+
+                if (animationSettings == null)
+        {
+            Debug.LogError("Animation Settings have not been assigned to this PlayableHandTile!", this);
+            // Just snap to the end rotation as a fallback.
+            transform.Rotate(0, 180f, 0);
+            originalRotation = transform.rotation;
+            yield break;
+        }
+
         isRotating = true;
 
         Quaternion startRotation = transform.rotation;
@@ -296,11 +298,11 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         Quaternion endRotation = startRotation * Quaternion.Euler(0, 180f, 0);
 
         float elapsed = 0f;
-        while (elapsed < rotationDuration)
+        while (elapsed < animationSettings.rotationDuration)
         {
             elapsed += Time.deltaTime;
             // Evaluate the curve to get a smooth, eased progress value
-            float progress = rotationCurve.Evaluate(elapsed / rotationDuration);
+            float progress = animationSettings.rotationCurve.Evaluate(elapsed / animationSettings.rotationDuration);
 
             // Slerp (Spherical Linear Interpolation) is the correct way to animate Quaternions
             transform.rotation = Quaternion.Slerp(startRotation, endRotation, progress);
