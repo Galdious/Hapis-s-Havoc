@@ -20,6 +20,22 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     [HideInInspector] public LevelEditorManager editorManager; // To call the push coroutine
     [HideInInspector] public int handCount = 0; 
 
+
+    [Header("Animation Settings")]
+    [Tooltip("How long the rotation animation takes in seconds.")]
+    [SerializeField] private float rotationDuration = 0.25f;
+    [Tooltip("The curve of the rotation animation for easing.")]
+    [SerializeField] private AnimationCurve rotationCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    
+    private bool isRotating = false; // Prevents spam-clicking
+
+
+
+
+
+
+
+
     // --- Settings ---
     private float liftHeight = 0.5f;
     private float returnAnimationTime = 0.2f;
@@ -38,6 +54,13 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
 
     private int originalLayer; // <<< --- ADD THIS LINE
     private int draggableLayer;
+
+
+
+
+
+
+
 
     void Awake()
     {
@@ -59,7 +82,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     /// Called by the Event System on a short, complete click (down and up without dragging).
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (isDragging) return;
+        if (isDragging || isRotating) return;
         // A click (not a drag) will rotate the tile.
         RotateTile();
     }
@@ -237,21 +260,15 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     }
 
 
-   
+
     private void RotateTile()
     {
-        if (myTileType == null) return;
+        if (myTileType == null || isRotating) return;
 
-        // Update the visual rotation.
-        transform.Rotate(0, 180f, 0);
+        StartCoroutine(AnimateRotationCoroutine());
 
-        // Update the underlying data to keep it in sync.
-
-
-        // Store the new "home" rotation for if we cancel a drag.
-        originalRotation = transform.rotation;
-
-        Debug.Log($"Hand tile '{myTileType.displayName}' rotated."); // Modified log
+        Debug.Log($"Hand tile '{myTileType.displayName}' rotation started.");
+    
     }
     
 
@@ -270,6 +287,35 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         }
     }
 
+    private IEnumerator AnimateRotationCoroutine()
+    {
+        isRotating = true;
+
+        Quaternion startRotation = transform.rotation;
+        // We rotate 180 degrees on the Y-axis from our starting point.
+        Quaternion endRotation = startRotation * Quaternion.Euler(0, 180f, 0);
+
+        float elapsed = 0f;
+        while (elapsed < rotationDuration)
+        {
+            elapsed += Time.deltaTime;
+            // Evaluate the curve to get a smooth, eased progress value
+            float progress = rotationCurve.Evaluate(elapsed / rotationDuration);
+
+            // Slerp (Spherical Linear Interpolation) is the correct way to animate Quaternions
+            transform.rotation = Quaternion.Slerp(startRotation, endRotation, progress);
+
+            yield return null;
+        }
+
+        // Snap to the final rotation to ensure it's perfect
+        transform.rotation = endRotation;
+
+        // Crucially, update our "home" rotation so if a drag is cancelled, it returns here.
+        originalRotation = transform.rotation;
+
+        isRotating = false;
+    }
 
 
 

@@ -6,7 +6,7 @@ public class CounterController : MonoBehaviour
 {
     [Header("Settings")]
     [Tooltip("The offset from the tile's center. We'll flip this when the tile rotates.")]
-    [SerializeField] private Vector3 displayOffset = new Vector3(0.6f, 0.5f, -0.6f);
+    [SerializeField] private Vector3 displayOffset = new Vector3(1f, 0.26f, -0.5f);
 
     // --- References ---
     private Transform targetTile;
@@ -41,25 +41,28 @@ public class CounterController : MonoBehaviour
             return;
         }
 
-        // --- CORE LOGIC ---
+        // 1. Start with our base offset, which corresponds to the non-rotated tile.
+        //    For example, (0.6, 0.5, -0.6) puts it in the bottom-right.
+        Vector3 finalOffset = displayOffset;
 
-        Vector3 currentOffset = displayOffset;
+        // 2. Check if the tile is rotated approximately 180 degrees.
+        //    We check against 179 and 181 to avoid floating-point errors.
+        bool tileIsRotated = (Mathf.Abs(targetTile.eulerAngles.y - 180f) < 1.0f);
 
-        // Check if the tile is rotated 180 degrees on the Y-axis.
-        // We use Mathf.RoundToInt to avoid floating point precision issues.
-        bool tileIsRotated = Mathf.RoundToInt(targetTile.eulerAngles.y) == 180;
+        // 3. If the tile IS rotated, we simply invert the X and Z components of our base offset.
+        //    This calculates the new position that is diagonally opposite the original.
+        // if (tileIsRotated)
+        // {
+        //     finalOffset.x = -displayOffset.x;
+        //     finalOffset.z = -displayOffset.z;
+        // }
 
-        // If the tile is rotated, we invert the X and Z components of our offset.
-        // This makes the counter "jump" to the opposite corner to maintain its relative screen position.
-        if (tileIsRotated)
-        {
-            currentOffset.x *= -1;
-            currentOffset.z *= -1;
-        }
-        
-        // Apply the final position and our fixed rotation.
-        transform.position = targetTile.position + currentOffset;
+        // 4. Apply the final position. We add the calculated offset to the tile's world-space center.
+        transform.position = targetTile.position + finalOffset;
+
+        // 5. Keep the counter's own rotation fixed and facing the camera.
         transform.rotation = fixedRotation;
+    
     }
 
     // Public method to allow the manager to update the text.

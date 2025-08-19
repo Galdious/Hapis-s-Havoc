@@ -677,7 +677,7 @@ public class LevelEditorManager : MonoBehaviour
         {
             playerHand.Remove(tileToRemove);
             Debug.Log($"Removed {type.displayName} from hand.");
-            // UpdateSingleCounter(type);
+            UpdateHandCounters();
         }
     }
 
