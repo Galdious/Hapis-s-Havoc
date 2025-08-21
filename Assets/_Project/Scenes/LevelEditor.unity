@@ -5997,6 +5997,7 @@ MonoBehaviour:
   createGameFloor: 1
   floorHeight: -0.8
   separationTime: 0.4
+  blockerMarkerPrefab: {fileID: 3578985545442099175, guid: b9cccfe652e0c4c988de0352c12b4191, type: 3}
 --- !u!4 &806644535
 Transform:
   m_ObjectHideFlags: 0

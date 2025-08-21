@@ -100,28 +100,51 @@ public class EndlessModeManager : MonoBehaviour
 
     private IEnumerator SetupBoardCoroutine()
     {
-        // For now, we create a fixed-size grid. We'll make it infinite later.
-        gridManager.CreateGridFromEditor(gridWidth, initialGridHeight);
+        // --- 1. Create the blueprint for our initial grid with random obstacles ---
+        List<TileSaveData> initialGridBlueprint = new List<TileSaveData>();
+        for (int y = 0; y < initialGridHeight; y++)
+        {
+            for (int x = 0; x < gridWidth; x++)
+            {
+                TileType randomType = GetRandomTileFromLibrary();
+                if (randomType == null) continue;
 
+                bool isObstacle = Random.value < obstacleChance;
+                bool isBlocker = isObstacle && (Random.value < blockerChance);
+
+                initialGridBlueprint.Add(new TileSaveData
+                {
+                    gridX = x,
+                    gridY = y,
+                    tileTypeName = randomType.displayName,
+                    isFlipped = isObstacle,
+                    isHardBlocker = isBlocker,
+                    rotationY = (randomType.canRotate180 && Random.value > 0.5f) ? 180f : 0f
+                });
+            }
+        }
+
+        // --- 2. Build the world from the blueprint and set up all managers ---
+        gridManager.CreateGridFromEditor(gridWidth, initialGridHeight, initialGridBlueprint);
+        
         if (riverBankManager != null)
         {
             riverBankManager.CreateBottomBank();
         }
-
-
+        
         riverControls.InitializeLockStates(initialGridHeight);
-        riverControls.GenerateControlsForGrid(); // This will create the drop zones
-
-        // Spawn the boat at the bottom bank
+        riverControls.GenerateControlsForGrid(); 
+        
         playerBoat = boatManager.SpawnPlayerBoat(RiverBankManager.BankSide.Bottom, 0);
 
-        yield return null;
+        // --- 3. Wait for one frame to ensure all initialization is complete ---
+        yield return null; 
 
+        // --- 4. Now it's safe to select the boat ---
         if (playerBoat != null)
         {
-            playerBoat.SelectBoat(); // <<< ADD THIS LINE
+            playerBoat.SelectBoat();
         }
-
     }
 
     private IEnumerator EndlessGameLoop()

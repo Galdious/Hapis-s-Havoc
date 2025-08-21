@@ -73,6 +73,10 @@ public class GridManager : MonoBehaviour
     public float floorHeight = -0.5f;     // Y position of floor (negative = below tiles)
     public float separationTime = 0.2f;   // how long ejected tile takes to separate from neighbors
 
+    [Header("Gameplay Visuals")]
+    public GameObject blockerMarkerPrefab;
+
+
     // ------------------------------------------------------------
     // 2.  Runtime storage
     // ------------------------------------------------------------
@@ -304,6 +308,9 @@ public class GridManager : MonoBehaviour
         TileInstance ti = go.GetComponent<TileInstance>();
         InitializeTile(ti, template, isFlipped);
         ti.IsHardBlocker = isHardBlocker; // Set blocker status from the correct source
+
+        // After setting all the data, tell the grid manager to update the visuals accordingly.
+        UpdateBlockerVisualForTile(ti);
 
         grid[x, y] = ti;
 
@@ -1579,6 +1586,31 @@ private TileType FindTileTypeByName(string name)
         }
     }
 
+    public void UpdateBlockerVisualForTile(TileInstance tile)
+    {
+        if (tile == null) return;
+
+        string markerName = "BlockerMarker";
+        Transform existingMarker = tile.transform.Find(markerName);
+
+        // A blocker marker should only appear if the tile is a hard blocker AND is flipped to its red side.
+        if (tile.IsHardBlocker && tile.IsReversed)
+        {
+            // If it should have a marker but doesn't, create one.
+            if (existingMarker == null && blockerMarkerPrefab != null)
+            {
+                Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform).name = markerName;
+            }
+        }
+        else
+        {
+            // If it should NOT have a marker but does, destroy the existing one.
+            if (existingMarker != null)
+            {
+                Destroy(existingMarker.gameObject);
+            }
+        }
+    }
 
 
 
