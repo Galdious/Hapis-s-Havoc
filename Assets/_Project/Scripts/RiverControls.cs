@@ -53,6 +53,8 @@ public class RiverControls : MonoBehaviour
     private GameManager gameManager;
     private Canvas dropZoneCanvas;
     private Dictionary<int, Coroutine> runningRowAnimations = new Dictionary<int, Coroutine>();
+    private Dictionary<(int, bool), RowDropZone> dropZones = new Dictionary<(int, bool), RowDropZone>();
+
 
     // ArrowButton class removed - now using PointerArrowButton
 
@@ -183,6 +185,8 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
                 // Using Destroy instead of DestroyImmediate is safer in Play Mode
                 Destroy(obj);
             }
+
+            dropZones.Clear();
         }
 
         // Clear internal data structures
@@ -346,6 +350,7 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
         leftZone.row = row;
         leftZone.fromLeft = true;
         leftZone.riverControls = this;
+        dropZones[(row, true)] = leftZone;
         if (rowLockStates[row] == RowLockState.LeftLocked || rowLockStates[row] == RowLockState.BothLocked) leftZoneGO.SetActive(false);
 
 
@@ -371,6 +376,7 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
         rightZone.row = row;
         rightZone.fromLeft = false;
         rightZone.riverControls = this;
+        dropZones[(row, false)] = rightZone; 
         if (rowLockStates[row] == RowLockState.RightLocked || rowLockStates[row] == RowLockState.BothLocked) rightZoneGO.SetActive(false);
     }
 
@@ -731,10 +737,11 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
     }
 
 
-
-
-
-
+    public RowDropZone GetDropZone(int row, bool fromLeft)
+    {
+        dropZones.TryGetValue((row, fromLeft), out RowDropZone zone);
+        return zone;
+    }
 
 
 

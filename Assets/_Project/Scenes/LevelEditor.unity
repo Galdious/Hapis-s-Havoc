@@ -15811,6 +15811,9 @@ MonoBehaviour:
   staminaText: {fileID: 1200013266}
   apText: {fileID: 1508298149}
   highScoreText: {fileID: 1204103366}
+  obstacleChance: 0.25
+  blockerChance: 0.1
+  tileLibrary: {fileID: 11400000, guid: 42ea4e3dda0a94d06876c21e1eb8a05b, type: 2}
 --- !u!4 &2041203080
 Transform:
   m_ObjectHideFlags: 0

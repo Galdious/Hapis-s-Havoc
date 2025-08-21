@@ -27,6 +27,33 @@ public class EndlessModeManager : MonoBehaviour
     [SerializeField] private TMP_Text apText;
     [SerializeField] private TMP_Text highScoreText;
 
+
+    [Header("River Settings")]
+    [Tooltip("The chance (0-1) that a newly pushed tile will be a red obstacle.")]
+    [SerializeField] [Range(0f, 1f)] private float obstacleChance = 0.25f;
+    [Tooltip("The chance (0-1) that a red obstacle tile will also be a hard blocker.")]
+    [SerializeField][Range(0f, 1f)] private float blockerChance = 0.1f;
+
+    [SerializeField] private TileLibrary tileLibrary;
+
+
+    private class PlannedPush
+    {
+        public int row;
+        public bool fromLeft;
+        public TileType tileType;
+        public bool isObstacle;
+        public bool isBlocker;
+        public RowDropZone forecastZone;
+    }
+    private List<PlannedPush> plannedPushes = new List<PlannedPush>();
+
+
+
+
+
+
+
     // --- Runtime State ---
     private int currentStamina;
     private int currentAP;
@@ -99,39 +126,66 @@ public class EndlessModeManager : MonoBehaviour
 
     private IEnumerator EndlessGameLoop()
     {
-        // This is the heart of the mode.
         while (currentStamina > 0)
         {
             // 1. River Forecast Phase
             Debug.Log("Endless Cycle: Forecast Phase");
-            // TODO: Announce the 2 blue and 1 red pushes. For now, we'll just wait.
-            yield return new WaitForSeconds(1f); // Placeholder for forecast
+            plannedPushes.Clear();
+
+            // Plan 3 pushes on unique random rows: 1 red, 2 blue
+            List<int> availableRows = new List<int>();
+            for (int i = 0; i < initialGridHeight; i++) { availableRows.Add(i); }
+
+            // Plan the red push
+            int redRowIndex = Random.Range(0, availableRows.Count);
+            PlanSinglePush(availableRows[redRowIndex], true);
+            availableRows.RemoveAt(redRowIndex);
+
+            // Plan the first blue push
+            int blueRowIndex1 = Random.Range(0, availableRows.Count);
+            PlanSinglePush(availableRows[blueRowIndex1], false);
+            availableRows.RemoveAt(blueRowIndex1);
+
+            // Plan the second blue push
+            int blueRowIndex2 = Random.Range(0, availableRows.Count);
+            PlanSinglePush(availableRows[blueRowIndex2], false);
+
+            // Show the forecast visuals and wait for the player to see them
+            foreach (var push in plannedPushes) { push.forecastZone?.ShowForecast(push.isObstacle); }
+            yield return new WaitForSeconds(1.5f); // Give player time to plan
 
             // 2. Player Action Phase
             isPlayerTurn = true;
             currentAP = Mathf.Min(apPerCycle, currentStamina);
             UpdateAPUI();
             Debug.Log($"Endless Cycle: Player Turn. Stamina: {currentStamina}, AP: {currentAP}");
-            // The game now waits for the player to spend their AP.
-            // We'll implement the logic for this waiting part next.
-            yield return new WaitUntil(() => currentAP <= 0 || !isPlayerTurn);
+            yield return new WaitUntil(() => currentAP <= 0 || !isPlayerTurn || currentStamina <= 0);
 
+            isPlayerTurn = false;
+            foreach (var push in plannedPushes) { push.forecastZone?.HideForecast(); }
+            yield return StartCoroutine(EndTurnCleanupCoroutine());
+
+
+            if (currentStamina <= 0) break;
 
             // 3. River Push Phase
-            isPlayerTurn = false;
             Debug.Log("Endless Cycle: River Push Phase");
-            // TODO: Execute the announced pushes sequentially.
-            yield return new WaitForSeconds(1f); // Placeholder for pushes
+            foreach (var push in plannedPushes)
+            {
+                PuzzleHandTile tempHandTile = new PuzzleHandTile(push.tileType) { isFlipped = push.isObstacle };
 
-            // 4. Generation Phase
-            // TODO: Generate new rows and despawn old ones.
+                // We yield here to wait for each push to complete sequentially
+                yield return StartCoroutine(gridManager.PushRowCoroutine(push.row, push.fromLeft, tempHandTile));
+            }
 
-            yield return null; // Wait a frame before the next cycle
+            // 4. Generation Phase (Still a TODO for the next chunk)
+
+            yield return new WaitForSeconds(0.5f); // A brief pause before the next cycle
         }
 
         Debug.Log("<color=red>GAME OVER. Final Score: " + score + "</color>");
-        // TODO: Show Game Over screen
     }
+
 
     // --- UI Update Methods ---
     private void UpdateScoreUI()
@@ -273,12 +327,61 @@ public class EndlessModeManager : MonoBehaviour
         }
     }
 
+    // This is our new method for getting an infinite supply of random tiles.
+    private TileType GetRandomTileFromLibrary()
+    {
+        if (tileLibrary == null || tileLibrary.tileTypes.Count == 0)
+        {
+            Debug.LogError("TileLibrary is not assigned or is empty in EndlessModeManager!");
+            return null;
+        }
+        int randomIndex = Random.Range(0, tileLibrary.tileTypes.Count);
+        return tileLibrary.tileTypes[randomIndex];
+    }
+
+    // A helper method to create a single planned push and add it to our list.
+    private void PlanSinglePush(int row, bool isObstacle)
+    {
+        bool fromLeft = Random.value > 0.5f;
+        
+        var push = new PlannedPush
+        {
+            row = row,
+            fromLeft = fromLeft,
+            tileType = GetRandomTileFromLibrary(),
+            isObstacle = isObstacle,
+            // We will get the forecastZone using a new helper method in RiverControls
+            forecastZone = riverControls.GetDropZone(row, fromLeft) 
+        };
+        
+        if (isObstacle)
+        {
+            push.isBlocker = Random.value < blockerChance;
+        }
+        
+        plannedPushes.Add(push);
+    }
 
 
-
-
-
-
+    private IEnumerator EndTurnCleanupCoroutine()
+    {
+        // If the player's boat exists and is currently selected...
+        if (playerBoat != null && playerBoat.isSelected)
+        {
+            // ...tell it to deselect. This will play the lowering animation.
+            playerBoat.DeselectBoat();
+            
+            // Wait for the boat's deselection animation to finish.
+            // The LiftAndBobBoat coroutine has a duration of 0.3f.
+            // We'll wait a little longer to be safe.
+            yield return new WaitForSeconds(0.4f);
+        }
+        else
+        {
+            // If the boat isn't selected, just add a small pause for pacing.
+            yield return new WaitForSeconds(0.2f);
+        }
+    }
 
 
 }

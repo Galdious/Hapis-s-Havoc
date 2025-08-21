@@ -19,6 +19,8 @@ public class RowDropZone : MonoBehaviour
 
     [Header("Visual Feedback")]
     [SerializeField] private Color highlightColor = new Color(1f, 1f, 0f, 0.3f); // Yellow, semi-transparent
+    [SerializeField] private Color forecastBlueColor = new Color(0f, 0.5f, 1f, 0.4f);
+    [SerializeField] private Color forecastRedColor = new Color(1f, 0.2f, 0f, 0.4f);
 
     // --- Private State ---
     private Image dropZoneImage;
@@ -31,7 +33,7 @@ public class RowDropZone : MonoBehaviour
         if (dropZoneImage != null)
         {
             // Start completely transparent
-            
+
             originalColor = dropZoneImage.color;
         }
     }
@@ -70,4 +72,28 @@ public class RowDropZone : MonoBehaviour
         // --- NEW: Reset the "make room" animation ---
         riverControls?.ResetRowAnimation(row);
     }
+    
+
+
+    public void ShowForecast(bool isObstacle)
+    {
+        if (dropZoneImage != null)
+        {
+            dropZoneImage.color = isObstacle ? forecastRedColor : forecastBlueColor;
+        }
+    }
+
+    public void HideForecast()
+    {
+        if (dropZoneImage != null)
+        {
+            dropZoneImage.color = originalColor; // Resets it to be fully transparent
+        }
+    }
+
+
+
+
+
+
 }
