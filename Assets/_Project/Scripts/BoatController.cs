@@ -236,6 +236,19 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     {
         if (isMoving) return;
 
+        if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
+        {
+            // In Endless Mode, don't select directly. Ask the manager.
+            if (endlessManager != null)
+            {
+                endlessManager.OnBoatClicked();
+            }
+            return; // Stop further execution in this method for endless mode
+        }
+
+
+
+
         if (gridManager != null && gridManager.isPuzzleMode && currentMovementPoints <= 0)
         {
             Debug.Log("Out of moves. Cannot select boat.");

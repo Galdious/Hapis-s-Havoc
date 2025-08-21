@@ -15803,7 +15803,7 @@ MonoBehaviour:
   riverControls: {fileID: 1424900279}
   uiManager: {fileID: 25834545}
   riverBankManager: {fileID: 1495770930}
-  startStamina: 25
+  startStamina: 5
   apPerCycle: 4
   gridWidth: 3
   initialGridHeight: 8

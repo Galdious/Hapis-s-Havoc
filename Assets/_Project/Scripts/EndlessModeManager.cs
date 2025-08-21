@@ -12,7 +12,7 @@ public class EndlessModeManager : MonoBehaviour
     [SerializeField] private BoatManager boatManager;
     [SerializeField] private RiverControls riverControls; // To show the forecast
     [SerializeField] private UIManager uiManager;
-    [SerializeField] private RiverBankManager riverBankManager; 
+    [SerializeField] private RiverBankManager riverBankManager;
 
 
     [Header("Gameplay Settings")]
@@ -33,7 +33,7 @@ public class EndlessModeManager : MonoBehaviour
     private int score = 0;
     private int highScore = 0;
     private bool isPlayerTurn = false;
-    private BoatController playerBoat; 
+    private BoatController playerBoat;
 
 
     private const string highScoreKey = "EndlessHighScore";
@@ -88,13 +88,13 @@ public class EndlessModeManager : MonoBehaviour
         // Spawn the boat at the bottom bank
         playerBoat = boatManager.SpawnPlayerBoat(RiverBankManager.BankSide.Bottom, 0);
 
-        yield return null; 
+        yield return null;
 
         if (playerBoat != null)
         {
             playerBoat.SelectBoat(); // <<< ADD THIS LINE
         }
-    
+
     }
 
     private IEnumerator EndlessGameLoop()
@@ -245,9 +245,39 @@ public class EndlessModeManager : MonoBehaviour
                 // If the player is out of moves, deselect the boat to provide clear visual feedback.
                 playerBoat.DeselectBoat();
             }
-        
+
         }
     }
+
+
+
+    public void OnBoatClicked()
+    {
+        // The player is only allowed to select the boat if it's their turn AND they have AP to spend.
+        if (isPlayerTurn && currentAP > 0)
+        {
+            if (playerBoat != null && !playerBoat.isSelected)
+            {
+                playerBoat.SelectBoat();
+            }
+            else if (playerBoat != null && playerBoat.isSelected)
+            {
+                // Optional: allow deselecting mid-turn
+                // playerBoat.DeselectBoat(); 
+            }
+        }
+        else
+        {
+            Debug.Log("Cannot select boat: Not player's turn or out of AP.");
+            // Here you could play a "no moves left" sound effect.
+        }
+    }
+
+
+
+
+
+
 
 
 
