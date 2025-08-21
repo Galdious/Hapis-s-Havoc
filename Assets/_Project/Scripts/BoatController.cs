@@ -589,20 +589,34 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             }
             else
             {
+                // This method already accounts for the neighbor's rotation by finding the
+                // physically closest connecting snap point. Its result is the source of truth.
                 int landingSnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
+                
                 if (landingSnap != -1)
                 {
+                    // We do not need to transform or mirror 'landingSnap'. It is already the correct
+                    // logical index for the neighbor tile, regardless of its rotation.
+                    
                     if (!validMoves.Contains(neighbor)) validMoves.Add(neighbor);
 
-                    if (isReverseMove) tileToReverseSnapPoint[neighbor] = landingSnap;
-                    else tileToSnapPoint[neighbor] = landingSnap;
+                    // Store the DIRECT result from the connection finder.
+                    if (isReverseMove)
+                    {
+                        tileToReverseSnapPoint[neighbor] = landingSnap;
+                    }
+                    else
+                    {
+                        tileToSnapPoint[neighbor] = landingSnap;
+                    }
 
                     if (crossedReversedTiles.Count > 0)
                     {
-                        reversedPathways[neighbor] = crossedReversedTiles;
+                        reversedPathways[neighbor] = new List<TileInstance>(crossedReversedTiles);
                     }
                 }
-                return;
+                return; // We found a valid blue tile, so we stop searching down this chain.
+
             }
         }
     }
@@ -1443,6 +1457,19 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
 
 
+    private int GetMirroredSnapPointForRotatedTile(int snapPoint)
+    {
+        switch (snapPoint)
+        {
+            case 0: return 3; // Top-Left <-> Down-Right
+            case 1: return 2; // Top-Right <-> Down-Left
+            case 2: return 1;
+            case 3: return 0;
+            case 4: return 5; // Right <-> Left
+            case 5: return 4;
+            default: return -1; // Should not happen
+        }
+    }
 
 
 
