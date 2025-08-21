@@ -60,4 +60,25 @@ public class MainMenuController : MonoBehaviour
             SceneManager.LoadScene("LevelEditor"); // Your main game scene
         }
     }
+
+
+    public void GoToEndlessMode()
+    {
+        Debug.Log("Loading Endless Mode...");
+        // Set a static flag or a value in a persistent manager to tell the next scene what to do.
+        // This is a simple and effective way to pass instructions between scenes.
+        LevelSelectManager.LevelToLoad = "ENDLESS_MODE"; // Use a special keyword
+        SceneManager.LoadScene("LevelEditor"); // Or your main game scene name
+    }
+
+
+
+
+
+
+
+
+
+
+
 }

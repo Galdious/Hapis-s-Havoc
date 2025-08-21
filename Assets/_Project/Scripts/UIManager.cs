@@ -34,6 +34,9 @@ public class UIManager : MonoBehaviour
     [Tooltip("Drag the parent GameObject containing all player-facing gameplay UI.")]
     [SerializeField] private GameObject playerUI_Container;
 
+    [Tooltip("Drag the parent GameObject containing all endless mode UI.")]
+    [SerializeField] private GameObject endlessUI_Container;
+
 
     [Header("Level Complete Stats")]
     [Tooltip("The list of the 3 star images on the win panel.")]
@@ -218,33 +221,38 @@ public class UIManager : MonoBehaviour
 
     public void SwitchToMode(OperatingMode mode)
     {
-        if (mode == OperatingMode.Editor)
+        // Deactivate all containers first for a clean slate
+        if (editorUI_Container != null) editorUI_Container.SetActive(false);
+        if (playerUI_Container != null) playerUI_Container.SetActive(false);
+        if (endlessUI_Container != null) endlessUI_Container.SetActive(false);
+
+        if (editorBrushPalette != null) editorBrushPalette.SetActive(false);
+        if (editorHandContainer != null) editorHandContainer.SetActive(false);
+        if (playerHandContainer != null) playerHandContainer.SetActive(false);
+
+        // Activate the correct containers based on the mode
+        switch (mode)
         {
-            // Show all Editor UI
-            if (editorUI_Container != null) editorUI_Container.SetActive(true);
-            if (editorBrushPalette != null) editorBrushPalette.SetActive(true);
-            if (editorHandContainer != null) editorHandContainer.SetActive(true);
+            case OperatingMode.Editor:
+                if (editorUI_Container != null) editorUI_Container.SetActive(true);
+                if (editorBrushPalette != null) editorBrushPalette.SetActive(true);
+                if (editorHandContainer != null) editorHandContainer.SetActive(true);
+                if (editor_restartButton != null) editor_restartButton.interactable = false;
+                break;
 
-            // Hide all Player UI
-            if (playerUI_Container != null) playerUI_Container.SetActive(false);
-            if (playerHandContainer != null) playerHandContainer.SetActive(false);
+            case OperatingMode.Playing:
+                if (playerUI_Container != null) playerUI_Container.SetActive(true);
+                if (playerHandContainer != null) playerHandContainer.SetActive(true);
+                if (player_restartButton != null) player_restartButton.interactable = true;
+                break;
 
-            if (editor_restartButton != null) editor_restartButton.interactable = false;
-        }
-        else // Switching to Playing mode
-        {
-            // Hide all Editor UI
-            if (editorUI_Container != null) editorUI_Container.SetActive(false);
-            if (editorBrushPalette != null) editorBrushPalette.SetActive(false);
-            if (editorHandContainer != null) editorHandContainer.SetActive(false);
-
-            // Show all Player UI
-            if (playerUI_Container != null) playerUI_Container.SetActive(true);
-            if (playerHandContainer != null) playerHandContainer.SetActive(true);
-
-            if (player_restartButton != null) player_restartButton.interactable = true;
+            case OperatingMode.Endless: // <<< ADD THIS NEW CASE
+                if (endlessUI_Container != null) endlessUI_Container.SetActive(true);
+                // We might add a restart button for endless later
+                break;
         }
     }
+
 
 
     public void UpdateAllUndoButtons()

@@ -28,7 +28,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     public float aboveTileHoverDistance = 0.1f; // How high the boat hovers above the tile when selected.
     public float bobAmount = 0.1f;
     public float bobSpeed = 2f;
-    
+
     [Header("Tile Animation")]
     public float tileLiftDuration = 0.4f;
     public float tileLiftDelay = 0.2f;
@@ -49,19 +49,19 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
 
 
-    
+
     [Header("Movement System")]
     public int maxMovementPoints = 3;
     public int currentMovementPoints = 3;
 
     [Header("Gameplay State")]
     public int starsCollected { get; private set; } = 0; // inventory logic
-    
+
     [Header("Visual Feedback")]
     public Color selectedColor = Color.magenta;
     public TMP_Text starCounterText;
     public TMP_Text moveCounterText;
-    
+
     [Header("Debug")]
     public bool showDebugInfo = true;
 
@@ -70,7 +70,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     public int GetCurrentSnapPoint() => currentSnapPoint;
 
     public RiverBankManager.BankSide? CurrentBank { get; private set; } = null;
-    
+
     // --- State & References ---
     private TileInstance currentTile;
     private int currentSnapPoint = -1;
@@ -78,32 +78,41 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     private bool isAtBank = true;
     public bool isSelected = false;
     private bool isMoving = false;
-    
+
     // --- ADD THESE NEW FIELDS ---
     private MeshRenderer boatRenderer;
     private Color opaqueColor;
-    
+
     private Vector3 originalBoatPosition;
     private bool isBobbing = false;
-    private BoatManager boatManager;    private GridManager gridManager;
+    private BoatManager boatManager;
+    private GridManager gridManager;
     private RiverBankManager riverBankManager;
+    private GameManager gameManager;
+    private EndlessModeManager endlessManager;
+
     private List<TileInstance> validMoves = new List<TileInstance>();
     private List<GameObject> highlightedTiles = new List<GameObject>();
     private List<GameObject> highlightedBanks = new List<GameObject>();
     private Dictionary<TileInstance, int> tileToSnapPoint = new Dictionary<TileInstance, int>();
     private Dictionary<TileInstance, int> tileToReverseSnapPoint = new Dictionary<TileInstance, int>();
-    
+
 
     private Dictionary<Renderer, Material> originalMaterials = new Dictionary<Renderer, Material>();
     private Dictionary<Renderer, Material> originalBankMaterials = new Dictionary<Renderer, Material>();
     private Dictionary<TileInstance, List<TileInstance>> reversedPathways = new Dictionary<TileInstance, List<TileInstance>>();
-    
+
     void Start()
     {
         boatManager = FindFirstObjectByType<BoatManager>();
         gridManager = FindFirstObjectByType<GridManager>();
         riverBankManager = FindFirstObjectByType<RiverBankManager>();
 
+        gameManager = FindFirstObjectByType<GameManager>();
+        if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
+        {
+            endlessManager = FindFirstObjectByType<EndlessModeManager>();
+        }
 
 
         boatRenderer = GetComponentInChildren<MeshRenderer>();
@@ -118,7 +127,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         if (gridManager == null) Debug.LogError("[BoatController] GridManager not found!");
         if (riverBankManager == null) Debug.LogError("[BoatController] RiverBankManager not found!");
     }
-    
+
     void Update()
     {
         if (Keyboard.current.eKey.wasPressedThisFrame) EndMovementTurn();
@@ -131,7 +140,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             starCounterText.text = $"Stars: {starsCollected}";
         }
     }
-    
+
     public void UpdateMoveCounterUI()
     {
         if (moveCounterText != null)
@@ -153,52 +162,52 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         CurrentBank = null;
     }
 
-public IEnumerator FadeOutForEjection()
-{
-    if (boatRenderer == null) yield break;
-
-    boatRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-
-    isBobbing = false;
-    float elapsed = 0f;
-    Color startColor = boatRenderer.material.color;
-
-    while (elapsed < ejectionFadeOutDuration)
+    public IEnumerator FadeOutForEjection()
     {
-        elapsed += Time.deltaTime;
-        float progress = Mathf.Clamp01(elapsed / ejectionFadeOutDuration);
-        
-        // Lerp towards a version of the OPAQUE color with zero alpha
-        Color targetColor = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
-        boatRenderer.material.color = Color.Lerp(startColor, targetColor, progress);
+        if (boatRenderer == null) yield break;
 
-        yield return null;
+        boatRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+        isBobbing = false;
+        float elapsed = 0f;
+        Color startColor = boatRenderer.material.color;
+
+        while (elapsed < ejectionFadeOutDuration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = Mathf.Clamp01(elapsed / ejectionFadeOutDuration);
+
+            // Lerp towards a version of the OPAQUE color with zero alpha
+            Color targetColor = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
+            boatRenderer.material.color = Color.Lerp(startColor, targetColor, progress);
+
+            yield return null;
+        }
+
+        // Ensure it is fully transparent at the end
+        boatRenderer.material.color = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
     }
-    
-    // Ensure it is fully transparent at the end
-    boatRenderer.material.color = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
-}
 
-private IEnumerator FadeOutCoroutine()
-{
-    isBobbing = false;
-    float elapsed = 0f;
-    Color startColor = boatRenderer.material.color; // Read current color for smooth start
-
-    while (elapsed < ejectionFadeOutDuration)
+    private IEnumerator FadeOutCoroutine()
     {
-        elapsed += Time.deltaTime;
-        float progress = Mathf.Clamp01(elapsed / ejectionFadeOutDuration);
-        
-        // Lerp towards a version of the OPAQUE color with zero alpha
-        Color targetColor = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
-        boatRenderer.material.color = Color.Lerp(startColor, targetColor, progress);
+        isBobbing = false;
+        float elapsed = 0f;
+        Color startColor = boatRenderer.material.color; // Read current color for smooth start
 
-        yield return null;
+        while (elapsed < ejectionFadeOutDuration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = Mathf.Clamp01(elapsed / ejectionFadeOutDuration);
+
+            // Lerp towards a version of the OPAQUE color with zero alpha
+            Color targetColor = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
+            boatRenderer.material.color = Color.Lerp(startColor, targetColor, progress);
+
+            yield return null;
+        }
+        // Ensure it is fully transparent at the end
+        boatRenderer.material.color = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
     }
-    // Ensure it is fully transparent at the end
-    boatRenderer.material.color = new Color(opaqueColor.r, opaqueColor.g, opaqueColor.b, 0f);
-}
 
 
     public void SetAtBank(Transform bankSpawnPoint)
@@ -249,7 +258,7 @@ private IEnumerator FadeOutCoroutine()
         currentTile = null;
         currentSnapPoint = -1;
         CurrentBank = bankSpawnPoint.name.Contains("Top") ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
-}
+    }
 
 
 
@@ -280,9 +289,9 @@ private IEnumerator FadeOutCoroutine()
             Debug.LogError("[BoatController] Cannot animate to bank, RiverBankManager is missing!");
             yield break; // Use yield break in an IEnumerator instead of return.
         }
-        
+
         Transform bankSpawn = riverBankManager.GetNearestSpawnPoint(side, transform.position);
-        
+
         if (bankSpawn != null)
         {
             // CHANGE 2: We now "yield return" the call to the other overload.
@@ -358,10 +367,10 @@ private IEnumerator FadeOutCoroutine()
         {
             SetStateForBank(bankSpawn);
         }
-        
-    
 
-}
+
+
+    }
     public void SelectBoat()
     {
         // First, clear any highlights that might exist from a previous state.
@@ -374,20 +383,29 @@ private IEnumerator FadeOutCoroutine()
         isSelected = true;
 
 
-        if (gridManager == null || !gridManager.isPuzzleMode)
+        if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
         {
-            if (currentMovementPoints <= 0)
+            // Do nothing related to movement points. Just proceed.
+        }
+        else
+        {
+            // This is the original logic for Puzzle/Editor mode. It can stay.
+            if (gridManager == null || !gridManager.isPuzzleMode)
             {
-                currentMovementPoints = maxMovementPoints;
+                if (currentMovementPoints <= 0)
+                {
+                    currentMovementPoints = maxMovementPoints;
+                }
             }
         }
+
 
         StartCoroutine(LiftAndBobBoat(true));
         FindValidMoves();
         StartCoroutine(HighlightValidMovesWithDelay());
         UpdateMoveCounterUI();
-}
-    
+    }
+
     public void DeselectBoat()
     {
         if (boatManager != null) boatManager.ClearSelectedBoat();
@@ -424,31 +442,31 @@ private IEnumerator FadeOutCoroutine()
         }
     }
 
-    
+
     IEnumerator LiftAndBobBoat(bool lift)
     {
         float baseY = isAtBank && bankPosition != null ? bankPosition.position.y : 0f;
         Vector3 startPos = transform.position;
         Vector3 targetPos = startPos;
         targetPos.y = lift ? baseY + hoverHeight + aboveTileHoverDistance : baseY;
-        
+
         float liftDuration = 0.3f;
         float elapsed = 0f;
-        
+
         while (elapsed < liftDuration)
         {
             elapsed += Time.deltaTime;
             transform.position = Vector3.Lerp(startPos, targetPos, tileLiftCurve.Evaluate(elapsed / liftDuration));
             yield return null;
         }
-        
+
         transform.position = targetPos;
         originalBoatPosition = targetPos;
-        
+
         isBobbing = lift;
         if (lift) StartCoroutine(BobBoat());
     }
-    
+
     IEnumerator BobBoat()
     {
         while (isBobbing && isSelected)
@@ -460,11 +478,11 @@ private IEnumerator FadeOutCoroutine()
             yield return null;
         }
     }
-    
+
     IEnumerator HighlightValidMovesWithDelay()
     {
         yield return new WaitForSeconds(tileLiftDelay);
-        if(!isSelected) yield break;
+        if (!isSelected) yield break;
         foreach (TileInstance tile in validMoves)
         {
             if (tile != null) HighlightTile(tile);
@@ -480,36 +498,36 @@ private IEnumerator FadeOutCoroutine()
 
         if (isAtBank) FindBankEntryMoves();
         else if (currentTile != null) FindRiverPathMoves();
-        
+
         if (currentTile != null) validMoves.Remove(currentTile);
     }
 
-void FindRiverPathMoves()
-{
-    if (currentTile == null || currentSnapPoint < 0) return;
-
-    // Check all forward paths defined by the tile's connections
-    foreach (var connection in currentTile.connections)
+    void FindRiverPathMoves()
     {
-        int exitSnap = (connection.from == currentSnapPoint) ? connection.to : (connection.to == currentSnapPoint ? connection.from : -1);
-        if (exitSnap != -1)
+        if (currentTile == null || currentSnapPoint < 0) return;
+
+        // Check all forward paths defined by the tile's connections
+        foreach (var connection in currentTile.connections)
         {
-            FindMoveAtEndOfChain(currentTile, exitSnap, isReverseMove: false);
+            int exitSnap = (connection.from == currentSnapPoint) ? connection.to : (connection.to == currentSnapPoint ? connection.from : -1);
+            if (exitSnap != -1)
+            {
+                FindMoveAtEndOfChain(currentTile, exitSnap, isReverseMove: false);
+            }
+        }
+        // Also check the path for reversing your last move
+        FindMoveAtEndOfChain(currentTile, currentSnapPoint, isReverseMove: true);
+    }
+
+    public void ApplyPenaltiesForForcedMove(List<TileInstance> crossedTiles)
+    {
+        if (crossedTiles == null || crossedTiles.Count == 0) return;
+        Debug.Log($"[BoatController] Ejected! Crossed {crossedTiles.Count} reversed tiles during forced move.");
+        foreach (var tile in crossedTiles)
+        {
+            Debug.Log($"-- Applying placeholder penalty for crossing {tile.name}!");
         }
     }
-    // Also check the path for reversing your last move
-    FindMoveAtEndOfChain(currentTile, currentSnapPoint, isReverseMove: true);
-}
-
-public void ApplyPenaltiesForForcedMove(List<TileInstance> crossedTiles)
-{
-    if (crossedTiles == null || crossedTiles.Count == 0) return;
-    Debug.Log($"[BoatController] Ejected! Crossed {crossedTiles.Count} reversed tiles during forced move.");
-    foreach (var tile in crossedTiles)
-    {
-        Debug.Log($"-- Applying placeholder penalty for crossing {tile.name}!");
-    }
-}
 
     void FindMoveAtEndOfChain(TileInstance startTile, int exitSnap, bool isReverseMove)
     {
@@ -545,7 +563,7 @@ public void ApplyPenaltiesForForcedMove(List<TileInstance> crossedTiles)
 
             if (neighbor.IsReversed)
             {
-                if (neighbor.IsHardBlocker) return; 
+                if (neighbor.IsHardBlocker) return;
 
                 crossedReversedTiles.Add(neighbor);
                 int entrySnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
@@ -575,23 +593,23 @@ public void ApplyPenaltiesForForcedMove(List<TileInstance> crossedTiles)
 
 
 
-/// Instantly stops animations and updates internal state for a forced move (like ejection).
-/// This does NOT animate the boat, leaving it frozen for another script to control.
-public void PrepareForForcedMove()
-{
-    if (boatManager != null) boatManager.ClearSelectedBoat();
+    /// Instantly stops animations and updates internal state for a forced move (like ejection).
+    /// This does NOT animate the boat, leaving it frozen for another script to control.
+    public void PrepareForForcedMove()
+    {
+        if (boatManager != null) boatManager.ClearSelectedBoat();
 
-    isSelected = false;
-    isBobbing = false;
-    StopAllCoroutines();
-    
-    ClearHighlights();
-    
-    // We intentionally do NOT call LiftAndBobBoat or ClearHighlights here.
+        isSelected = false;
+        isBobbing = false;
+        StopAllCoroutines();
+
+        ClearHighlights();
+
+        // We intentionally do NOT call LiftAndBobBoat or ClearHighlights here.
         // We want the boat to remain visually where it is, and highlights will be
         // cleared by the GridManager/ejection logic later.
         Debug.Log($"[BoatController] {name} prepared for forced move.");
-}
+    }
 
 
 
@@ -599,16 +617,19 @@ public void PrepareForForcedMove()
 
     // Helper to find the opposite snap point for straight-line travel.
     int GetOppositeSnapPoint(int snap)
-{
-    switch (snap)
     {
-        case 0: return 2; case 1: return 3;
-        case 2: return 0; case 3: return 1;
-        case 4: return 5; case 5: return 4;
-        default: return -1;
+        switch (snap)
+        {
+            case 0: return 2;
+            case 1: return 3;
+            case 2: return 0;
+            case 3: return 1;
+            case 4: return 5;
+            case 5: return 4;
+            default: return -1;
+        }
     }
-}
-    
+
     (int, int) GetTileCoordinates(TileInstance tile)
     {
         for (int x = 0; x < gridManager.cols; x++)
@@ -621,12 +642,12 @@ public void PrepareForForcedMove()
         }
         return (-1, -1);
     }
-    
+
 
     void HighlightBankForDocking(RiverBankManager.BankSide side)
     {
         if (riverBankManager == null) return;
-        
+
         GameObject bankGO = riverBankManager.GetBankGameObject(side);
         if (bankGO != null && !highlightedBanks.Contains(bankGO))
         {
@@ -639,7 +660,7 @@ public void PrepareForForcedMove()
                     originalBankMaterials[renderer] = renderer.sharedMaterial;
                 }
                 renderer.material.color = Color.cyan;
-                
+
                 highlightedBanks.Add(bankGO);
             }
 
@@ -664,7 +685,7 @@ public void PrepareForForcedMove()
         // Restore bank materials
         foreach (var pair in originalBankMaterials)
         {
-            if(pair.Key != null)
+            if (pair.Key != null)
             {
                 pair.Key.sharedMaterial = pair.Value;
             }
@@ -680,24 +701,24 @@ public void PrepareForForcedMove()
                 if (clicker != null) DestroyImmediate(clicker);
             }
         }
-        foreach(GameObject bankGO in highlightedBanks)
+        foreach (GameObject bankGO in highlightedBanks)
         {
-            if(bankGO != null)
+            if (bankGO != null)
             {
                 var clicker = bankGO.GetComponent<BankClickHandler>();
                 if (clicker != null) Destroy(clicker);
             }
         }
-        
+
         highlightedTiles.Clear();
         highlightedBanks.Clear();
         originalMaterials.Clear();
         originalBankMaterials.Clear();
     }
-    
+
     public void OnTileClicked(TileInstance clickedTile)
     {
-            
+
         if (reversedPathways.ContainsKey(clickedTile))
         {
             List<TileInstance> crossedTiles = reversedPathways[clickedTile];
@@ -707,14 +728,24 @@ public void PrepareForForcedMove()
                 Debug.Log($"-- Applying placeholder penalty for crossing {tile.name}!");
             }
         }
-        
-    
-        if (isMoving || !isSelected || !validMoves.Contains(clickedTile) || currentMovementPoints <= 0) return;
-        
+
+
+        if (isMoving || !isSelected || !validMoves.Contains(clickedTile) || (gameManager != null && gameManager.currentMode != OperatingMode.Endless && currentMovementPoints <= 0))
+        {
+            // Add a detailed log to see which condition is the problem.
+            Debug.LogWarning($"OnTileClicked IGNORED. Reason: " +
+                            $"isMoving={isMoving}, " +
+                            $"!isSelected={!isSelected}, " +
+                            $"!validMoves.Contains={!validMoves.Contains(clickedTile)}, " +
+                            $"outOfMoves={(gameManager != null && gameManager.currentMode != OperatingMode.Endless && currentMovementPoints <= 0)}");
+            return;
+        }
+
+
         // HistoryManager.Instance.SaveState();
 
         isMoving = true;
-        
+
 
         if (isAtBank)
         {
@@ -723,20 +754,20 @@ public void PrepareForForcedMove()
         else
         {
             int targetSnapPoint = DetermineRiverSnapPoint(clickedTile);
-            if(targetSnapPoint != -1) MoveFromTileToTile(clickedTile, targetSnapPoint);
+            if (targetSnapPoint != -1) MoveFromTileToTile(clickedTile, targetSnapPoint);
         }
     }
-    
+
     public void OnBankClicked(RiverBankManager.BankSide side)
     {
-        if(isMoving || !isSelected || currentMovementPoints <= 0) return;
+        if (isMoving || !isSelected || currentMovementPoints <= 0) return;
 
         // HistoryManager.Instance.SaveState();
 
         isMoving = true;
-        
+
         StopAllCoroutines();
-        
+
         Transform targetSpawn = riverBankManager.GetNearestSpawnPoint(side, transform.position);
         StartCoroutine(MoveToBankCoroutine(targetSpawn));
     }
@@ -747,14 +778,14 @@ public void PrepareForForcedMove()
         UpdateStarCounterUI();
     }
 
-IEnumerator RefreshMovementOptionsCoroutine()
-{
+    IEnumerator RefreshMovementOptionsCoroutine()
+    {
 
-    yield return null;
+        yield return null;
 
-    HistoryManager.Instance.SaveState();
-    isMoving = false;
-    
+        HistoryManager.Instance.SaveState();
+        isMoving = false;
+
         // After every move, just ask the GameManager to evaluate the situation.
         if (GameManager.Instance != null)
         {
@@ -775,7 +806,7 @@ IEnumerator RefreshMovementOptionsCoroutine()
 
 
 
-    // After a move, check if we are out of points.
+        // After a move, check if we are out of points.
         if (currentMovementPoints <= 0)
         {
             // If we have no points left, automatically end the turn.
@@ -789,7 +820,7 @@ IEnumerator RefreshMovementOptionsCoroutine()
             FindValidMoves();
             StartCoroutine(HighlightValidMovesWithDelay());
         }
-}
+    }
 
 
 
@@ -859,60 +890,60 @@ IEnumerator RefreshMovementOptionsCoroutine()
 
 
 
-TileInstance FindConnectedTile_HorizontalOnly(TileInstance fromTile, int snapPointIndex)
-{
-    Vector2 snapPosXZ = new Vector2(fromTile.snapPoints[snapPointIndex].position.x, fromTile.snapPoints[snapPointIndex].position.z);
-    float minDistance = float.MaxValue;
-    TileInstance closestTile = null;
-
-    for (int x = 0; x < gridManager.cols; x++)
+    TileInstance FindConnectedTile_HorizontalOnly(TileInstance fromTile, int snapPointIndex)
     {
-        for (int y = 0; y < gridManager.rows; y++)
+        Vector2 snapPosXZ = new Vector2(fromTile.snapPoints[snapPointIndex].position.x, fromTile.snapPoints[snapPointIndex].position.z);
+        float minDistance = float.MaxValue;
+        TileInstance closestTile = null;
+
+        for (int x = 0; x < gridManager.cols; x++)
         {
-            TileInstance tile = gridManager.GetTileAt(x, y);
-            if (tile != null && tile != fromTile)
+            for (int y = 0; y < gridManager.rows; y++)
             {
-                for (int i = 0; i < tile.snapPoints.Length; i++)
+                TileInstance tile = gridManager.GetTileAt(x, y);
+                if (tile != null && tile != fromTile)
                 {
-                    if (tile.snapPoints[i] != null)
+                    for (int i = 0; i < tile.snapPoints.Length; i++)
                     {
-                        Vector2 otherSnapPosXZ = new Vector2(tile.snapPoints[i].position.x, tile.snapPoints[i].position.z);
-                        float distance = Vector2.Distance(snapPosXZ, otherSnapPosXZ);
-                        if (distance < 0.5f && distance < minDistance)
+                        if (tile.snapPoints[i] != null)
                         {
-                            minDistance = distance;
-                            closestTile = tile;
+                            Vector2 otherSnapPosXZ = new Vector2(tile.snapPoints[i].position.x, tile.snapPoints[i].position.z);
+                            float distance = Vector2.Distance(snapPosXZ, otherSnapPosXZ);
+                            if (distance < 0.5f && distance < minDistance)
+                            {
+                                minDistance = distance;
+                                closestTile = tile;
+                            }
                         }
                     }
                 }
             }
         }
+        return closestTile;
     }
-    return closestTile;
-}
 
-// A special version of FindConnectedSnapPoint that only compares horizontal (XZ) distance.
-int FindConnectedSnapPoint_HorizontalOnly(TileInstance fromTile, int fromSnapIndex, TileInstance toTile)
-{
-    Vector2 fromSnapPosXZ = new Vector2(fromTile.snapPoints[fromSnapIndex].position.x, fromTile.snapPoints[fromSnapIndex].position.z);
-    float minDistance = float.MaxValue;
-    int closestSnapPoint = -1;
-
-    for (int i = 0; i < toTile.snapPoints.Length; i++)
+    // A special version of FindConnectedSnapPoint that only compares horizontal (XZ) distance.
+    int FindConnectedSnapPoint_HorizontalOnly(TileInstance fromTile, int fromSnapIndex, TileInstance toTile)
     {
-        if (toTile.snapPoints[i] != null)
+        Vector2 fromSnapPosXZ = new Vector2(fromTile.snapPoints[fromSnapIndex].position.x, fromTile.snapPoints[fromSnapIndex].position.z);
+        float minDistance = float.MaxValue;
+        int closestSnapPoint = -1;
+
+        for (int i = 0; i < toTile.snapPoints.Length; i++)
         {
-            Vector2 toSnapPosXZ = new Vector2(toTile.snapPoints[i].position.x, toTile.snapPoints[i].position.z);
-            float distance = Vector2.Distance(fromSnapPosXZ, toSnapPosXZ);
-            if (distance < minDistance)
+            if (toTile.snapPoints[i] != null)
             {
-                minDistance = distance;
-                closestSnapPoint = i;
+                Vector2 toSnapPosXZ = new Vector2(toTile.snapPoints[i].position.x, toTile.snapPoints[i].position.z);
+                float distance = Vector2.Distance(fromSnapPosXZ, toSnapPosXZ);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    closestSnapPoint = i;
+                }
             }
         }
+        return minDistance < 0.5f ? closestSnapPoint : -1;
     }
-    return minDistance < 0.5f ? closestSnapPoint : -1;
-}
 
 
 
@@ -944,38 +975,38 @@ int FindConnectedSnapPoint_HorizontalOnly(TileInstance fromTile, int fromSnapInd
         }
         return minDistance < 0.5f ? closestSnapPoint : -1;
     }
-    
-void FindBankEntryMoves()
-{
-    int entryRow = DetermineEntryRow();
-    // Determine the direction of search: +1 for up (from bottom), -1 for down (from top).
-    int searchDirection = (entryRow == 0) ? 1 : -1; 
-    RiverBankManager.BankSide oppositeBank = (entryRow == 0) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
 
-    for (int col = 0; col < gridManager.cols; col++)
+    void FindBankEntryMoves()
     {
-        bool foundLandingTile = false;
-        int currentRow = entryRow;
-        List<TileInstance> crossedReversedTiles = new List<TileInstance>();
+        int entryRow = DetermineEntryRow();
+        // Determine the direction of search: +1 for up (from bottom), -1 for down (from top).
+        int searchDirection = (entryRow == 0) ? 1 : -1;
+        RiverBankManager.BankSide oppositeBank = (entryRow == 0) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
 
-        // Search through the column until we find a non-reversed tile or go off the board.
-        while (currentRow >= 0 && currentRow < gridManager.rows)
+        for (int col = 0; col < gridManager.cols; col++)
         {
-            var tile = gridManager.GetTileAt(col, currentRow);
+            bool foundLandingTile = false;
+            int currentRow = entryRow;
+            List<TileInstance> crossedReversedTiles = new List<TileInstance>();
 
-            if (tile == null)
+            // Search through the column until we find a non-reversed tile or go off the board.
+            while (currentRow >= 0 && currentRow < gridManager.rows)
             {
-                // This column has a gap, stop searching here.
-                break;
-            }
-            
-            if (tile.IsHardBlocker)
-            {
-                // This is a wall. Stop searching this column immediately.
-                break; 
-            }
+                var tile = gridManager.GetTileAt(col, currentRow);
 
-            else if (tile.IsReversed)
+                if (tile == null)
+                {
+                    // This column has a gap, stop searching here.
+                    break;
+                }
+
+                if (tile.IsHardBlocker)
+                {
+                    // This is a wall. Stop searching this column immediately.
+                    break;
+                }
+
+                else if (tile.IsReversed)
                 {
                     // This is a reversed tile. Log it and continue searching.
                     crossedReversedTiles.Add(tile);
@@ -998,16 +1029,16 @@ void FindBankEntryMoves()
                     foundLandingTile = true;
                     break; // Found our landing spot for this column, so we can stop searching it.
                 }
-        }
+            }
 
-        // If we searched the entire column and only found reversed tiles,
-        // then the opposite bank becomes a valid move.
-        if (!foundLandingTile)
-        {
-            HighlightBankForDocking(oppositeBank);
+            // If we searched the entire column and only found reversed tiles,
+            // then the opposite bank becomes a valid move.
+            if (!foundLandingTile)
+            {
+                HighlightBankForDocking(oppositeBank);
+            }
         }
     }
-}
 
     int DetermineEntryRow()
     {
@@ -1037,87 +1068,105 @@ void FindBankEntryMoves()
     {
         var renderersToKeep = new List<Renderer>();
         var renderer = targetTile?.GetComponentInChildren<MeshRenderer>();
-        if(renderer != null) renderersToKeep.Add(renderer);
+        if (renderer != null) renderersToKeep.Add(renderer);
 
         var materialsToRestore = originalMaterials.Where(pair => !renderersToKeep.Contains(pair.Key)).ToList();
-        
+
         foreach (var pair in materialsToRestore)
         {
-            if(pair.Key != null)
+            if (pair.Key != null)
             {
                 pair.Key.sharedMaterial = pair.Value;
                 originalMaterials.Remove(pair.Key);
 
                 var tile = pair.Key.GetComponentInParent<TileInstance>();
-                if(tile != null)
+                if (tile != null)
                 {
                     StartCoroutine(LiftTileSmooth(tile, false));
                     var clicker = tile.GetComponent<SimpleTileClickHandler>();
-                    if(clicker != null) DestroyImmediate(clicker);
+                    if (clicker != null) DestroyImmediate(clicker);
                     highlightedTiles.Remove(tile.gameObject);
                 }
             }
         }
     }
 
-IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
-{
-    Vector3 startPos = transform.position;
-    Quaternion startRot = transform.rotation;
-    
-    // The temporary state change is no longer needed and has been removed.
-    // We now pass the targetTile directly to the rotation method.
-    Quaternion targetRot = GetSnapPointRotation(targetTile, snapPoint);
-
-    Vector3 snapPosition = targetTile.snapPoints[snapPoint].position;
-    Vector3 tileCenter = targetTile.transform.position;
-    Vector3 direction = (snapPosition - tileCenter).normalized;
-    Vector3 targetPos = snapPosition - direction * snapOffset;
-    
-    float elapsed = 0f;
-    while (elapsed < moveSpeed)
+    IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
     {
-        elapsed += Time.deltaTime;
-        float easeProgress = tileLiftCurve.Evaluate(elapsed / moveSpeed);
-        transform.position = Vector3.Lerp(startPos, targetPos, easeProgress);
-        transform.rotation = Quaternion.Slerp(startRot, targetRot, easeProgress);
-        yield return null;
-    }
-    
-    transform.position = targetPos;
-    transform.rotation = targetRot;
-    
-    PlaceOnTile(targetTile, snapPoint);
-    currentMovementPoints--;
-    UpdateMoveCounterUI();
-    
+        Vector3 startPos = transform.position;
+        Quaternion startRot = transform.rotation;
 
-    var collectible = targetTile.GetComponentInChildren<CollectibleInstance>();
-    if (collectible != null)
-    {
-        Debug.Log($"Found a {collectible.type} on tile {targetTile.name}!");
-        switch (collectible.type)
+        // The temporary state change is no longer needed and has been removed.
+        // We now pass the targetTile directly to the rotation method.
+        Quaternion targetRot = GetSnapPointRotation(targetTile, snapPoint);
+
+        Vector3 snapPosition = targetTile.snapPoints[snapPoint].position;
+        Vector3 tileCenter = targetTile.transform.position;
+        Vector3 direction = (snapPosition - tileCenter).normalized;
+        Vector3 targetPos = snapPosition - direction * snapOffset;
+
+        float elapsed = 0f;
+        while (elapsed < moveSpeed)
         {
-            case CollectibleType.Star:
-                starsCollected++;
-                UpdateStarCounterUI();
-                Debug.Log($"Collected a Star! Total stars: {starsCollected}");
-                break;
-            case CollectibleType.ExtraMove:
-                currentMovementPoints += collectible.value;
-                UpdateMoveCounterUI();
-                Debug.Log($"Collected an Extra Move! Value: {collectible.value}. Current moves: {currentMovementPoints}");
-                break;
+            elapsed += Time.deltaTime;
+            float easeProgress = tileLiftCurve.Evaluate(elapsed / moveSpeed);
+            transform.position = Vector3.Lerp(startPos, targetPos, easeProgress);
+            transform.rotation = Quaternion.Slerp(startRot, targetRot, easeProgress);
+            yield return null;
         }
-        // Destroy the collectible from the scene after pickup
-        Destroy(collectible.gameObject);
+
+        transform.position = targetPos;
+        transform.rotation = targetRot;
+
+        PlaceOnTile(targetTile, snapPoint);
+
+        if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
+        {
+            // In Endless Mode, tell the EndlessModeManager about the move.
+            if (endlessManager != null)
+            {
+                endlessManager.SpendActionPoint();
+            }
+        }
+        else
+        {
+            // In Puzzle/Editor Mode, use the existing logic.
+            currentMovementPoints--;
+            UpdateMoveCounterUI();
+        }
+
+
+
+        var collectible = targetTile.GetComponentInChildren<CollectibleInstance>();
+        if (collectible != null)
+        {
+            Debug.Log($"Found a {collectible.type} on tile {targetTile.name}!");
+            switch (collectible.type)
+            {
+                case CollectibleType.Star:
+                    starsCollected++;
+                    UpdateStarCounterUI();
+                    Debug.Log($"Collected a Star! Total stars: {starsCollected}");
+                    break;
+                case CollectibleType.ExtraMove:
+                    currentMovementPoints += collectible.value;
+                    UpdateMoveCounterUI();
+                    Debug.Log($"Collected an Extra Move! Value: {collectible.value}. Current moves: {currentMovementPoints}");
+                    break;
+            }
+            // Destroy the collectible from the scene after pickup
+            Destroy(collectible.gameObject);
+        }
+
+
+
+        if (gameManager != null && gameManager.currentMode != OperatingMode.Endless)
+        {
+            StartCoroutine(RefreshMovementOptionsCoroutine());
+        }
+
     }
 
-
-
-        StartCoroutine(RefreshMovementOptionsCoroutine());
-}
-    
     IEnumerator MoveToBankCoroutine(Transform targetSpawn)
     {
         Vector3 startPos = transform.position;
@@ -1134,11 +1183,29 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
             yield return null;
         }
         SetStateForBank(targetSpawn);
-        currentMovementPoints--;
-        UpdateMoveCounterUI();
-        StartCoroutine(RefreshMovementOptionsCoroutine());
+
+        // --- START OF MODIFIED LOGIC ---
+        if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
+        {
+            if (endlessManager != null)
+            {
+                endlessManager.SpendActionPoint();
+            }
+        }
+        else
+        {
+            currentMovementPoints--;
+            UpdateMoveCounterUI();
+        }
+        // --- END OF MODIFIED LOGIC ---
+
+        if (gameManager != null && gameManager.currentMode != OperatingMode.Endless)
+        {
+            StartCoroutine(RefreshMovementOptionsCoroutine());
+        }
+
     }
-    
+
     void CompleteMovementTurn()
     {
         isMoving = false;
@@ -1155,11 +1222,11 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
     }
 
     public void ResetStateAfterEjection()
-{
-    // Force the boat out of any selection or animation state.
-    isSelected = false;
-    isBobbing = false;
-    StopAllCoroutines();
+    {
+        // Force the boat out of any selection or animation state.
+        isSelected = false;
+        isBobbing = false;
+        StopAllCoroutines();
 
         // Reset collected stars when ejected
         if (starsCollected > 0)
@@ -1167,26 +1234,26 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
             Debug.Log($"Ejected! Lost {starsCollected} stars.");
             starsCollected = 0; // WE CAN CHANGE THIS LATER TO -1 IF WE WANT TO KEEP SOME OF THE STARS
             UpdateStarCounterUI();
-    }
+        }
 
-    
-    // Ensure the boat is visually lowered to its base position,
-    // as if it were never selected.
-    Vector3 currentPos = transform.position;
-    currentPos.y = isAtBank && bankPosition != null ? bankPosition.position.y : 0f;
-    transform.position = currentPos;
-    
-    // Clear any leftover visual artifacts immediately.
-    ClearHighlights();
-}
+
+        // Ensure the boat is visually lowered to its base position,
+        // as if it were never selected.
+        Vector3 currentPos = transform.position;
+        currentPos.y = isAtBank && bankPosition != null ? bankPosition.position.y : 0f;
+        transform.position = currentPos;
+
+        // Clear any leftover visual artifacts immediately.
+        ClearHighlights();
+    }
 
     public void ResetMovementPoints()
     {
         // In Puzzle Mode, turns do not reset. Ignore this call.
         if (gridManager != null && gridManager.isPuzzleMode)
         {
-        Debug.Log("Cannot reset movement points in Puzzle Mode.");
-        return;
+            Debug.Log("Cannot reset movement points in Puzzle Mode.");
+            return;
 
         }
 
@@ -1200,68 +1267,68 @@ IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
             SelectBoat();
         }
     }
-    
-public static Quaternion GetSnapPointRotation(TileInstance tile, int snapPointIndex)
-{
-    if (tile == null) return Quaternion.identity;
 
-    // --- STEP 1: Determine the BASE rotation using the reliable switch statement ---
-    float targetYRotation = 0f;
-    switch (snapPointIndex)
+    public static Quaternion GetSnapPointRotation(TileInstance tile, int snapPointIndex)
     {
-        case 0: // Top-Left faces down
-        case 1: // Top-Right faces down
-            targetYRotation = 180f;
-            break;
+        if (tile == null) return Quaternion.identity;
 
-        case 2: // Down-Left faces up
-        case 3: // Down-Right faces up
-            targetYRotation = 0f;
-            break;
-            
-        case 4: // Right side faces left
-            targetYRotation = 270f;
-            break;
-            
-        case 5: // Left side faces right
-            targetYRotation = 90f;
-            break;
+        // --- STEP 1: Determine the BASE rotation using the reliable switch statement ---
+        float targetYRotation = 0f;
+        switch (snapPointIndex)
+        {
+            case 0: // Top-Left faces down
+            case 1: // Top-Right faces down
+                targetYRotation = 180f;
+                break;
 
-        default:
-            return Quaternion.identity;
+            case 2: // Down-Left faces up
+            case 3: // Down-Right faces up
+                targetYRotation = 0f;
+                break;
+
+            case 4: // Right side faces left
+                targetYRotation = 270f;
+                break;
+
+            case 5: // Left side faces right
+                targetYRotation = 90f;
+                break;
+
+            default:
+                return Quaternion.identity;
+        }
+
+        // --- STEP 2: Check if the TILE itself is rotated ---
+        // We use Mathf.RoundToInt to avoid floating point comparison issues.
+        // This will correctly identify a rotation of 179.999 as 180.
+        bool tileIsRotated = Mathf.RoundToInt(tile.transform.eulerAngles.y) == 180;
+
+        // --- STEP 3: If the tile is rotated, flip the boat's rotation ---
+        if (tileIsRotated)
+        {
+            targetYRotation = (targetYRotation + 180f) % 360f;
+        }
+
+        // --- STEP 4: Return the final, correct rotation ---
+        return Quaternion.Euler(0f, targetYRotation, 0f);
     }
 
-    // --- STEP 2: Check if the TILE itself is rotated ---
-    // We use Mathf.RoundToInt to avoid floating point comparison issues.
-    // This will correctly identify a rotation of 179.999 as 180.
-    bool tileIsRotated = Mathf.RoundToInt(tile.transform.eulerAngles.y) == 180;
 
-    // --- STEP 3: If the tile is rotated, flip the boat's rotation ---
-    if (tileIsRotated)
+
+    public void PlaceOnTile(TileInstance tile, int snapPointIndex)
     {
-        targetYRotation = (targetYRotation + 180f) % 360f;
+        if (tile == null || snapPointIndex < 0 || snapPointIndex >= tile.snapPoints.Length) return;
+
+        // First, calculate and set the physical transform
+        Vector3 snapPosition = tile.snapPoints[snapPointIndex].position;
+        Vector3 tileCenter = tile.transform.position;
+        Vector3 direction = (snapPosition - tileCenter).normalized;
+        transform.position = snapPosition - direction * snapOffset;
+        transform.rotation = GetSnapPointRotation(tile, snapPointIndex);
+
+        // Now, call the new method to update the internal state
+        InitializeStateOnTile(tile, snapPointIndex);
     }
-    
-    // --- STEP 4: Return the final, correct rotation ---
-    return Quaternion.Euler(0f, targetYRotation, 0f);
-}
-
-
-    
-public void PlaceOnTile(TileInstance tile, int snapPointIndex)
-{
-    if (tile == null || snapPointIndex < 0 || snapPointIndex >= tile.snapPoints.Length) return;
-
-    // First, calculate and set the physical transform
-    Vector3 snapPosition = tile.snapPoints[snapPointIndex].position;
-    Vector3 tileCenter = tile.transform.position;
-    Vector3 direction = (snapPosition - tileCenter).normalized;
-    transform.position = snapPosition - direction * snapOffset;
-    transform.rotation = GetSnapPointRotation(tile, snapPointIndex);
-
-    // Now, call the new method to update the internal state
-    InitializeStateOnTile(tile, snapPointIndex);
-}
 
     int DetermineSnapPointFromClick(TileInstance tile)
     {
@@ -1278,11 +1345,11 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
         }
         return validSnapPoints[0];
     }
-    
+
     List<int> FindClosestSnapPointsToBank(TileInstance tile)
     {
         List<int> closestPoints = new List<int>();
-        if(bankPosition == null) return closestPoints;
+        if (bankPosition == null) return closestPoints;
         Vector3 tileCenter = tile.transform.position;
         Vector3 bankDirection = bankPosition.name.Contains("Bottom") ? Vector3.back : Vector3.forward;
         var snapDots = new List<(int, float)>();
@@ -1299,7 +1366,7 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
         if (snapDots.Count > 1) closestPoints.Add(snapDots[1].Item1);
         return closestPoints;
     }
-    
+
     void HighlightTile(TileInstance tile)
     {
         var renderer = tile.GetComponentInChildren<MeshRenderer>();
@@ -1307,10 +1374,10 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
 
         originalMaterials[renderer] = renderer.sharedMaterial;
         renderer.material.color = selectedColor;
-        
+
         if (!highlightedTiles.Contains(tile.gameObject))
         {
-             highlightedTiles.Add(tile.gameObject);
+            highlightedTiles.Add(tile.gameObject);
         }
 
         StartCoroutine(LiftTileSmooth(tile, true));
@@ -1318,13 +1385,13 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
         clickHandler.targetBoat = this;
         clickHandler.targetTile = tile;
     }
-    
+
     IEnumerator LiftTileSmooth(TileInstance tile, bool lift)
     {
         if (tile == null) yield break;
         Vector3 startPos = tile.transform.position;
         Vector3 targetPos = new Vector3(startPos.x, lift ? hoverHeight : 0f, startPos.z);
-        
+
         float elapsed = 0f;
         while (elapsed < tileLiftDuration)
         {
@@ -1335,7 +1402,7 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
         }
         if (tile != null) tile.transform.position = targetPos;
     }
-    
+
     void OnDrawGizmosSelected()
     {
         if (currentTile != null && currentSnapPoint >= 0 && currentSnapPoint < currentTile.snapPoints.Length && currentTile.snapPoints[currentSnapPoint] != null)
@@ -1346,6 +1413,23 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
             Gizmos.DrawRay(transform.position, transform.forward * 1f);
         }
     }
+
+
+
+
+
+    public void CompleteMovement()
+    {
+        isMoving = false;
+        // We can add any other state resets here in the future if needed.
+    }
+
+
+
+
+
+
+
 }
 
 public class SimpleTileClickHandler : MonoBehaviour, IPointerClickHandler

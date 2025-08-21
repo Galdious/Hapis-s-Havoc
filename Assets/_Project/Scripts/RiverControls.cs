@@ -56,6 +56,16 @@ public class RiverControls : MonoBehaviour
 
     // ArrowButton class removed - now using PointerArrowButton
 
+
+    private void Awake()
+    {
+        // Find the most critical scene manager as early as possible.
+        gameManager = FindFirstObjectByType<GameManager>();
+    }
+
+
+
+
     private void Start()
     {
         if (levelEditorManager == null) levelEditorManager = FindFirstObjectByType<LevelEditorManager>();
@@ -71,7 +81,7 @@ public class RiverControls : MonoBehaviour
             return;
         }
 
-        gameManager = FindFirstObjectByType<GameManager>();
+        // gameManager = FindFirstObjectByType<GameManager>();
 
         //CreateArrows();  // commented out for level editor mode
     }
@@ -221,7 +231,7 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
 
 
 
-    // REPLACES the old GenerateArrowsForGrid method entirely.
+
     public void GenerateControlsForGrid()
     {
         // First, clear any old controls
@@ -236,7 +246,7 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
 
 
         // --- NEW: Create the World Space Canvas dynamically ---
-        if (gameManager != null && gameManager.currentMode == OperatingMode.Playing)
+        if (gameManager != null && gameManager.currentMode != OperatingMode.Editor)
         {
             GameObject canvasGO = new GameObject("DropZoneCanvas");
             canvasGO.transform.SetParent(this.transform); // Attach to RiverControls
@@ -295,7 +305,17 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
     
     private void CreateDropZonesForRow(int row)
     {
-        if (dropZoneCanvas == null) return;
+        if (dropZoneCanvas == null)
+        {
+            Debug.LogError("Cannot create drop zones because the DropZoneCanvas is missing!");
+            return;
+        }
+        if (dropZonePrefab == null)
+        {
+            Debug.LogError("Cannot create drop zones because the dropZonePrefab has not been assigned in the Inspector!");
+            return;
+        }
+
 
         Vector3 rowCenter = GetRowCenterPosition(row);
 
@@ -307,10 +327,22 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
         // Left Drop Zone
         GameObject leftZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
         leftZoneGO.name = $"DropZone_Row{row}_L";
-        RectTransform leftRect = leftZoneGO.GetComponent<RectTransform>();
-        leftRect.position = new Vector3(rowCenter.x - gridHalfWidth - offsetFromEdge + 2f, rowCenter.y, rowCenter.z - 0.25f);
-        leftRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
+
         RowDropZone leftZone = leftZoneGO.GetComponent<RowDropZone>();
+        if (leftZone == null)
+        {
+            Debug.LogError($"CRITICAL ERROR: The dropZonePrefab is missing the RowDropZone script! Halting generation.", dropZonePrefab);
+            return; // Stop everything
+        }
+        
+        RectTransform leftRect = leftZoneGO.GetComponent<RectTransform>();
+        if (leftRect != null)
+        {
+            leftRect.position = new Vector3(rowCenter.x - gridHalfWidth - offsetFromEdge + 2f, rowCenter.y, rowCenter.z - 0.25f);
+            leftRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
+        }
+
+
         leftZone.row = row;
         leftZone.fromLeft = true;
         leftZone.riverControls = this;
@@ -320,10 +352,22 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
         // Right Drop Zone
         GameObject rightZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
         rightZoneGO.name = $"DropZone_Row{row}_R";
-        RectTransform rightRect = rightZoneGO.GetComponent<RectTransform>();
-        rightRect.position = new Vector3(rowCenter.x + gridHalfWidth + offsetFromEdge - 2f, rowCenter.y, rowCenter.z - 0.25f);
-        rightRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
+
         RowDropZone rightZone = rightZoneGO.GetComponent<RowDropZone>();
+        if (rightZone == null)
+        {
+            Debug.LogError($"CRITICAL ERROR: The dropZonePrefab is missing the RowDropZone script! Halting generation.", dropZonePrefab);
+            return; // Stop everything
+        }
+
+        RectTransform rightRect = rightZoneGO.GetComponent<RectTransform>();
+        if (rightRect != null)
+        {
+            rightRect.position = new Vector3(rowCenter.x + gridHalfWidth + offsetFromEdge - 2f, rowCenter.y, rowCenter.z - 0.25f);
+            rightRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
+        }
+
+
         rightZone.row = row;
         rightZone.fromLeft = false;
         rightZone.riverControls = this;

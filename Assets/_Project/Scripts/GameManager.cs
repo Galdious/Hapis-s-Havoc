@@ -16,7 +16,7 @@ public enum GameState
     LevelFailed
 }
 
-public enum OperatingMode { Editor, Playing }
+public enum OperatingMode { Editor, Playing, Endless }
 
 public class GameManager : MonoBehaviour
 {
@@ -89,27 +89,54 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator LoadLevelAfterSceneIsReady()
     {
-        // --- THIS IS THE MAGIC LINE ---
-        // Wait for the end of the current frame. By the time the next frame starts,
-        // every other script in the scene will have executed its Awake() and Start() methods.
-        yield return null;
+        yield return null; // Wait for scene to be ready
 
-        // Now that the scene is fully initialized, we can safely issue our commands.
-        Debug.Log("<color=lime>[GameManager]</color> Scene is ready. Proceeding with level load.");
+        Debug.Log("<color=lime>[GameManager]</color> Scene is ready. Checking for load instruction.");
 
-        if (levelEditorManager != null)
+        // --- START OF MODIFIED LOGIC ---
+        if (!string.IsNullOrEmpty(LevelSelectManager.LevelToLoad))
         {
-            // Use our powerful method that handles everything.
-            levelEditorManager.LoadAndPlayLevel(LevelSelectManager.LevelToLoad);
+            string instruction = LevelSelectManager.LevelToLoad;
+            LevelSelectManager.LevelToLoad = null; // Clear instruction immediately
+
+            if (instruction == "ENDLESS_MODE")
+            {
+                // LAUNCH ENDLESS MODE
+                SetOperatingMode(OperatingMode.Endless);
+                if (uiManager != null) uiManager.SwitchToMode(OperatingMode.Endless);
+
+                // Find our new manager and tell it to start
+                EndlessModeManager endlessManager = FindFirstObjectByType<EndlessModeManager>(FindObjectsInactive.Include);
+                if (endlessManager != null)
+                {
+                    endlessManager.StartEndlessMode();
+                }
+                else
+                {
+                    Debug.LogError("[GameManager] Could not find EndlessModeManager in the scene!");
+                }
+            }
+            else
+            {
+                // LAUNCH PUZZLE MODE (the existing logic)
+                if (levelEditorManager != null)
+                {
+                    levelEditorManager.LoadAndPlayLevel(instruction);
+                }
+                else
+                {
+                    Debug.LogError("[GameManager] Cannot load level! The reference to LevelEditorManager is missing.");
+                }
+            }
         }
+        // --- END OF MODIFIED LOGIC ---
         else
         {
-            Debug.LogError("[GameManager] Cannot load level! The reference to LevelEditorManager is missing.");
+            // If we are just opening the editor scene normally, set the default state.
+            currentState = GameState.Loading;
         }
-
-        // IMPORTANT: Clear the instruction so it doesn't try to load again if this scene is reloaded.
-        LevelSelectManager.LevelToLoad = null;
     }
+
 
 
 

@@ -83,7 +83,7 @@ public void GenerateBanksForGrid()
         Debug.Log($"[RiverBankManager] Created banks with {topBankSpawns.Count + bottomBankSpawns.Count} spawn points total");
     }
 
-    void CreateTopBank()
+    public void CreateTopBank()
     {
         // Create parent object for top bank
         topBankParent = new GameObject("TopBank").transform;
@@ -103,7 +103,7 @@ public void GenerateBanksForGrid()
         CreateSpawnPoints(topBankParent, BankSide.Top, topBankSpawns);
     }
 
-    void CreateBottomBank()
+    public void CreateBottomBank()
     {
         // Create parent object for bottom bank
         bottomBankParent = new GameObject("BottomBank").transform;
