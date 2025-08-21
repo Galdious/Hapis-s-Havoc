@@ -181,6 +181,14 @@ public class EndlessModeManager : MonoBehaviour
             // 4. Generation Phase (Still a TODO for the next chunk)
 
             yield return new WaitForSeconds(0.5f); // A brief pause before the next cycle
+
+            // At the very end of the cycle, before it loops back to the Forecast Phase,
+            // re-select the boat to prepare it for the player's next turn.
+            if (playerBoat != null)
+            {
+                playerBoat.SelectBoat();
+            }
+
         }
 
         Debug.Log("<color=red>GAME OVER. Final Score: " + score + "</color>");

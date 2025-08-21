@@ -423,9 +423,13 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     {
         if (boatManager != null) boatManager.ClearSelectedBoat();
         isSelected = false;
-        StopAllCoroutines();
-        StartCoroutine(LiftAndBobBoat(false));
-        ClearHighlights();
+        
+        // We will no longer call StopAllCoroutines() here, as it's too aggressive
+        // and interrupts the tile-lowering animations that are part of ClearHighlights.
+        // StopAllCoroutines(); // <<< REMOVE OR COMMENT OUT THIS LINE
+
+        StartCoroutine(LiftAndBobBoat(false)); // This lowers the boat itself.
+        ClearHighlights(); // This handles lowering the tiles and removing click handlers.
     }
 
     public void CheckForCollectibleOnCurrentTile()
