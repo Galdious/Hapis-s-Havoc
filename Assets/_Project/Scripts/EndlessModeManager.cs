@@ -57,6 +57,11 @@ public class EndlessModeManager : MonoBehaviour
     private List<PlannedPush> plannedPushes = new List<PlannedPush>();
 
 
+    [Header("Camera Control")]
+    [SerializeField] private Transform cameraProxy; // Drag the CameraProxy GameObject here
+    [SerializeField] private float cameraZOffset = -10f; // How far back the camera is from the boat
+    [SerializeField] private float cameraHeight = 15f;   // How high the camera is
+    [SerializeField] private float cameraMoveSpeed = 5f;
 
 
 
@@ -69,6 +74,8 @@ public class EndlessModeManager : MonoBehaviour
     private int highScore = 0;
     private bool isPlayerTurn = false;
     private BoatController playerBoat;
+
+    private Vector3 cameraTargetPosition;
 
 
     // private Dictionary<int, List<TileInstance>> activeRows = new Dictionary<int, List<TileInstance>>();
@@ -83,6 +90,28 @@ public class EndlessModeManager : MonoBehaviour
         // We'll call a public "StartEndlessMode" method from the MainMenu to begin.
         // this.gameObject.SetActive(false);
     }
+
+
+    void LateUpdate()
+    {
+        // This method will run every frame.
+        // It smoothly moves the proxy towards its target position.
+        if (cameraProxy != null)
+        {
+            // Lerp is a great way to get smooth movement.
+            cameraProxy.position = Vector3.Lerp(cameraProxy.position, cameraTargetPosition, Time.deltaTime * cameraMoveSpeed);
+
+            // The VCam is now a simple child of the proxy for positioning
+            endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
+        }
+    }
+
+
+
+
+
+
+
 
     public IEnumerator StartEndlessModeCoroutine()
     {
@@ -163,13 +192,14 @@ public class EndlessModeManager : MonoBehaviour
 
 
 
-        if (endlessVCam != null && playerBoat != null)
+        if (cameraProxy != null && playerBoat != null)
         {
-            endlessVCam.Follow = playerBoat.transform;
-        }
-        else
-        {
-            Debug.LogError("[EndlessModeManager] Endless VCam or Player Boat reference is missing! Camera cannot follow.");
+            Vector3 boatStartPos = playerBoat.transform.position;
+            cameraTargetPosition = new Vector3(0, boatStartPos.y, boatStartPos.z);
+            cameraProxy.position = cameraTargetPosition;
+
+            // Also update the VCam's direct transform to match the proxy instantly
+            endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
         }
 
 
@@ -225,6 +255,14 @@ public class EndlessModeManager : MonoBehaviour
 
             isPlayerTurn = false;
             foreach (var push in plannedPushes) { push.forecastZone?.HideForecast(); }
+
+            if (playerBoat != null)
+            {
+                Vector3 boatCurrentPos = playerBoat.transform.position;
+                // We only care about the boat's Z position (our world's Y)
+                cameraTargetPosition = new Vector3(0, boatCurrentPos.y, boatCurrentPos.z);
+            }
+
             yield return StartCoroutine(EndTurnCleanupCoroutine());
 
 
