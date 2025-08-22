@@ -13,6 +13,7 @@ public class EndlessModeManager : MonoBehaviour
     [SerializeField] private RiverControls riverControls; // To show the forecast
     [SerializeField] private UIManager uiManager;
     [SerializeField] private RiverBankManager riverBankManager;
+    [SerializeField] private Unity.Cinemachine.CinemachineCamera endlessVCam;
 
 
     [Header("Gameplay Settings")]
@@ -159,6 +160,19 @@ public class EndlessModeManager : MonoBehaviour
         riverControls.GenerateControlsForGrid();
 
         playerBoat = boatManager.SpawnPlayerBoat(RiverBankManager.BankSide.Bottom, 0);
+
+
+
+        if (endlessVCam != null && playerBoat != null)
+        {
+            endlessVCam.Follow = playerBoat.transform;
+        }
+        else
+        {
+            Debug.LogError("[EndlessModeManager] Endless VCam or Player Boat reference is missing! Camera cannot follow.");
+        }
+
+
 
         yield return null;
 

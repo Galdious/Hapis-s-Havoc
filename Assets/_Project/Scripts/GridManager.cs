@@ -1663,10 +1663,10 @@ public class GridManager : MonoBehaviour
             newTiles.Add(ti);
 
             // Set the reference in the grid array if possible
-            if (x < this.cols && y < this.rows)
-            {
+            // if (x < this.cols && y < this.rows)
+            // {
                 grid[x, y] = ti;
-            }
+            // }
         }
         return newTiles;
     }
