@@ -340,6 +340,21 @@ public class RiverBankManager : MonoBehaviour
 
 
 
+    public void ClearAllBanks()
+    {
+        if (topBankParent != null)
+        {
+            Destroy(topBankParent.gameObject);
+            topBankParent = null;
+        }
+
+        if (bottomBankParent != null)
+        {
+            Destroy(bottomBankParent.gameObject);
+            bottomBankParent = null;
+        }
+        Debug.Log("[RiverBankManager] All existing banks cleared.");
+    }
 
 
 

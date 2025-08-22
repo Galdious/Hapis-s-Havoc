@@ -1848,6 +1848,9 @@ public class LevelEditorManager : MonoBehaviour
         boatManager.ClearAllBoats();
         if (activeStartMarker != null) Destroy(activeStartMarker);
         if (activeEndMarker != null) Destroy(activeEndMarker);
+
+        if (riverBankManager != null) riverBankManager.ClearAllBanks();
+
         playerHand.Clear();
         ClearPaletteHighlight();
         ClearHandHighlight();
