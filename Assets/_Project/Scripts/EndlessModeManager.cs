@@ -85,6 +85,12 @@ public class EndlessModeManager : MonoBehaviour
 
     public IEnumerator StartEndlessModeCoroutine()
     {
+
+        if (CameraManager.Instance != null)
+        {
+            CameraManager.Instance.SwitchToEndlessView();
+        }
+
         yield return null;
 
         // this.gameObject.SetActive(true);
