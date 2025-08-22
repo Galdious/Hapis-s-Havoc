@@ -94,17 +94,32 @@ public class EndlessModeManager : MonoBehaviour
 
     void LateUpdate()
     {
-        // This method will run every frame.
-        // It smoothly moves the proxy towards its target position.
-        if (cameraProxy != null)
-        {
-            // Lerp is a great way to get smooth movement.
-            cameraProxy.position = Vector3.Lerp(cameraProxy.position, cameraTargetPosition, Time.deltaTime * cameraMoveSpeed);
+        if (cameraProxy == null || playerBoat == null || endlessVCam == null) return;
 
-            // The VCam is now a simple child of the proxy for positioning
-            endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
+        // --- EMERGENCY FOLLOW LOGIC ---
+        if (isPlayerTurn) // Only check this during the player's actual turn
+        {
+            // Convert the boat's world position to a screen position (0-1 range)
+            Vector3 boatViewportPos = Camera.main.WorldToViewportPoint(playerBoat.transform.position);
+
+            // Define our "emergency" threshold near the top of the screen
+            float topThreshold = 0.9f;
+
+            // If the boat has moved above the threshold...
+            if (boatViewportPos.y > topThreshold)
+            {
+                // ...immediately update the camera's target to the boat's current Z position.
+                cameraTargetPosition = new Vector3(0, 0, playerBoat.transform.position.z);
+            }
         }
+
+        // --- REGULAR SMOOTH MOVEMENT LOGIC (Unchanged) ---
+        // This part always runs, smoothly moving the proxy towards its current target,
+        // whether that target was set at the end of the turn or during an emergency.
+        cameraProxy.position = Vector3.Lerp(cameraProxy.position, cameraTargetPosition, Time.deltaTime * cameraMoveSpeed);
+        endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
     }
+
 
 
 
@@ -192,15 +207,24 @@ public class EndlessModeManager : MonoBehaviour
 
 
 
-        if (cameraProxy != null && playerBoat != null)
+        if (cameraProxy != null && playerBoat != null && endlessVCam != null)
         {
             Vector3 boatStartPos = playerBoat.transform.position;
-            cameraTargetPosition = new Vector3(0, boatStartPos.y, boatStartPos.z);
-            cameraProxy.position = cameraTargetPosition;
 
-            // Also update the VCam's direct transform to match the proxy instantly
+            // 1. Calculate the final, correct position for the camera proxy.
+            // We only care about the boat's vertical (Z) position.
+            Vector3 finalProxyPos = new Vector3(0, 0, boatStartPos.z);
+
+            // 2. Set BOTH the current position AND the target position to this final spot.
+            // This prevents any "lerping" in LateUpdate from a different starting point.
+            cameraProxy.position = finalProxyPos;
+            cameraTargetPosition = finalProxyPos;
+
+            // 3. INSTANTLY teleport the Cinemachine camera itself to its final calculated position.
+            // This happens in a single frame before the player sees anything.
             endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
         }
+
 
 
 
