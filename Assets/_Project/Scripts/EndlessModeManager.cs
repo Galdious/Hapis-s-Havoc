@@ -84,7 +84,7 @@ public class EndlessModeManager : MonoBehaviour
     private int highScore = 0;
     private bool isPlayerTurn = false;
     private BoatController playerBoat;
-    
+
     private CinemachineBlendDefinition originalCameraBlend;
 
 
@@ -107,7 +107,7 @@ public class EndlessModeManager : MonoBehaviour
 
     void LateUpdate()
     {
- 
+
 
         if (cameraProxy == null || playerBoat == null || endlessVCam == null)
         {
@@ -145,7 +145,7 @@ public class EndlessModeManager : MonoBehaviour
 
     public IEnumerator StartEndlessModeCoroutine()
     {
-CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
+        CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
         if (brain != null)
         {
             // 1. Store the brain's current default blend setting.
@@ -254,7 +254,7 @@ CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
             // This happens in a single frame before the player sees anything.
             endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
 
-            
+
 
         }
 
@@ -273,13 +273,19 @@ CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
         {
             brain.DefaultBlend = originalCameraBlend;
         }
-    
+
     }
 
     private IEnumerator EndlessGameLoop()
     {
-        while (currentStamina > 0)
+        while (true)
         {
+            if (currentStamina <= 0)
+            {
+                EndGame();
+                yield break; // Exit the coroutine completely.
+            }
+
             // 1. River Forecast Phase
             Debug.Log("Endless Cycle: Forecast Phase");
             plannedPushes.Clear();
@@ -394,6 +400,12 @@ CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
         UpdateAPUI();
         UpdateStaminaUI();
         UpdateScore();
+
+        if (currentStamina <= 0)
+        {
+            EndGame();
+            return; // Stop further turn logic.
+        }
 
 
         StartCoroutine(FinalizeBoatStateAfterMove());
@@ -769,6 +781,31 @@ CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
         UpdateStaminaUI();
     }
 
+
+    private void EndGame()
+    {
+        // Make sure we only trigger the end game sequence once.
+        if (!isPlayerTurn && !enabled) return; // A simple check to see if EndGame has already run.
+
+        Debug.Log($"<color=red>--- GAME OVER ---</color> Final Score: {score}. High Score: {highScore}.");
+
+        // Stop the main game loop and disable this manager.
+        StopAllCoroutines();
+        isPlayerTurn = false;
+        enabled = false; // Disables this script, preventing further updates.
+
+        // Make sure the boat is deselected and not interactive.
+        if (playerBoat != null && playerBoat.isSelected)
+        {
+            playerBoat.DeselectBoat();
+        }
+
+        // Tell the UIManager to show the final score screen.
+        if (uiManager != null)
+        {
+            uiManager.ShowEndlessScoreScreen(score, highScore);
+        }
+    }
 
 
 }

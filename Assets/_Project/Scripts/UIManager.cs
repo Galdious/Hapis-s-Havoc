@@ -28,6 +28,8 @@ public class UIManager : MonoBehaviour
 
     [Tooltip("Drag the 'LevelFailedPanel' GameObject here.")]
     [SerializeField] private GameObject levelFailedPanel;
+    [SerializeField] private GameObject endlessScorePanel;
+
 
     [Tooltip("Drag the parent GameObject containing all editor UI (tool buttons, palettes, etc.).")]
     [SerializeField] private GameObject editorUI_Container;
@@ -66,6 +68,11 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TMP_Text editor_currentLevelText;
     [SerializeField] private TMP_Text player_currentLevelText;
 
+    [Header("Endless Score Screen")]
+    [SerializeField] private TMP_Text finalScoreText;
+    [SerializeField] private TMP_Text finalHighScoreText;
+    [SerializeField] private Button endlessRetryButton;
+    [SerializeField] private Button endlessMainMenuButton;
 
 
 
@@ -101,6 +108,8 @@ public class UIManager : MonoBehaviour
         if (editor_restartButton != null) editor_restartButton.onClick.AddListener(HandleRestart);
         if (player_restartButton != null) player_restartButton.onClick.AddListener(HandleRestart);
 
+        if (endlessRetryButton != null) endlessRetryButton.onClick.AddListener(OnEndlessRetryClicked);
+        if (endlessMainMenuButton != null) endlessMainMenuButton.onClick.AddListener(OnEndlessMainMenuClicked);
 
         // Ensure all panels are hidden at the start of the game
         if (levelCompletePanel != null) levelCompletePanel.SetActive(false);
@@ -198,7 +207,7 @@ public class UIManager : MonoBehaviour
         {
             GameManager.Instance.LoadNextLevel();
         }
-    
+
     }
 
     public void HandleReturnToMenu()
@@ -296,6 +305,51 @@ public class UIManager : MonoBehaviour
         Debug.Log("[UIManager] Returning to Level Select scene.");
         SceneManager.LoadScene("LevelSelect");
     }
+
+    public void ShowEndlessScoreScreen(int score, int highScore)
+    {
+        if (endlessScorePanel == null) return;
+
+        if (endlessUI_Container != null) endlessUI_Container.SetActive(false);
+        if (playerUI_Container != null) playerUI_Container.SetActive(false);
+        if (editorUI_Container != null) editorUI_Container.SetActive(false);
+
+        // Also, ensure the other result panels are hidden just in case.
+        if (levelFailedPanel != null) levelFailedPanel.SetActive(false);
+        if (levelCompletePanel != null) levelCompletePanel.SetActive(false);
+
+        // Now, show the specific score panel.
+        if (endlessScorePanel != null)
+        {
+            endlessScorePanel.SetActive(true);
+        }
+
+
+
+        // Update the text fields with the final scores
+        if (finalScoreText != null) finalScoreText.text = $"You reached Row {score}";
+        if (finalHighScoreText != null) finalHighScoreText.text = $"High Score: {highScore}";
+    }
+
+    private void OnEndlessRetryClicked()
+    {
+        // To retry, we simply reload the scene with the special "ENDLESS_MODE" instruction.
+        LevelSelectManager.LevelToLoad = "ENDLESS_MODE";
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    private void OnEndlessMainMenuClicked()
+    {
+        // Load the Main Menu scene. Make sure your scene is named "MainMenu".
+        SceneManager.LoadScene("MainMenu");
+    }
+    
+
+
+
+
+
+
 
 
 
