@@ -506,9 +506,26 @@ CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
             Debug.LogError("TileLibrary is not assigned or is empty in EndlessModeManager!");
             return null;
         }
-        int randomIndex = Random.Range(0, tileLibrary.tileTypes.Count);
-        return tileLibrary.tileTypes[randomIndex];
+
+        // --- NEW FILTERING LOGIC ---
+        // 1. Create a new, temporary list of all tiles that are allowed in the endless bag.
+        //    We use LINQ's 'Where' clause to filter the main list.
+        List<TileType> availableTiles = tileLibrary.tileTypes.Where(tile => tile.quantity > 0).ToList();
+
+        // 2. Check if any tiles passed the filter.
+        if (availableTiles.Count == 0)
+        {
+            Debug.LogWarning("No available tiles found in TileLibrary with count > 0. The bag is empty!");
+            // As a fallback, we could return a default tile, but for now, returning null is safer.
+            return null;
+        }
+
+        // 3. Pick a random tile from our new, filtered list.
+        int randomIndex = Random.Range(0, availableTiles.Count);
+        return availableTiles[randomIndex];
+        // --- END OF NEW LOGIC ---
     }
+
 
     // A helper method to create a single planned push and add it to our list.
     private void PlanSinglePush(int row, bool isObstacle)
