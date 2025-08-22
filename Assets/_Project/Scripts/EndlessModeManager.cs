@@ -43,6 +43,15 @@ public class EndlessModeManager : MonoBehaviour
     [Tooltip("The chance (0-1) that a red obstacle tile will also be a hard blocker.")]
     [SerializeField][Range(0f, 1f)] private float blockerChance = 0.1f;
 
+    [Header("Collectible Settings")]
+    [Tooltip("The chance (0-1) that an Extra Move collectible will spawn on a new blue tile.")]
+    [SerializeField][Range(0f, 1f)] private float extraMoveSpawnChance = 0.1f; // 10% chance
+    [Tooltip("The prefab for the Extra Move collectible object.")]
+    [SerializeField] private GameObject extraMoveCollectiblePrefab;
+
+
+
+
     [SerializeField] private TileLibrary tileLibrary;
 
 
@@ -608,7 +617,7 @@ CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
         for (int y = highestGeneratedRow + 1; y <= targetTopRow; y++)
         {
 
-            gridManager.CreateNewEndlessRow(y, gridWidth, this.obstacleChance, this.blockerChance);
+            gridManager.CreateNewEndlessRow(y, gridWidth, this.obstacleChance, this.blockerChance, this.extraMoveSpawnChance, this.extraMoveCollectiblePrefab);
 
             // Update our boundary tracker.
             highestGeneratedRow = y;

@@ -1630,7 +1630,8 @@ public class GridManager : MonoBehaviour
 
 
 
-    public List<TileInstance> CreateNewEndlessRow(int y, int width, float obstacleChance, float blockerChance)
+    public List<TileInstance> CreateNewEndlessRow(int y, int width, float obstacleChance, float blockerChance, float collectibleChance, GameObject collectiblePrefab)
+
     {
         // This method assumes the grid array is large enough. We will resize it later if needed.
         // For now, let's ensure it doesn't crash if the array is too small.
@@ -1678,10 +1679,17 @@ public class GridManager : MonoBehaviour
             // Add to our list to return
             newTiles.Add(ti);
 
+            if (!isFlipped && collectiblePrefab != null && Random.value < collectibleChance)
+            {
+                // It's a blue tile and our dice roll succeeded. Spawn the collectible.
+                Vector3 spawnPos = ti.transform.position + Vector3.up * 0.25f; // Place it slightly above the tile
+                Instantiate(collectiblePrefab, spawnPos, Quaternion.identity, ti.transform);
+            }
+
             // Set the reference in the grid array if possible
             // if (x < this.cols && y < this.rows)
             // {
-                grid[x, y] = ti;
+            grid[x, y] = ti;
             // }
         }
         return newTiles;
