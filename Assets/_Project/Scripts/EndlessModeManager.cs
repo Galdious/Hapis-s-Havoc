@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using System.Linq;
+using Unity.Cinemachine;
 
 public class EndlessModeManager : MonoBehaviour
 {
@@ -74,7 +75,8 @@ public class EndlessModeManager : MonoBehaviour
     private int highScore = 0;
     private bool isPlayerTurn = false;
     private BoatController playerBoat;
-    private bool isCameraInitialized = false;
+    
+    private CinemachineBlendDefinition originalCameraBlend;
 
 
     private Vector3 cameraTargetPosition;
@@ -96,7 +98,7 @@ public class EndlessModeManager : MonoBehaviour
 
     void LateUpdate()
     {
-        if (!isCameraInitialized) return; // If we haven't set the initial position, do nothing.
+ 
 
         if (cameraProxy == null || playerBoat == null || endlessVCam == null)
         {
@@ -134,6 +136,21 @@ public class EndlessModeManager : MonoBehaviour
 
     public IEnumerator StartEndlessModeCoroutine()
     {
+CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
+        if (brain != null)
+        {
+            // 1. Store the brain's current default blend setting.
+            originalCameraBlend = brain.DefaultBlend;
+
+            // 2. Create a new "Cut" blend using the correct syntax.
+            //    - We refer to the enum via the type: `CinemachineBlendDefinition.Styles`
+            //    - We use the correct enum name: `Styles.Cut` (plural)
+            var cutBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.Cut, 0f);
+
+            // 3. Force the brain to use our "Cut" blend for the next transition.
+            brain.DefaultBlend = cutBlend;
+        }
+
 
         if (CameraManager.Instance != null)
         {
@@ -228,7 +245,7 @@ public class EndlessModeManager : MonoBehaviour
             // This happens in a single frame before the player sees anything.
             endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
 
-            isCameraInitialized = true; // Unlock LateUpdate now that the camera is in place.
+            
 
         }
 
@@ -241,6 +258,13 @@ public class EndlessModeManager : MonoBehaviour
         {
             playerBoat.SelectBoat();
         }
+
+        CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
+        if (brain != null)
+        {
+            brain.DefaultBlend = originalCameraBlend;
+        }
+    
     }
 
     private IEnumerator EndlessGameLoop()
