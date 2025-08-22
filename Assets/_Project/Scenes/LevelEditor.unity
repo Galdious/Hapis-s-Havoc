@@ -15804,10 +15804,12 @@ MonoBehaviour:
   riverControls: {fileID: 1424900279}
   uiManager: {fileID: 25834545}
   riverBankManager: {fileID: 1495770930}
-  startStamina: 5
+  startStamina: 24
   apPerCycle: 4
   gridWidth: 3
   initialGridHeight: 8
+  leadingBuffer: 10
+  trailingBuffer: 5
   scoreText: {fileID: 1816869059}
   staminaText: {fileID: 1200013266}
   apText: {fileID: 1508298149}

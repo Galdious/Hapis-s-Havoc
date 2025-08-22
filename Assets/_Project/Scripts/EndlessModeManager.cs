@@ -21,6 +21,13 @@ public class EndlessModeManager : MonoBehaviour
     [SerializeField] private int gridWidth = 3;
     [SerializeField] private int initialGridHeight = 8;
 
+    [Header("World Generation")]
+    [Tooltip("How many rows to generate ahead of the boat's current position.")]
+    [SerializeField] private int leadingBuffer = 10;
+    [Tooltip("How many rows to keep behind the boat before destroying them.")]
+    [SerializeField] private int trailingBuffer = 5;
+
+
     [Header("UI References")]
     [SerializeField] private TMP_Text scoreText;
     [SerializeField] private TMP_Text staminaText;
@@ -30,7 +37,7 @@ public class EndlessModeManager : MonoBehaviour
 
     [Header("River Settings")]
     [Tooltip("The chance (0-1) that a newly pushed tile will be a red obstacle.")]
-    [SerializeField] [Range(0f, 1f)] private float obstacleChance = 0.25f;
+    [SerializeField][Range(0f, 1f)] private float obstacleChance = 0.25f;
     [Tooltip("The chance (0-1) that a red obstacle tile will also be a hard blocker.")]
     [SerializeField][Range(0f, 1f)] private float blockerChance = 0.1f;
 
@@ -62,6 +69,10 @@ public class EndlessModeManager : MonoBehaviour
     private bool isPlayerTurn = false;
     private BoatController playerBoat;
 
+
+    // private Dictionary<int, List<TileInstance>> activeRows = new Dictionary<int, List<TileInstance>>();
+    private int highestGeneratedRow = -1;
+    private int lowestGeneratedRow = 0;
 
     private const string highScoreKey = "EndlessHighScore";
 
@@ -100,7 +111,7 @@ public class EndlessModeManager : MonoBehaviour
 
     private IEnumerator SetupBoardCoroutine()
     {
-        // --- 1. Create the blueprint for our initial grid with random obstacles ---
+        // --- 1. Use a temporary blueprint to build the initial grid in one go ---
         List<TileSaveData> initialGridBlueprint = new List<TileSaveData>();
         for (int y = 0; y < initialGridHeight; y++)
         {
@@ -124,23 +135,27 @@ public class EndlessModeManager : MonoBehaviour
             }
         }
 
-        // --- 2. Build the world from the blueprint and set up all managers ---
+        // GridManager creates the visual world and sets up its internal grid array
         gridManager.CreateGridFromEditor(gridWidth, initialGridHeight, initialGridBlueprint);
-        
+
+
+
+        // --- 3. Set the initial world boundaries ---
+        lowestGeneratedRow = 0;
+        highestGeneratedRow = initialGridHeight - 1;
+
         if (riverBankManager != null)
         {
             riverBankManager.CreateBottomBank();
         }
-        
+
         riverControls.InitializeLockStates(initialGridHeight);
-        riverControls.GenerateControlsForGrid(); 
-        
+        riverControls.GenerateControlsForGrid();
+
         playerBoat = boatManager.SpawnPlayerBoat(RiverBankManager.BankSide.Bottom, 0);
 
-        // --- 3. Wait for one frame to ensure all initialization is complete ---
-        yield return null; 
+        yield return null;
 
-        // --- 4. Now it's safe to select the boat ---
         if (playerBoat != null)
         {
             playerBoat.SelectBoat();
@@ -156,8 +171,12 @@ public class EndlessModeManager : MonoBehaviour
             plannedPushes.Clear();
 
             // Plan 3 pushes on unique random rows: 1 red, 2 blue
+            // Get a list of all rows that CURRENTLY exist in the game world.
             List<int> availableRows = new List<int>();
-            for (int i = 0; i < initialGridHeight; i++) { availableRows.Add(i); }
+            for (int i = lowestGeneratedRow; i <= highestGeneratedRow; i++)
+            {
+                availableRows.Add(i);
+            }
 
             // Plan the red push
             int redRowIndex = Random.Range(0, availableRows.Count);
@@ -200,6 +219,11 @@ public class EndlessModeManager : MonoBehaviour
                 // We yield here to wait for each push to complete sequentially
                 yield return StartCoroutine(gridManager.PushRowCoroutine(push.row, push.fromLeft, tempHandTile));
             }
+
+            Debug.Log("Endless Cycle: Cleaning up old rows.");
+            CleanupOldRows();
+
+
 
             // 4. Generation Phase (Still a TODO for the next chunk)
 
@@ -314,6 +338,9 @@ public class EndlessModeManager : MonoBehaviour
         // new 'currentTile' and 'currentSnapPoint' state.
         yield return new WaitForEndOfFrame();
 
+        // yield return StartCoroutine(UpdateWorldBounds());
+        yield return StartCoroutine(GenerateNewRowsIfNeeded());
+
         if (playerBoat != null)
         {
             // 1. Tell the boat that its movement action is officially over.
@@ -374,7 +401,7 @@ public class EndlessModeManager : MonoBehaviour
     private void PlanSinglePush(int row, bool isObstacle)
     {
         bool fromLeft = Random.value > 0.5f;
-        
+
         var push = new PlannedPush
         {
             row = row,
@@ -382,14 +409,14 @@ public class EndlessModeManager : MonoBehaviour
             tileType = GetRandomTileFromLibrary(),
             isObstacle = isObstacle,
             // We will get the forecastZone using a new helper method in RiverControls
-            forecastZone = riverControls.GetDropZone(row, fromLeft) 
+            forecastZone = riverControls.GetDropZone(row, fromLeft)
         };
-        
+
         if (isObstacle)
         {
             push.isBlocker = Random.value < blockerChance;
         }
-        
+
         plannedPushes.Add(push);
     }
 
@@ -401,7 +428,7 @@ public class EndlessModeManager : MonoBehaviour
         {
             // ...tell it to deselect. This will play the lowering animation.
             playerBoat.DeselectBoat();
-            
+
             // Wait for the boat's deselection animation to finish.
             // The LiftAndBobBoat coroutine has a duration of 0.3f.
             // We'll wait a little longer to be safe.
@@ -413,6 +440,179 @@ public class EndlessModeManager : MonoBehaviour
             yield return new WaitForSeconds(0.2f);
         }
     }
+
+
+
+
+
+
+    private IEnumerator UpdateWorldBounds()
+    {
+        if (playerBoat == null || playerBoat.GetCurrentTile() == null)
+        {
+            // If we don't know where the boat is, we can't update the world.
+            yield break;
+        }
+
+        // 1. Get the boat's current position
+        var boatCoords = gridManager.GetTileCoordinates(playerBoat.GetCurrentTile());
+        int boatY = boatCoords.y;
+
+        // 2. Calculate the desired top and bottom of our world "window"
+        int highestRequiredRow = boatY + leadingBuffer;
+        int lowestAllowedRow = boatY - trailingBuffer;
+
+        // 3. Call the helper methods to do the work
+        GenerateMissingRows(highestRequiredRow);
+        DestroyOldRows(lowestAllowedRow);
+
+        // We yield for one frame to allow Unity to process any object creation/destruction
+        yield return null;
+    }
+
+    private void GenerateMissingRows(int targetTopRow)
+    {
+        gridManager.ExpandGridForEndless(targetTopRow + 1); // +1 because row count is 1-based
+
+        // Loop from the row just above our current highest, up to the target.
+        for (int y = highestGeneratedRow + 1; y <= targetTopRow; y++)
+        {
+           
+            gridManager.CreateNewEndlessRow(y, gridWidth, this.obstacleChance, this.blockerChance);         
+
+            // Update our boundary tracker.
+            highestGeneratedRow = y;
+
+            riverControls.CreateDropZonesForRow(y); // We will make CreateDropZonesForRow public.
+
+
+            // We also need to tell the RiverControls to expand its lock states
+            riverControls.InitializeLockStates(highestGeneratedRow + 1);
+        }
+    }
+
+    private void DestroyOldRows(int targetBottomRow)
+    {
+        // Loop through all row indexes from the current bottom of the world up to the new target.
+        for (int y = lowestGeneratedRow; y < targetBottomRow; y++)
+        {
+            // Ask the GridManager for the CURRENT, most up-to-date list of tiles in this row.
+            List<TileInstance> tilesToDestroy = gridManager.GetTilesInRow(y);
+
+            // If there are tiles to destroy, proceed.
+            if (tilesToDestroy.Count > 0)
+            {
+                Debug.Log($"<color=red>Destroying {tilesToDestroy.Count} tiles in row {y}</color>");
+                gridManager.DestroyEndlessRow(y, tilesToDestroy);
+                riverControls.DestroyControlsForRow(y);
+            }
+        }
+
+        // After the loop, update our boundary.
+        lowestGeneratedRow = targetBottomRow;
+
+        if (riverBankManager.GetBankGameObject(RiverBankManager.BankSide.Bottom) != null && lowestGeneratedRow > 0)
+        {
+            riverBankManager.DestroyBottomBank();
+        }
+    }
+
+
+
+
+    public IEnumerator HandleEndlessPush(RowDropZone usedZone, TileType tileType, GameObject droppedTileGO)
+    {
+        // --- 1. PREPARE FOR THE PUSH & CLEANUP ---
+
+        // Get the row and direction from the used zone.
+        bool fromLeft = usedZone.fromLeft;
+        int row = usedZone.row;
+
+        // Immediately find and destroy the OTHER drop zone in the same row to prevent double-clicks.
+        RowDropZone otherZone = riverControls.GetDropZone(row, !fromLeft);
+        if (otherZone != null)
+        {
+            Destroy(otherZone.gameObject);
+        }
+
+        // The tile has been dropped, so it's no longer a "playable" hand tile. Remove the script.
+        if (droppedTileGO.GetComponent<PlayableHandTile>() != null)
+        {
+            Destroy(droppedTileGO.GetComponent<PlayableHandTile>());
+        }
+
+        // --- 2. ANIMATE THE TILE FROM DROP POINT TO PUSH START POINT ---
+
+        // This creates a smooth handoff from the player's drag to the system-controlled push.
+        Vector3 dropPosition = droppedTileGO.transform.position;
+        Vector3 pushStartPosition = gridManager.GetSpawnPosition(row, fromLeft);
+        float handoffDuration = 0.2f;
+        float elapsed = 0f;
+        while (elapsed < handoffDuration)
+        {
+            elapsed += Time.deltaTime;
+            droppedTileGO.transform.position = Vector3.Lerp(dropPosition, pushStartPosition, elapsed / handoffDuration);
+            yield return null;
+        }
+        droppedTileGO.transform.position = pushStartPosition;
+        droppedTileGO.transform.SetParent(gridManager.gridParent, true); // Parent it to the grid
+
+        // --- 3. EXECUTE THE PUSH USING GRIDMANAGER ---
+
+        // The GridManager needs a PuzzleHandTile object to know the tile's properties.
+        // Since this is endless mode, the tile is "consumed" and doesn't come from a limited hand.
+        PuzzleHandTile tileToPush = new PuzzleHandTile(tileType)
+        {
+            rotationY = droppedTileGO.transform.eulerAngles.y,
+            isFlipped = (Mathf.RoundToInt(droppedTileGO.transform.eulerAngles.x) == 180)
+        };
+
+        // We call the third overload of PushRowCoroutine, which accepts a pre-made GameObject.
+        yield return StartCoroutine(gridManager.PushRowCoroutine(row, fromLeft, tileToPush, droppedTileGO));
+
+        // --- 4. FINAL CLEANUP ---
+
+        // The push animation is complete. Now destroy the drop zone that was used to trigger it.
+        if (usedZone != null)
+        {
+            Destroy(usedZone.gameObject);
+        }
+
+        // Now that the push is fully complete, spend the action point and update the world state.
+        SpendActionPoint();
+    }
+
+
+    private IEnumerator GenerateNewRowsIfNeeded()
+    {
+        if (playerBoat == null || playerBoat.GetCurrentTile() == null) yield break;
+
+        var boatCoords = gridManager.GetTileCoordinates(playerBoat.GetCurrentTile());
+        int boatY = boatCoords.y;
+        int highestRequiredRow = boatY + leadingBuffer;
+
+        // This only calls the generation part, not the destruction part.
+        if (highestRequiredRow > highestGeneratedRow)
+        {
+            GenerateMissingRows(highestRequiredRow);
+        }
+        yield return null;
+    }
+
+
+    private void CleanupOldRows()
+    {
+        if (playerBoat == null || playerBoat.GetCurrentTile() == null) return;
+
+        var boatCoords = gridManager.GetTileCoordinates(playerBoat.GetCurrentTile());
+        int boatY = boatCoords.y;
+        int lowestAllowedRow = boatY - trailingBuffer;
+
+        // This calls our existing, robust destruction logic.
+        DestroyOldRows(lowestAllowedRow);
+    }
+
+
 
 
 }

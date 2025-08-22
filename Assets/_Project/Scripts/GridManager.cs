@@ -227,7 +227,7 @@ public class GridManager : MonoBehaviour
                 TileSaveData specificTileData = null;
                 // Try to get specific data only if the map exists.
                 tileDataMap?.TryGetValue((x, y), out specificTileData);
-                
+
                 // This single call now handles both random and blueprint creation.
                 runningAnimations.Add(CreateTileAtGridPosition(x, y, specificTileData));
             }
@@ -258,27 +258,27 @@ public class GridManager : MonoBehaviour
     private Coroutine CreateTileAtGridPosition(int x, int y, TileSaveData data = null)
 
     {
-            TileType template;
-            Quaternion rotation;
-            bool isFlipped;
-            bool isHardBlocker;
+        TileType template;
+        Quaternion rotation;
+        bool isFlipped;
+        bool isHardBlocker;
 
-            // IF we have data (loading a level), use it.
-            if (data != null)
-            {
-                template = FindTileTypeByName(data.tileTypeName);
-                rotation = Quaternion.Euler(data.isFlipped ? 180f : 0f, data.rotationY, 0); // Use saved flip (X) and rotation (Y)
-                isFlipped = data.isFlipped;
-                isHardBlocker = data.isHardBlocker;
-            }
-            // ELSE (creating a new random grid), use random values.
-            else
-            {
-                template = bagManager.DrawRandomTile();
-                rotation = (template != null && template.canRotate180 && Random.value > 0.5f) ? Quaternion.Euler(0, 180f, 0) : Quaternion.identity;
-                isFlipped = false; // Default to not flipped for new grids
-                isHardBlocker = false;
-            }
+        // IF we have data (loading a level), use it.
+        if (data != null)
+        {
+            template = FindTileTypeByName(data.tileTypeName);
+            rotation = Quaternion.Euler(data.isFlipped ? 180f : 0f, data.rotationY, 0); // Use saved flip (X) and rotation (Y)
+            isFlipped = data.isFlipped;
+            isHardBlocker = data.isHardBlocker;
+        }
+        // ELSE (creating a new random grid), use random values.
+        else
+        {
+            template = bagManager.DrawRandomTile();
+            rotation = (template != null && template.canRotate180 && Random.value > 0.5f) ? Quaternion.Euler(0, 180f, 0) : Quaternion.identity;
+            isFlipped = false; // Default to not flipped for new grids
+            isHardBlocker = false;
+        }
 
         if (template == null) // Failsafe for both cases
         {
@@ -1537,16 +1537,16 @@ public class GridManager : MonoBehaviour
             return grid[x, y];
         return null;
     }
-    
-private TileType FindTileTypeByName(string name)
-{
-    if (bagManager.tileLibrary == null) return null;
-    foreach (var type in bagManager.tileLibrary.tileTypes)
+
+    private TileType FindTileTypeByName(string name)
     {
-        if (type.displayName == name) return type;
+        if (bagManager.tileLibrary == null) return null;
+        foreach (var type in bagManager.tileLibrary.tileTypes)
+        {
+            if (type.displayName == name) return type;
+        }
+        return null;
     }
-    return null;
-}
 
     /// Sets the layer for all tiles currently on the grid.
     /// This is used to make them temporarily invisible to UI raycasts during a drag.
@@ -1612,6 +1612,134 @@ private TileType FindTileTypeByName(string name)
         }
     }
 
+
+
+    public List<TileInstance> CreateNewEndlessRow(int y, int width, float obstacleChance, float blockerChance)
+    {
+        // This method assumes the grid array is large enough. We will resize it later if needed.
+        // For now, let's ensure it doesn't crash if the array is too small.
+        if (y >= this.rows)
+        {
+            // In a future step, we would resize the 'grid' array here.
+            // For now, we'll log a warning and continue, as the tiles will still be created visually.
+            Debug.LogWarning($"[GridManager] Attempting to create row {y}, which is outside the initial grid bounds ({this.rows}). Pathfinding might be affected.");
+        }
+
+        List<TileInstance> newTiles = new List<TileInstance>();
+        for (int x = 0; x < width; x++)
+        {
+            // We can reuse the CreateTileAtGridPosition logic, but we need to modify it slightly
+            // to return the created TileInstance. For simplicity, let's duplicate the core logic here.
+
+            TileType template = bagManager.DrawRandomTile();
+            if (template == null) continue;
+
+            float yRotation = (template.canRotate180 && Random.value > 0.5f) ? 180f : 0f;
+            bool isFlipped = Random.value < obstacleChance; // Use the manager's variable
+            bool isHardBlocker = isFlipped && (Random.value < blockerChance); // Use the manager's variable
+
+            // Create the final rotation including the potential X-axis flip
+            Quaternion finalRotation = Quaternion.Euler(isFlipped ? 180f : 0f, yRotation, 0f);
+
+            Vector3 pos = GetWorldPosition(x, y);
+            GameObject go = Instantiate(tilePrefab, pos, finalRotation, gridParent);
+
+
+            go.name = $"Tile ({x},{y})";
+
+            Rigidbody rb = go.GetComponent<Rigidbody>();
+            if (rb == null) rb = go.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+
+            TileInstance ti = go.GetComponent<TileInstance>();
+            // 1. First, set the data state.
+            ti.IsHardBlocker = isHardBlocker;
+            // 2. NOW, initialize. This method will read the IsReversed state and correctly set up paths.
+            InitializeTile(ti, template, isFlipped);
+            // 3. Finally, update visuals based on the final state.
+            UpdateBlockerVisualForTile(ti);
+
+            // Add to our list to return
+            newTiles.Add(ti);
+
+            // Set the reference in the grid array if possible
+            if (x < this.cols && y < this.rows)
+            {
+                grid[x, y] = ti;
+            }
+        }
+        return newTiles;
+    }
+
+    /// Destroys all tile GameObjects in a given row for Endless Mode.
+    public void DestroyEndlessRow(int y, List<TileInstance> tilesToDestroy)
+    {
+        // If the list is null or empty, there's nothing to do.
+        if (tilesToDestroy == null) return;
+
+        foreach (var tile in tilesToDestroy)
+        {
+            if (tile != null)
+            {
+                // Clear its reference in the main grid array if it exists
+                for (int x = 0; x < this.cols; x++)
+                {
+                    if (y < this.rows && grid[x, y] == tile)
+                    {
+                        grid[x, y] = null;
+                        break; // Found it, move to the next tile
+                    }
+                }
+                // Now, safely destroy the GameObject.
+                Destroy(tile.gameObject);
+            }
+        }
+    }
+
+
+    public void ExpandGridForEndless(int newRowCount)
+    {
+        // If the grid is already big enough, do nothing.
+        if (newRowCount <= this.rows) return;
+
+        Debug.Log($"<color=cyan>[GridManager]</color> Expanding grid from {this.rows} to {newRowCount} rows.");
+
+        // Create a new, larger 2D array.
+        TileInstance[,] newGrid = new TileInstance[this.cols, newRowCount];
+
+        // Copy the contents of the old grid into the new one.
+        for (int y = 0; y < this.rows; y++)
+        {
+            for (int x = 0; x < this.cols; x++)
+            {
+                newGrid[x, y] = this.grid[x, y];
+            }
+        }
+
+        // Replace the old grid with the new, larger one.
+        this.grid = newGrid;
+        this.rows = newRowCount; // IMPORTANT: Update the row count!
+    }
+
+
+    public List<TileInstance> GetTilesInRow(int y)
+    {
+        List<TileInstance> tiles = new List<TileInstance>();
+        // Ensure the requested row is within the bounds of our grid array.
+        if (y < 0 || y >= this.rows)
+        {
+            return tiles; // Return an empty list if the row is invalid.
+        }
+
+        for (int x = 0; x < this.cols; x++)
+        {
+            if (grid[x, y] != null)
+            {
+                tiles.Add(grid[x, y]);
+            }
+        }
+        return tiles;
+    }
 
 
 }

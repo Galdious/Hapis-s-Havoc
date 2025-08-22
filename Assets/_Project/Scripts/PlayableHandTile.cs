@@ -18,9 +18,15 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     [HideInInspector] public TileType myTileType;
     [HideInInspector] public UIManager uiManager;
     [HideInInspector] public LevelEditorManager editorManager; // To call the push coroutine
+
+    
+    
+
     [HideInInspector] public int handCount = 0; 
 
     [HideInInspector] public HandTileAnimationSettings animationSettings; // It will receive the settings from the manager.
+    [HideInInspector] public EndlessModeManager endlessManager;
+    [HideInInspector] public OperatingMode currentMode;
 
     
     private bool isRotating = false; // Prevents spam-clicking
@@ -56,6 +62,11 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
 
     void Awake()
     {
+        if (endlessManager == null)
+        {
+            endlessManager = FindFirstObjectByType<EndlessModeManager>();
+        }
+
         canvasGroup = GetComponent<CanvasGroup>();
         draggableLayer = LayerMask.NameToLayer("DraggableTile"); 
     }
@@ -171,33 +182,63 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
     public void OnEndDrag(PointerEventData eventData)
     {
         SetLayerRecursively(this.gameObject, originalLayer);
-        editorManager.gridManager.SetGridTilesLayer("Default"); // Tell GridManager to make grid tiles interactable again
+
+        // CHANGE: Instead of always assuming editorManager exists, we check the mode.
+        // We get the GridManager reference from the currently active manager.
+        GridManager gridManager = null;
+        if (currentMode == OperatingMode.Endless && endlessManager != null)
+        {
+            gridManager = endlessManager.GetComponentInChildren<GridManager>();
+        }
+        else if (editorManager != null) // This covers OperatingMode.Playing
+        {
+            gridManager = editorManager.gridManager;
+        }
+
+        if (gridManager != null)
+        {
+            gridManager.SetGridTilesLayer("Default");
+        }
 
 
         // If we are currently hovering over a valid drop zone...
         if (currentHoveredZone != null)
         {
-
             HandTileStandIn standIn = FindFirstObjectByType<HandTileStandIn>();
             if (standIn != null)
             {
                 Destroy(standIn.gameObject);
             }
 
-
             // Tell the zone it's no longer being hovered over.
             currentHoveredZone.OnHoverExit();
 
-            // Tell the Level Editor to start the push action with our data.
-            // We start a coroutine on the manager, which will handle the animation and logic.
-            editorManager.StartCoroutine(editorManager.HandleDropZonePush(
-                currentHoveredZone.row,
-                currentHoveredZone.fromLeft,
-                myTileType,
-                this.gameObject
-            ));
-
-
+            // --- THE CORE LOGIC CHANGE IS HERE ---
+            // This is the new 'if/else' block that directs the call to the correct manager.
+            if (currentMode == OperatingMode.Endless)
+            {
+                // If we are in Endless Mode, we MUST call the EndlessModeManager.
+                if (endlessManager != null)
+                {
+                    endlessManager.StartCoroutine(endlessManager.HandleEndlessPush(
+                        currentHoveredZone,
+                        myTileType,
+                        this.gameObject
+                    ));
+                }
+            }
+            else // This will be true for OperatingMode.Playing (your Puzzle Mode)
+            {
+                // If we are in Puzzle Mode, call the LevelEditorManager, exactly like your original code.
+                // This part is IDENTICAL to your old logic, ensuring nothing breaks.
+                editorManager.StartCoroutine(editorManager.HandleDropZonePush(
+                    currentHoveredZone.row,
+                    currentHoveredZone.fromLeft,
+                    myTileType,
+                    this.gameObject
+                ));
+            }
+            // --- END OF THE CORE LOGIC CHANGE ---
         }
         else // Otherwise, the drop was invalid.
         {
@@ -209,6 +250,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
         currentHoveredZone = null;
         Invoke(nameof(ResetDragFlag), 0.1f);
     }
+
 
    
        private void ResetDragFlag()

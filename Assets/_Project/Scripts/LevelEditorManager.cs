@@ -782,8 +782,17 @@ public class LevelEditorManager : MonoBehaviour
                 playableTile.editorManager = this;
                 playableTile.uiManager = this.uiManager;
                 playableTile.handCount = count;
-
                 playableTile.animationSettings = this.handAnimationSettings;
+
+                playableTile.currentMode = currentMode;
+
+                if (currentMode == OperatingMode.Endless)
+                {
+                    // Give the tile a reference to the correct manager for Endless Mode.
+                    playableTile.endlessManager = FindFirstObjectByType<EndlessModeManager>();
+                }
+
+
 
                 if (playerCounterPrefab != null && count > 1)
                 {

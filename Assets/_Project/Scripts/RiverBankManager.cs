@@ -50,28 +50,28 @@ public class RiverBankManager : MonoBehaviour
 
 
 
-/// Destroys existing bank GameObjects to prepare for regeneration.
-private void ClearBanks()
-{
-    if (topBankParent != null)
+    /// Destroys existing bank GameObjects to prepare for regeneration.
+    private void ClearBanks()
     {
-        Destroy(topBankParent.gameObject);
+        if (topBankParent != null)
+        {
+            Destroy(topBankParent.gameObject);
+        }
+        if (bottomBankParent != null)
+        {
+            Destroy(bottomBankParent.gameObject);
+        }
+        topBankSpawns.Clear();
+        bottomBankSpawns.Clear();
     }
-    if (bottomBankParent != null)
-    {
-        Destroy(bottomBankParent.gameObject);
-    }
-    topBankSpawns.Clear();
-    bottomBankSpawns.Clear();
-}
 
 
-/// Public method to be called by an external manager to generate the banks.
-public void GenerateBanksForGrid()
-{
-    ClearBanks();
-    CreateBanks();
-}
+    /// Public method to be called by an external manager to generate the banks.
+    public void GenerateBanksForGrid()
+    {
+        ClearBanks();
+        CreateBanks();
+    }
 
 
 
@@ -105,6 +105,8 @@ public void GenerateBanksForGrid()
 
     public void CreateBottomBank()
     {
+        if (bottomBankParent != null) return;
+
         // Create parent object for bottom bank
         bottomBankParent = new GameObject("BottomBank").transform;
         bottomBankParent.SetParent(transform);
@@ -156,15 +158,15 @@ public void GenerateBanksForGrid()
 
 
 
-            LevelEditorManager editorManager = FindFirstObjectByType<LevelEditorManager>();
-            if (editorManager != null)
-            {
-                // We can re-use the BankClickHandler meant for the boat,
-                // but we'll have it call the editor instead.
-                var clicker = bankVisual.AddComponent<EditorBankClickHandler>(); // We will create this new script
-                clicker.editorManager = editorManager;
-                clicker.bankSide = side;
-            }
+        LevelEditorManager editorManager = FindFirstObjectByType<LevelEditorManager>();
+        if (editorManager != null)
+        {
+            // We can re-use the BankClickHandler meant for the boat,
+            // but we'll have it call the editor instead.
+            var clicker = bankVisual.AddComponent<EditorBankClickHandler>(); // We will create this new script
+            clicker.editorManager = editorManager;
+            clicker.bankSide = side;
+        }
 
         // Size and position the bank visual - span full river width including gaps
         float riverWidth = (gridManager.cols * gridManager.tileWidth) + ((gridManager.cols - 1) * gridManager.gapX);
@@ -186,19 +188,19 @@ public void GenerateBanksForGrid()
     {
         // FIXED: Calculate spawn point positions based on ACTUAL grid dimensions
         float riverWidth = (gridManager.cols * gridManager.tileWidth) + ((gridManager.cols - 1) * gridManager.gapX);
-        
+
         // Adjust number of spawn points based on grid size - ensure we have enough but not too many
         int actualSpawnPoints = Mathf.Max(2, Mathf.Min(spawnPointsPerSide, gridManager.cols + 1));
-        
+
         float totalSpacing = (actualSpawnPoints - 1) * spawnPointSpacing;
-        
+
         // Make sure spawn points fit within the river width
         if (totalSpacing > riverWidth * 0.8f) // Leave 20% margin
         {
             spawnPointSpacing = (riverWidth * 0.8f) / (actualSpawnPoints - 1);
             totalSpacing = (actualSpawnPoints - 1) * spawnPointSpacing;
         }
-        
+
         float startX = -totalSpacing / 2f;
 
         for (int i = 0; i < actualSpawnPoints; i++)
@@ -241,7 +243,7 @@ public void GenerateBanksForGrid()
             // Add to spawn list
             spawnList.Add(spawnPoint.transform);
         }
-        
+
         Debug.Log($"[RiverBankManager] Created {actualSpawnPoints} spawn points for {side} bank (riverWidth: {riverWidth:F1})");
     }
 
@@ -324,7 +326,22 @@ public void GenerateBanksForGrid()
         }
         return closestSpawn;
     }
-    
+
+
+    public void DestroyBottomBank()
+    {
+        if (bottomBankParent != null)
+        {
+            Destroy(bottomBankParent.gameObject);
+            bottomBankParent = null; // Clear the reference
+            Debug.Log("[RiverBankManager] Bottom bank destroyed.");
+        }
+    }
+
+
+
+
+
 
     
 }
