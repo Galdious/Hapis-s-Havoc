@@ -390,7 +390,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     public void SelectBoat()
     {
         ResynchronizeStateWithTransform(); // Sanity check to fix state after a river push.
-        
+
         // First, clear any highlights that might exist from a previous state.
         // This wipes the slate clean before we do anything else.
         ClearHighlights();
@@ -442,6 +442,11 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         // Only run if the boat is actually on a tile.
         if (isAtBank || currentTile == null) return;
 
+        if (gameManager != null && gameManager.currentMode == OperatingMode.Endless && endlessManager == null)
+        {
+            endlessManager = FindFirstObjectByType<EndlessModeManager>();
+        }
+
         var collectible = currentTile.GetComponentInChildren<CollectibleInstance>();
         if (collectible != null)
         {
@@ -458,12 +463,17 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                     // Check which mode we are in.
                     if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
                     {
-                        // ENDLESS MODE: Add to Stamina
-                        if (endlessManager != null)
+                        EndlessModeManager manager = FindFirstObjectByType<EndlessModeManager>();
+                        if (manager != null)
                         {
-                            endlessManager.AddStamina(collectible.value); // We will create this method.
+                            manager.AddStamina(collectible.value);
                             Debug.Log($"<color=green>ENDLESS:</color> Collected an Extra Move! Gained {collectible.value} Stamina.");
                         }
+                        else
+                        {
+                            Debug.LogError("Could not find EndlessModeManager to add stamina!");
+                        }
+                    
                     }
                     else
                     {
@@ -1228,26 +1238,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
 
 
-        var collectible = targetTile.GetComponentInChildren<CollectibleInstance>();
-        if (collectible != null)
-        {
-            Debug.Log($"Found a {collectible.type} on tile {targetTile.name}!");
-            switch (collectible.type)
-            {
-                case CollectibleType.Star:
-                    starsCollected++;
-                    UpdateStarCounterUI();
-                    Debug.Log($"Collected a Star! Total stars: {starsCollected}");
-                    break;
-                case CollectibleType.ExtraMove:
-                    currentMovementPoints += collectible.value;
-                    UpdateMoveCounterUI();
-                    Debug.Log($"Collected an Extra Move! Value: {collectible.value}. Current moves: {currentMovementPoints}");
-                    break;
-            }
-            // Destroy the collectible from the scene after pickup
-            Destroy(collectible.gameObject);
-        }
+        CheckForCollectibleOnCurrentTile();
 
 
 
