@@ -762,6 +762,12 @@ CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
         }
     }
 
+    public void AddStamina(int amount)
+    {
+        currentStamina += amount;
+        // We can add logic here for max stamina, visual effects, etc., later.
+        UpdateStaminaUI();
+    }
 
 
 

@@ -53,6 +53,9 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     [Header("Movement System")]
     public int maxMovementPoints = 3;
     public int currentMovementPoints = 3;
+    [Tooltip("The number of extra moves awarded per red tile skipped during a forward move.")]
+    public int moveBonusMultiplier = 2;
+
 
     [Header("Gameplay State")]
     public int starsCollected { get; private set; } = 0; // inventory logic
@@ -386,6 +389,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     }
     public void SelectBoat()
     {
+        ResynchronizeStateWithTransform(); // Sanity check to fix state after a river push.
+        
         // First, clear any highlights that might exist from a previous state.
         // This wipes the slate clean before we do anything else.
         ClearHighlights();
@@ -423,7 +428,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     {
         if (boatManager != null) boatManager.ClearSelectedBoat();
         isSelected = false;
-        
+
         // We will no longer call StopAllCoroutines() here, as it's too aggressive
         // and interrupts the tile-lowering animations that are part of ClearHighlights.
         // StopAllCoroutines(); // <<< REMOVE OR COMMENT OUT THIS LINE
@@ -448,12 +453,28 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                     UpdateStarCounterUI();
                     Debug.Log($"Collected a Star! Total stars: {starsCollected}");
                     break;
+
                 case CollectibleType.ExtraMove:
-                    currentMovementPoints += collectible.value;
-                    UpdateMoveCounterUI();
-                    Debug.Log($"Collected an Extra Move! Value: {collectible.value}. Current moves: {currentMovementPoints}");
+                    // Check which mode we are in.
+                    if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
+                    {
+                        // ENDLESS MODE: Add to Stamina
+                        if (endlessManager != null)
+                        {
+                            endlessManager.AddStamina(collectible.value); // We will create this method.
+                            Debug.Log($"<color=green>ENDLESS:</color> Collected an Extra Move! Gained {collectible.value} Stamina.");
+                        }
+                    }
+                    else
+                    {
+                        // PUZZLE MODE: Add to Movement Points (the original logic)
+                        currentMovementPoints += collectible.value;
+                        UpdateMoveCounterUI();
+                        Debug.Log($"<color=yellow>PUZZLE:</color> Collected an Extra Move! Gained {collectible.value} moves. Current moves: {currentMovementPoints}");
+                    }
                     break;
             }
+
             // Destroy the collectible from the scene after pickup
             Destroy(collectible.gameObject);
         }
@@ -592,12 +613,12 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                 // This method already accounts for the neighbor's rotation by finding the
                 // physically closest connecting snap point. Its result is the source of truth.
                 int landingSnap = FindConnectedSnapPoint_HorizontalOnly(currentSearchTile, currentExitSnap, neighbor);
-                
+
                 if (landingSnap != -1)
                 {
                     // We do not need to transform or mirror 'landingSnap'. It is already the correct
                     // logical index for the neighbor tile, regardless of its rotation.
-                    
+
                     if (!validMoves.Contains(neighbor)) validMoves.Add(neighbor);
 
                     // Store the DIRECT result from the connection finder.
@@ -752,13 +773,52 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
         if (reversedPathways.ContainsKey(clickedTile))
         {
-            List<TileInstance> crossedTiles = reversedPathways[clickedTile];
-            Debug.Log($"[BoatController] Crossed {crossedTiles.Count} reversed tiles.");
-            foreach (var tile in crossedTiles)
+            // A "skip" move across red tiles has been detected.
+
+            // First, we need to ensure we can get the grid coordinates to check our "forward progress" rule.
+            if (gridManager != null && currentTile != null)
             {
-                Debug.Log($"-- Applying placeholder penalty for crossing {tile.name}!");
+                var startCoords = gridManager.GetTileCoordinates(currentTile);
+                var endCoords = gridManager.GetTileCoordinates(clickedTile);
+
+                // This is the "Forward Progress" rule you designed:
+                // We only grant a bonus if the destination row is the same as or higher than the start row.
+                if (endCoords.y >= startCoords.y)
+                {
+                    // Calculate the bonus.
+                    int tilesSkipped = reversedPathways[clickedTile].Count;
+                    int bonusAmount = tilesSkipped * moveBonusMultiplier;
+
+                    // Only proceed if a bonus was actually earned.
+                    if (bonusAmount > 0)
+                    {
+                        // Now, check which game mode we are in to award the correct resource.
+                        if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
+                        {
+                            // In ENDLESS MODE, we award STAMINA.
+                            if (endlessManager != null)
+                            {
+                                endlessManager.AddStamina(bonusAmount);
+                                Debug.Log($"<color=green>ENDLESS SKIP BONUS!</color> Gained {bonusAmount} Stamina for skipping {tilesSkipped} tiles.");
+                            }
+                        }
+                        else
+                        {
+                            // In PUZZLE MODE, we award standard MOVEMENT POINTS.
+                            currentMovementPoints += bonusAmount;
+                            UpdateMoveCounterUI();
+                            Debug.Log($"<color=yellow>PUZZLE SKIP BONUS!</color> Gained {bonusAmount} moves for skipping {tilesSkipped} tiles.");
+                        }
+                    }
+                }
+                else
+                {
+                    // The move was backwards, so we log it but award no bonus.
+                    Debug.Log("Crossed red tiles moving backward. No skip bonus awarded.");
+                }
             }
         }
+
 
 
         if (isMoving || !isSelected || !validMoves.Contains(clickedTile) || (gameManager != null && gameManager.currentMode != OperatingMode.Endless && currentMovementPoints <= 0))
@@ -1470,6 +1530,26 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             default: return -1; // Should not happen
         }
     }
+
+
+    private void ResynchronizeStateWithTransform()
+    {
+        // This is our sanity check. It ensures the boat's internal state
+        // matches its physical location in the world.
+        if (gridManager == null || isAtBank) return;
+
+        // Ask the GridManager to find the tile and snap point where we are right now.
+        var (foundTile, foundSnapPoint) = gridManager.FindTileAndSnapPointAtWorldPos(transform.position);
+
+        if (foundTile != null && (currentTile != foundTile || currentSnapPoint != foundSnapPoint))
+        {
+            Debug.LogWarning($"<color=orange>Boat Desync Detected!</color> Resynchronizing state. Was on {currentTile?.name}:{currentSnapPoint}, now on {foundTile.name}:{foundSnapPoint}.");
+            // Forcibly update our internal state to the correct values.
+            InitializeStateOnTile(foundTile, foundSnapPoint);
+        }
+    }
+
+
 
 
 

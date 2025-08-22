@@ -1766,4 +1766,57 @@ public class GridManager : MonoBehaviour
     }
 
 
+    public (TileInstance, int) FindTileAndSnapPointAtWorldPos(Vector3 worldPosition)
+    {
+        TileInstance closestTile = null;
+        int closestSnapPoint = -1;
+        float minDistance = float.MaxValue;
+
+        // Search every tile in the grid
+        for (int y = 0; y < this.rows; y++)
+        {
+            for (int x = 0; x < this.cols; x++)
+            {
+                TileInstance tile = grid[x, y];
+                if (tile != null)
+                {
+                    // Check the distance to every snap point on this tile
+                    for (int i = 0; i < tile.snapPoints.Length; i++)
+                    {
+                        if (tile.snapPoints[i] != null)
+                        {
+                            // We use the boat's offset in our calculation for accuracy
+                            float boatOffset = tile.GetComponent<BoatController>()?.snapOffset ?? 0.15f;
+                            Vector3 tileCenter = tile.transform.position;
+                            Vector3 direction = (tile.snapPoints[i].position - tileCenter).normalized;
+                            Vector3 boatPositionOnSnap = tile.snapPoints[i].position - direction * boatOffset;
+
+                            float distance = Vector3.Distance(worldPosition, boatPositionOnSnap);
+
+                            if (distance < minDistance)
+                            {
+                                minDistance = distance;
+                                closestTile = tile;
+                                closestSnapPoint = i;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Only return a valid result if we found something very close
+        if (minDistance < 0.5f) // Use a small threshold to ensure we found the right spot
+        {
+            return (closestTile, closestSnapPoint);
+        }
+
+        return (null, -1); // Return null if no valid spot was found
+    }
+
+
+
+
+
+
 }
