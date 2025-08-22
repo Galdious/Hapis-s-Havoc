@@ -995,6 +995,15 @@ public class GridManager : MonoBehaviour
                     yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
                     ejectedBoat.enabled = true;
                 }
+
+                EndlessModeManager endlessManager = FindFirstObjectByType<EndlessModeManager>();
+                if (endlessManager != null)
+                {
+                    endlessManager.UpdateCameraTargetToBoatPosition();
+                }
+
+
+
             }
 
 
@@ -1240,6 +1249,13 @@ public class GridManager : MonoBehaviour
                     yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
                     ejectedBoat.enabled = true;
                 }
+
+                EndlessModeManager endlessManager = FindFirstObjectByType<EndlessModeManager>();
+                if (endlessManager != null)
+                {
+                    endlessManager.UpdateCameraTargetToBoatPosition();
+                }
+
             }
         }
 

@@ -74,6 +74,8 @@ public class EndlessModeManager : MonoBehaviour
     private int highScore = 0;
     private bool isPlayerTurn = false;
     private BoatController playerBoat;
+    private bool isCameraInitialized = false;
+
 
     private Vector3 cameraTargetPosition;
 
@@ -94,25 +96,27 @@ public class EndlessModeManager : MonoBehaviour
 
     void LateUpdate()
     {
-        if (cameraProxy == null || playerBoat == null || endlessVCam == null) return;
+        if (!isCameraInitialized) return; // If we haven't set the initial position, do nothing.
 
-        // --- EMERGENCY FOLLOW LOGIC ---
-        if (isPlayerTurn) // Only check this during the player's actual turn
+        if (cameraProxy == null || playerBoat == null || endlessVCam == null)
         {
-            // Convert the boat's world position to a screen position (0-1 range)
-            Vector3 boatViewportPos = Camera.main.WorldToViewportPoint(playerBoat.transform.position);
-
-            // Define our "emergency" threshold near the top of the screen
-            float topThreshold = 0.9f;
-
-            // If the boat has moved above the threshold...
-            if (boatViewportPos.y > topThreshold)
+            // --- EMERGENCY FOLLOW LOGIC ---
+            if (isPlayerTurn) // Only check this during the player's actual turn
             {
-                // ...immediately update the camera's target to the boat's current Z position.
-                cameraTargetPosition = new Vector3(0, 0, playerBoat.transform.position.z);
+                // Convert the boat's world position to a screen position (0-1 range)
+                Vector3 boatViewportPos = Camera.main.WorldToViewportPoint(playerBoat.transform.position);
+
+                // Define our "emergency" threshold near the top of the screen
+                float topThreshold = 0.9f;
+
+                // If the boat has moved above the threshold...
+                if (boatViewportPos.y > topThreshold)
+                {
+                    // ...immediately update the camera's target to the boat's current Z position.
+                    cameraTargetPosition = new Vector3(0, 0, playerBoat.transform.position.z);
+                }
             }
         }
-
         // --- REGULAR SMOOTH MOVEMENT LOGIC (Unchanged) ---
         // This part always runs, smoothly moving the proxy towards its current target,
         // whether that target was set at the end of the turn or during an emergency.
@@ -223,6 +227,9 @@ public class EndlessModeManager : MonoBehaviour
             // 3. INSTANTLY teleport the Cinemachine camera itself to its final calculated position.
             // This happens in a single frame before the player sees anything.
             endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
+
+            isCameraInitialized = true; // Unlock LateUpdate now that the camera is in place.
+
         }
 
 
@@ -559,8 +566,8 @@ public class EndlessModeManager : MonoBehaviour
         // Loop from the row just above our current highest, up to the target.
         for (int y = highestGeneratedRow + 1; y <= targetTopRow; y++)
         {
-           
-            gridManager.CreateNewEndlessRow(y, gridWidth, this.obstacleChance, this.blockerChance);         
+
+            gridManager.CreateNewEndlessRow(y, gridWidth, this.obstacleChance, this.blockerChance);
 
             // Update our boundary tracker.
             highestGeneratedRow = y;
@@ -692,6 +699,17 @@ public class EndlessModeManager : MonoBehaviour
 
         // This calls our existing, robust destruction logic.
         DestroyOldRows(lowestAllowedRow);
+    }
+
+    public void UpdateCameraTargetToBoatPosition()
+    {
+        if (playerBoat != null)
+        {
+            Vector3 boatCurrentPos = playerBoat.transform.position;
+            // Update the camera's target to the boat's current Z position.
+            cameraTargetPosition = new Vector3(0, 0, boatCurrentPos.z);
+            Debug.Log($"[EndlessModeManager] Camera target updated after ejection to Z: {boatCurrentPos.z}");
+        }
     }
 
 
