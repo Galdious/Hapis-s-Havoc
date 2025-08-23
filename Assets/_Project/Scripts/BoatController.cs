@@ -309,17 +309,42 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         if (riverBankManager == null)
         {
             Debug.LogError("[BoatController] Cannot animate to bank, RiverBankManager is missing!");
-            yield break; // Use yield break in an IEnumerator instead of return.
+            // If the RBM is gone, we can't find a bank. This is a game-over state in Endless.
+            if (endlessManager != null)
+            {
+                endlessManager.TriggerGameOverByEjection();
+            }
+            yield break;
         }
 
         Transform bankSpawn = riverBankManager.GetNearestSpawnPoint(side, transform.position);
 
+        // --- THIS IS THE CRITICAL FIX ---
         if (bankSpawn != null)
         {
-            // CHANGE 2: We now "yield return" the call to the other overload.
+            // A valid landing spot exists. Animate the boat to it.
             yield return StartCoroutine(AnimateToNewPositionAfterEjection(bankSpawn));
         }
+        else
+        {
+            // The bank for this side has been destroyed. There is nowhere to land.
+            // Tell the EndlessModeManager to end the game.
+            if (endlessManager != null)
+            {
+                // We found the manager, now press the big red button.
+                endlessManager.TriggerGameOverByEjection();
+            }
+            else
+            {
+                // Failsafe in case we can't find the manager.
+                Debug.LogError("[BoatController] Ejected into a void, but could not find EndlessModeManager to trigger game over!");
+            }
+            // Use yield break because there's no animation to perform.
+            yield break;
+        }
+        // --- END OF FIX ---
     }
+
 
     private IEnumerator SettleAndFadeInCoroutine(TileInstance destinationTile, int snapPoint, Transform bankSpawn)
     {

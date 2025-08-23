@@ -86,12 +86,12 @@ public class EndlessModeManager : MonoBehaviour
     private int highScore = 0;
     private bool isPlayerTurn = false;
     private BoatController playerBoat;
-    private bool skipFirstForecast = false; 
+    private bool skipFirstForecast = false;
     private const string endlessSaveKey = "EndlessSaveFile";
 
 
     private CinemachineBlendDefinition originalCameraBlend;
-    private Canvas dropZoneCanvas; 
+    private Canvas dropZoneCanvas;
 
 
     private Vector3 cameraTargetPosition;
@@ -363,7 +363,7 @@ public class EndlessModeManager : MonoBehaviour
             Debug.Log("Endless Cycle: Cleaning up old rows.");
             CleanupOldRows();
 
-            SaveEndlessRun(); 
+            SaveEndlessRun();
 
             // 4. Generation Phase (Still a TODO for the next chunk)
 
@@ -640,12 +640,12 @@ public class EndlessModeManager : MonoBehaviour
         //    This ensures their states are always synchronized.
         gridManager.ExpandGridForEndless(targetTopRow + 1);
         riverControls.ExpandLockStates(targetTopRow + 1);
-        
+
         // 2. Loop and create the visuals. The check inside CreateDropZonesForRow will now always pass.
         for (int y = highestGeneratedRow + 1; y <= targetTopRow; y++)
         {
             gridManager.CreateNewEndlessRow(y, gridWidth, this.obstacleChance, this.blockerChance, this.extraMoveSpawnChance, this.extraMoveCollectiblePrefab);
-            
+
             // Update our boundary tracker AFTER creating the row.
             highestGeneratedRow = y;
 
@@ -1083,8 +1083,8 @@ public class EndlessModeManager : MonoBehaviour
         // Set the flag and start the main loop.
         skipFirstForecast = true;
         StartCoroutine(EndlessGameLoop());
-    
-}
+
+    }
 
     private void PlaceCollectibleOnTile(TileInstance tile, CollectibleType type, int value)
     {
@@ -1128,6 +1128,15 @@ public class EndlessModeManager : MonoBehaviour
 
         // 4. Reload the entire game scene.
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    public void TriggerGameOverByEjection()
+    {
+        Debug.Log("<color=red>GAME OVER TRIGGERED:</color> Boat was ejected into a void with no valid landing tile or bank.");
+
+        // We can potentially add a specific UI message here later if we want.
+        // For now, we just call the existing EndGame method.
+        EndGame();
     }
 
 
