@@ -6,6 +6,7 @@ using TMPro;
 using System.Linq;
 using Unity.Cinemachine;
 using UnityEngine.UI; 
+using UnityEngine.SceneManagement;
 
 public class EndlessModeManager : MonoBehaviour
 {
@@ -1109,6 +1110,25 @@ public class EndlessModeManager : MonoBehaviour
         }
     }
 
+    public void RestartEndlessRun()
+    {
+        Debug.Log("<color=orange>[Endless] Restart button clicked. Deleting save and reloading.</color>");
+
+        // 1. Stop all active game logic in this manager to prevent conflicts.
+        StopAllCoroutines();
+
+        // 2. Delete the save file for the current run.
+        if (PlayerPrefs.HasKey(endlessSaveKey))
+        {
+            PlayerPrefs.DeleteKey(endlessSaveKey);
+        }
+
+        // 3. Set the instruction to start a fresh endless run.
+        LevelSelectManager.LevelToLoad = "ENDLESS_MODE";
+
+        // 4. Reload the entire game scene.
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
 
 
 

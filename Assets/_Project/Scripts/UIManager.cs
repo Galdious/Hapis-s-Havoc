@@ -15,6 +15,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button editor_restartButton;
     [SerializeField] private Button player_undoButton;
     [SerializeField] private Button player_restartButton;
+    [SerializeField] private Button endless_restartButton; 
 
 
     [Header("Scene References")]
@@ -110,6 +111,7 @@ public class UIManager : MonoBehaviour
 
         if (endlessRetryButton != null) endlessRetryButton.onClick.AddListener(OnEndlessRetryClicked);
         if (endlessMainMenuButton != null) endlessMainMenuButton.onClick.AddListener(OnEndlessMainMenuClicked);
+        if (endless_restartButton != null) endless_restartButton.onClick.AddListener(HandleEndlessRestart); 
 
         // Ensure all panels are hidden at the start of the game
         if (levelCompletePanel != null) levelCompletePanel.SetActive(false);
@@ -343,7 +345,19 @@ public class UIManager : MonoBehaviour
         // Load the Main Menu scene. Make sure your scene is named "MainMenu".
         SceneManager.LoadScene("MainMenu");
     }
-    
+
+    public void HandleEndlessRestart()
+    {
+        EndlessModeManager endlessManager = FindFirstObjectByType<EndlessModeManager>();
+        if (endlessManager != null)
+        {
+            endlessManager.RestartEndlessRun();
+        }
+        else
+        {
+            Debug.LogError("[UIManager] Cannot restart endless run, EndlessModeManager not found!");
+        }
+    }
 
 
 
