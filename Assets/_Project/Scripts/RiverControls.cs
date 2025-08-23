@@ -309,56 +309,22 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
 
     public void CreateDropZonesForRow(int row)
     {
-        if (dropZonePrefab == null) return;
+        if (dropZonePrefab == null || row < 0 || row >= rowLockStates.Length) return;
 
-        // Check the game mode to decide on the layout.
-        OperatingMode mode = (gameManager != null) ? gameManager.currentMode : OperatingMode.Editor;
+        // --- THIS IS THE FIX ---
+        // 1. Get the lock state for the current row.
+        RowLockState state = rowLockStates[row];
 
-        if (mode == OperatingMode.Endless)
+        // 2. Check if the LEFT side is unlocked before creating the left drop zone.
+        if (state != RowLockState.LeftLocked && state != RowLockState.BothLocked)
         {
-            // --- ENDLESS MODE LOGIC: Place zones OUTSIDE the grid ---
-            if (dropZoneCanvas == null) return;
-
-            Vector3 leftEdgePos = gridManager.GetWorldPosition(0, row);
-            Vector3 rightEdgePos = gridManager.GetWorldPosition(gridManager.cols - 1, row);
-            float zoneWidth = gridManager.tileWidth * 1.5f;
-            float zoneHeight = gridManager.tileHeight + gridManager.gapZ;
-            float xOffset = (gridManager.tileWidth / 2f) + (zoneWidth / 2f);
-
-            // Left Zone
-            GameObject leftZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
-            leftZoneGO.name = $"DropZone_Row{row}_L";
-            RectTransform leftRect = leftZoneGO.GetComponent<RectTransform>();
-            leftRect.position = new Vector3(leftEdgePos.x - xOffset, leftEdgePos.y, leftEdgePos.z);
-            leftRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
-            RowDropZone leftZone = leftZoneGO.GetComponent<RowDropZone>();
-            leftZone.row = row;
-            leftZone.fromLeft = true;
-            leftZone.riverControls = this;
-            dropZones[(row, true)] = leftZone;
-
-            // Right Zone
-            GameObject rightZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
-            rightZoneGO.name = $"DropZone_Row{row}_R";
-            RectTransform rightRect = rightZoneGO.GetComponent<RectTransform>();
-            rightRect.position = new Vector3(rightEdgePos.x + xOffset, rightEdgePos.y, rightEdgePos.z);
-            rightRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
-            RowDropZone rightZone = rightZoneGO.GetComponent<RowDropZone>();
-            rightZone.row = row;
-            rightZone.fromLeft = false;
-            rightZone.riverControls = this;
-            dropZones[(row, false)] = rightZone;
-        }
-        else // --- PUZZLE/PLAY MODE LOGIC: Place zones OVERLAPPING the grid ---
-        {
-            // This is the original, correct logic for Puzzle Mode.
+            // (The code to create the LEFT drop zone goes here - it is unchanged)
             Vector3 rowCenter = GetRowCenterPosition(row);
             float gridHalfWidth = (gridManager.cols * gridManager.tileWidth + (gridManager.cols - 1) * gridManager.gapX) / 2f;
             float zoneWidth = gridManager.tileWidth * 1.5f;
             float zoneHeight = gridManager.tileHeight + (gridManager.gapZ * 0.5f);
             float offsetFromEdge = zoneWidth / 2f;
-
-            // Left Zone
+            
             GameObject leftZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
             leftZoneGO.name = $"DropZone_Row{row}_L";
             RectTransform leftRect = leftZoneGO.GetComponent<RectTransform>();
@@ -369,8 +335,18 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
             leftZone.fromLeft = true;
             leftZone.riverControls = this;
             dropZones[(row, true)] = leftZone;
+        }
 
-            // Right Zone
+        // 3. Check if the RIGHT side is unlocked before creating the right drop zone.
+        if (state != RowLockState.RightLocked && state != RowLockState.BothLocked)
+        {
+            // (The code to create the RIGHT drop zone goes here - it is unchanged)
+            Vector3 rowCenter = GetRowCenterPosition(row);
+            float gridHalfWidth = (gridManager.cols * gridManager.tileWidth + (gridManager.cols - 1) * gridManager.gapX) / 2f;
+            float zoneWidth = gridManager.tileWidth * 1.5f;
+            float zoneHeight = gridManager.tileHeight + (gridManager.gapZ * 0.5f);
+            float offsetFromEdge = zoneWidth / 2f;
+
             GameObject rightZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
             rightZoneGO.name = $"DropZone_Row{row}_R";
             RectTransform rightRect = rightZoneGO.GetComponent<RectTransform>();
@@ -382,7 +358,9 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
             rightZone.riverControls = this;
             dropZones[(row, false)] = rightZone;
         }
+        // --- END OF FIX ---
     }
+    
 
 
 
