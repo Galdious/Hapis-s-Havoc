@@ -167,6 +167,7 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
         if (dropZoneCanvas != null)
         {
             Destroy(dropZoneCanvas.gameObject);
+            dropZoneCanvas = null;
         }
 
         // Destroy all arrow and lock GameObjects
