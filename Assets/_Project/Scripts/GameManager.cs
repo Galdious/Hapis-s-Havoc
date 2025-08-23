@@ -101,20 +101,38 @@ public class GameManager : MonoBehaviour
 
             if (instruction == "ENDLESS_MODE")
             {
-                // LAUNCH ENDLESS MODE
+                // LAUNCH NEW ENDLESS MODE
                 SetOperatingMode(OperatingMode.Endless);
                 if (uiManager != null) uiManager.SwitchToMode(OperatingMode.Endless);
 
-                // Find our new manager and tell it to start
                 EndlessModeManager endlessManager = FindFirstObjectByType<EndlessModeManager>(FindObjectsInactive.Include);
                 if (endlessManager != null)
                 {
-                    endlessManager.StartEndlessMode();
+                    endlessManager.StartEndlessMode(); // This starts a NEW game
                 }
                 else
                 {
                     Debug.LogError("[GameManager] Could not find EndlessModeManager in the scene!");
                 }
+            }
+            // vvv ADD THIS ENTIRE ELSE IF BLOCK vvv
+            else if (instruction == "RESUME_ENDLESS_MODE")
+            {
+                // RESUME SAVED ENDLESS MODE
+                SetOperatingMode(OperatingMode.Endless);
+                if (uiManager != null) uiManager.SwitchToMode(OperatingMode.Endless);
+
+                EndlessModeManager endlessManager = FindFirstObjectByType<EndlessModeManager>(FindObjectsInactive.Include);
+                if (endlessManager != null)
+                {
+                    // We will create this new method in the next step!
+                    endlessManager.ResumeEndlessMode();
+                }
+                else
+                {
+                    Debug.LogError("[GameManager] Could not find EndlessModeManager to resume run!");
+                }
+                
             }
             else
             {

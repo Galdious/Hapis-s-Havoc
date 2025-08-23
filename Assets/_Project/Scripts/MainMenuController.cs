@@ -65,11 +65,24 @@ public class MainMenuController : MonoBehaviour
     public void GoToEndlessMode()
     {
         Debug.Log("Loading Endless Mode...");
-        // Set a static flag or a value in a persistent manager to tell the next scene what to do.
-        // This is a simple and effective way to pass instructions between scenes.
-        LevelSelectManager.LevelToLoad = "ENDLESS_MODE"; // Use a special keyword
+
+        // --- NEW LOGIC: Check if a save file exists ---
+        if (PlayerPrefs.HasKey("EndlessSaveFile"))
+        {
+            // If a save exists, send the RESUME instruction.
+            Debug.Log("Save file found. Resuming endless run.");
+            LevelSelectManager.LevelToLoad = "RESUME_ENDLESS_MODE";
+        }
+        else
+        {
+            // Otherwise, start a new run as normal.
+            Debug.Log("No save file found. Starting a new endless run.");
+            LevelSelectManager.LevelToLoad = "ENDLESS_MODE";
+        }
+
         SceneManager.LoadScene("LevelEditor"); // Or your main game scene name
     }
+    
 
 
 

@@ -105,7 +105,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     private Dictionary<Renderer, Material> originalBankMaterials = new Dictionary<Renderer, Material>();
     private Dictionary<TileInstance, List<TileInstance>> reversedPathways = new Dictionary<TileInstance, List<TileInstance>>();
 
-    void Start()
+
+    void Awake()
     {
         boatManager = FindFirstObjectByType<BoatManager>();
         gridManager = FindFirstObjectByType<GridManager>();
@@ -117,12 +118,17 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             endlessManager = FindFirstObjectByType<EndlessModeManager>();
         }
 
-
         boatRenderer = GetComponentInChildren<MeshRenderer>();
         if (boatRenderer != null)
         {
             opaqueColor = boatRenderer.material.color;
         }
+    }
+
+
+    void Start()
+    {
+
 
         UpdateStarCounterUI();
         UpdateMoveCounterUI();

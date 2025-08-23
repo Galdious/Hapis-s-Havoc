@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using TMPro;
 using System.Linq;
 using Unity.Cinemachine;
+using UnityEngine.UI; 
 
 public class EndlessModeManager : MonoBehaviour
 {
@@ -84,8 +85,12 @@ public class EndlessModeManager : MonoBehaviour
     private int highScore = 0;
     private bool isPlayerTurn = false;
     private BoatController playerBoat;
+    private bool skipFirstForecast = false; 
+    private const string endlessSaveKey = "EndlessSaveFile";
+
 
     private CinemachineBlendDefinition originalCameraBlend;
+    private Canvas dropZoneCanvas; 
 
 
     private Vector3 cameraTargetPosition;
@@ -286,35 +291,41 @@ public class EndlessModeManager : MonoBehaviour
                 yield break; // Exit the coroutine completely.
             }
 
-            // 1. River Forecast Phase
-            Debug.Log("Endless Cycle: Forecast Phase");
-            plannedPushes.Clear();
-
-            // Plan 3 pushes on unique random rows: 1 red, 2 blue
-            // Get a list of all rows that CURRENTLY exist in the game world.
-            List<int> availableRows = new List<int>();
-            for (int i = lowestGeneratedRow; i <= highestGeneratedRow; i++)
+            if (!skipFirstForecast)
             {
-                availableRows.Add(i);
+
+                // 1. River Forecast Phase
+                Debug.Log("Endless Cycle: Forecast Phase");
+                plannedPushes.Clear();
+
+                // Plan 3 pushes on unique random rows: 1 red, 2 blue
+                // Get a list of all rows that CURRENTLY exist in the game world.
+                List<int> availableRows = new List<int>();
+                for (int i = lowestGeneratedRow; i <= highestGeneratedRow; i++)
+                {
+                    availableRows.Add(i);
+                }
+
+                // Plan the red push
+                int redRowIndex = Random.Range(0, availableRows.Count);
+                PlanSinglePush(availableRows[redRowIndex], true);
+                availableRows.RemoveAt(redRowIndex);
+
+                // Plan the first blue push
+                int blueRowIndex1 = Random.Range(0, availableRows.Count);
+                PlanSinglePush(availableRows[blueRowIndex1], false);
+                availableRows.RemoveAt(blueRowIndex1);
+
+                // Plan the second blue push
+                int blueRowIndex2 = Random.Range(0, availableRows.Count);
+                PlanSinglePush(availableRows[blueRowIndex2], false);
+
+                // Show the forecast visuals and wait for the player to see them
+                foreach (var push in plannedPushes) { push.forecastZone?.ShowForecast(push.isObstacle); }
+                yield return new WaitForSeconds(1.5f); // Give player time to plan
             }
 
-            // Plan the red push
-            int redRowIndex = Random.Range(0, availableRows.Count);
-            PlanSinglePush(availableRows[redRowIndex], true);
-            availableRows.RemoveAt(redRowIndex);
-
-            // Plan the first blue push
-            int blueRowIndex1 = Random.Range(0, availableRows.Count);
-            PlanSinglePush(availableRows[blueRowIndex1], false);
-            availableRows.RemoveAt(blueRowIndex1);
-
-            // Plan the second blue push
-            int blueRowIndex2 = Random.Range(0, availableRows.Count);
-            PlanSinglePush(availableRows[blueRowIndex2], false);
-
-            // Show the forecast visuals and wait for the player to see them
-            foreach (var push in plannedPushes) { push.forecastZone?.ShowForecast(push.isObstacle); }
-            yield return new WaitForSeconds(1.5f); // Give player time to plan
+            skipFirstForecast = false;
 
             // 2. Player Action Phase
             isPlayerTurn = true;
@@ -351,7 +362,7 @@ public class EndlessModeManager : MonoBehaviour
             Debug.Log("Endless Cycle: Cleaning up old rows.");
             CleanupOldRows();
 
-
+            SaveEndlessRun(); 
 
             // 4. Generation Phase (Still a TODO for the next chunk)
 
@@ -788,6 +799,11 @@ public class EndlessModeManager : MonoBehaviour
         if (!isPlayerTurn && !enabled) return; // A simple check to see if EndGame has already run.
 
         Debug.Log($"<color=red>--- GAME OVER ---</color> Final Score: {score}. High Score: {highScore}.");
+        if (PlayerPrefs.HasKey(endlessSaveKey))
+        {
+            PlayerPrefs.DeleteKey(endlessSaveKey);
+            Debug.Log("[Endless] Game over. Save file for completed run has been deleted.");
+        }
 
         // Stop the main game loop and disable this manager.
         StopAllCoroutines();
@@ -806,6 +822,293 @@ public class EndlessModeManager : MonoBehaviour
             uiManager.ShowEndlessScoreScreen(score, highScore);
         }
     }
+
+    private void SaveEndlessRun()
+    {
+        // Safety check: Only save if a run is actually in progress and we have a boat.
+        if (playerBoat == null)
+        {
+            Debug.LogWarning("[EndlessSave] Could not save run: Player boat not found.");
+            return;
+        }
+
+        Debug.Log("<color=lightblue>[EndlessSave] Creating snapshot of current run...</color>");
+
+        // 1. Create the data container
+        EndlessStateSnapshot snapshot = new EndlessStateSnapshot();
+
+        // 2. Populate Player & Boat Stats
+        snapshot.currentStamina = this.currentStamina;
+        snapshot.score = this.score;
+        snapshot.boatStarsCollected = playerBoat.starsCollected;
+
+        snapshot.boatPosition = new GoalData();
+        if (playerBoat.GetCurrentTile() != null)
+        {
+            var coords = gridManager.GetTileCoordinates(playerBoat.GetCurrentTile());
+            snapshot.boatPosition.isBankGoal = false;
+            snapshot.boatPosition.tileX = coords.x;
+            snapshot.boatPosition.tileY = coords.y;
+            snapshot.boatPosition.snapPointIndex = playerBoat.GetCurrentSnapPoint();
+        }
+        else if (playerBoat.CurrentBank.HasValue)
+        {
+            snapshot.boatPosition.isBankGoal = true;
+            snapshot.boatPosition.bankSide = playerBoat.CurrentBank.Value;
+        }
+
+        // 3. Populate World Boundaries
+        snapshot.lowestGeneratedRow = this.lowestGeneratedRow;
+        snapshot.highestGeneratedRow = this.highestGeneratedRow;
+
+        // 4. Populate World State (Tiles & Collectibles)
+        snapshot.tileStates = new List<TileSaveData>();
+        snapshot.collectibleStates = new List<CollectibleSaveData>();
+
+        // We only need to save the tiles that actually exist.
+        for (int y = lowestGeneratedRow; y <= highestGeneratedRow; y++)
+        {
+            for (int x = 0; x < gridManager.cols; x++)
+            {
+                TileInstance tile = gridManager.GetTileAt(x, y);
+                if (tile != null && tile.originalTemplate != null)
+                {
+                    snapshot.tileStates.Add(new TileSaveData
+                    {
+                        tileTypeName = tile.originalTemplate.displayName,
+                        gridX = x,
+                        gridY = y,
+                        rotationY = tile.transform.eulerAngles.y,
+                        isFlipped = tile.IsReversed,
+                        isHardBlocker = tile.IsHardBlocker
+                    });
+
+                    var collectible = tile.GetComponentInChildren<CollectibleInstance>();
+                    if (collectible != null)
+                    {
+                        snapshot.collectibleStates.Add(new CollectibleSaveData
+                        {
+                            gridX = x,
+                            gridY = y,
+                            type = collectible.type,
+                            value = collectible.value
+                        });
+                    }
+                }
+            }
+        }
+        Debug.Log($"[EndlessSave] Saving snapshot with {snapshot.tileStates.Count} tiles.");
+        // 5. Convert to JSON and save
+        string json = JsonUtility.ToJson(snapshot, true);
+        PlayerPrefs.SetString(endlessSaveKey, json);
+        PlayerPrefs.Save(); // Force a write to disk
+
+        Debug.Log($"<color=lime>[EndlessSave] Run saved successfully. Stamina: {currentStamina}, Score: {score}.</color>");
+    }
+
+    public void ResumeEndlessMode()
+    {
+        StartCoroutine(ResumeEndlessModeCoroutine());
+    }
+
+    private IEnumerator ResumeEndlessModeCoroutine()
+    {
+        Debug.Log("<color=cyan>--- RESUMING ENDLESS MODE ---</color>");
+
+        // 1. Load and Parse the Save File
+        if (!PlayerPrefs.HasKey(endlessSaveKey))
+        {
+            Debug.LogError("[EndlessResume] Attempted to resume, but no save file was found! Starting new game as fallback.");
+            yield return StartCoroutine(StartEndlessModeCoroutine());
+            yield break; // Stop this coroutine
+        }
+
+        string json = PlayerPrefs.GetString(endlessSaveKey);
+        EndlessStateSnapshot snapshot = JsonUtility.FromJson<EndlessStateSnapshot>(json);
+        Debug.Log($"[EndlessResume] Loaded snapshot with {snapshot.tileStates.Count} tiles.");
+
+        if (snapshot == null)
+        {
+            Debug.LogError("[EndlessResume] Failed to parse save file! Starting new game as fallback.");
+            PlayerPrefs.DeleteKey(endlessSaveKey); // The file is corrupt, delete it.
+            yield return StartCoroutine(StartEndlessModeCoroutine());
+            yield break;
+        }
+
+        // --- Camera Cut (same as new game) ---
+        CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
+        if (brain != null)
+        {
+            originalCameraBlend = brain.DefaultBlend;
+            var cutBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.Cut, 0f);
+            brain.DefaultBlend = cutBlend;
+        }
+        if (CameraManager.Instance != null)
+        {
+            CameraManager.Instance.SwitchToEndlessView();
+        }
+        yield return null;
+
+
+        // 2. Restore Player Stats & UI
+        highScore = PlayerPrefs.GetInt(highScoreKey, 0);
+        UpdateHighScoreUI();
+
+        if (dropZoneCanvas == null)
+        {
+            GameObject canvasGO = new GameObject("DropZoneCanvas");
+            canvasGO.transform.SetParent(this.transform);
+            dropZoneCanvas = canvasGO.AddComponent<Canvas>();
+            dropZoneCanvas.renderMode = RenderMode.WorldSpace;
+            canvasGO.AddComponent<GraphicRaycaster>();
+            dropZoneCanvas.worldCamera = Camera.main;
+            dropZoneCanvas.transform.rotation = Quaternion.Euler(90, 0, 0);
+
+            riverControls.SetDropZoneCanvas(dropZoneCanvas);
+        }
+
+        this.currentStamina = snapshot.currentStamina;
+        this.score = snapshot.score;
+        UpdateScoreUI();
+        UpdateStaminaUI();
+
+        // 3. Reconstruct the World
+        this.lowestGeneratedRow = snapshot.lowestGeneratedRow;
+        this.highestGeneratedRow = snapshot.highestGeneratedRow;
+
+        int requiredGridHeight = highestGeneratedRow + 1;
+
+        // Use a temporary list to build the grid in one go.
+        List<TileSaveData> gridBlueprint = snapshot.tileStates;
+
+        // GridManager creates the visual world. ExpandGrid first, then create.
+        // gridManager.ExpandGridForEndless(requiredGridHeight); 
+
+        // 1. Call the method and CAPTURE the list of running animations.
+        List<Coroutine> gridAnimations = gridManager.CreateGridFromEditor(this.gridWidth, requiredGridHeight, gridBlueprint);
+
+        // 2. WAIT for all of those animations to complete before proceeding.
+        if (gridAnimations != null)
+        {
+            foreach (var anim in gridAnimations)
+            {
+                if (anim != null)
+                {
+                    yield return anim;
+                }
+            }
+        }
+        Debug.Log("[EndlessResume] Grid visual creation is complete. Now placing collectibles.");
+
+
+        // Restore collectibles
+        foreach (var collectibleData in snapshot.collectibleStates)
+        {
+            TileInstance tile = gridManager.GetTileAt(collectibleData.gridX, collectibleData.gridY);
+            if (tile != null)
+            {
+                // We'll create this helper method in GridManager next, for now, let's assume it exists.
+                // For now, this line will cause an error, which we will fix.
+                PlaceCollectibleOnTile(tile, collectibleData.type, collectibleData.value);
+            }
+        }
+
+        // Recreate banks and controls for the loaded state
+        if (lowestGeneratedRow <= 0)
+        {
+            riverBankManager.CreateBottomBank();
+        }
+        riverControls.InitializeLockStates(requiredGridHeight);
+
+        // Re-create all the drop zones for the active rows
+        for (int y = lowestGeneratedRow; y <= highestGeneratedRow; y++)
+        {
+            riverControls.CreateDropZonesForRow(y);
+        }
+
+        // 4. Restore the Boat
+        playerBoat = boatManager.SpawnBoatWithoutPositioning();
+        if (playerBoat != null && snapshot.boatPosition != null)
+        {
+            playerBoat.SetCollectedStars(snapshot.boatStarsCollected);
+
+            if (snapshot.boatPosition.isBankGoal)
+            {
+                playerBoat.MoveToBank(snapshot.boatPosition.bankSide);
+            }
+            else
+            {
+                TileInstance boatTile = gridManager.GetTileAt(snapshot.boatPosition.tileX, snapshot.boatPosition.tileY);
+                if (boatTile != null)
+                {
+                    playerBoat.PlaceOnTile(boatTile, snapshot.boatPosition.snapPointIndex);
+                }
+                else
+                {
+                    Debug.LogError($"[EndlessResume] Could not find tile for boat at ({snapshot.boatPosition.tileX}, {snapshot.boatPosition.tileY}). Placing at bank.");
+                    playerBoat.MoveToBank(RiverBankManager.BankSide.Bottom);
+                }
+            }
+        }
+
+        // 5. Finalize Camera and Game Loop
+        if (cameraProxy != null && playerBoat != null && endlessVCam != null)
+        {
+            Vector3 boatStartPos = playerBoat.transform.position;
+            cameraProxy.position = new Vector3(0, 0, boatStartPos.z);
+            cameraTargetPosition = cameraProxy.position;
+            endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
+        }
+
+        if (brain != null)
+        {
+            brain.DefaultBlend = originalCameraBlend;
+        }
+
+        // 6. Start the game loop
+        Debug.Log("<color=lime>Resume successful. Initializing player turn.</color>");
+
+        // --- FIX 2: MANUALLY START THE PLAYER'S TURN ---
+        isPlayerTurn = true;
+        currentAP = Mathf.Min(apPerCycle, currentStamina);
+        UpdateAPUI();
+
+        if (playerBoat != null)
+        {
+            playerBoat.SelectBoat();
+        }
+
+        // Set the flag and start the main loop.
+        skipFirstForecast = true;
+        StartCoroutine(EndlessGameLoop());
+    
+}
+
+    private void PlaceCollectibleOnTile(TileInstance tile, CollectibleType type, int value)
+    {
+        GameObject prefabToSpawn = null;
+        switch (type)
+        {
+            case CollectibleType.ExtraMove:
+                prefabToSpawn = extraMoveCollectiblePrefab;
+                break;
+                // Add other collectible types here if you have them, e.g., Star
+        }
+
+        if (prefabToSpawn != null)
+        {
+            Vector3 spawnPos = tile.transform.position + Vector3.up * 0.25f; // Place it slightly above the tile
+            GameObject collectibleGO = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity, tile.transform);
+            var instance = collectibleGO.GetComponent<CollectibleInstance>();
+            if (instance != null)
+            {
+                instance.type = type;
+                instance.value = value;
+            }
+        }
+    }
+
+
 
 
 }

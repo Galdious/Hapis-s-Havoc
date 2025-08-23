@@ -768,6 +768,10 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
     }
 
 
+    public void SetDropZoneCanvas(Canvas canvas)
+    {
+        this.dropZoneCanvas = canvas;
+    }
 
 
 
