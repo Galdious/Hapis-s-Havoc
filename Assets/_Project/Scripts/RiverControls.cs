@@ -249,30 +249,7 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
 
 
 
-        // --- NEW: Create the World Space Canvas dynamically ---
-        if (gameManager != null && gameManager.currentMode != OperatingMode.Editor)
-        {
-            GameObject canvasGO = new GameObject("DropZoneCanvas");
-            canvasGO.transform.SetParent(this.transform); // Attach to RiverControls
-            dropZoneCanvas = canvasGO.AddComponent<Canvas>();
-            dropZoneCanvas.renderMode = RenderMode.WorldSpace;
-            canvasGO.AddComponent<GraphicRaycaster>(); // Required for UI interaction
-
-
-            // Find the main camera to assign to the event camera
-            Camera mainCamera = Camera.main;
-            if (mainCamera != null)
-            {
-                dropZoneCanvas.worldCamera = mainCamera;
-            }
-            else
-            {
-                Debug.LogError("[RiverControls] Main Camera not found! Drop zones will not work.");
-            }
-
-            dropZoneCanvas.transform.rotation = Quaternion.Euler(90, 0, 0);
-
-        }
+        EnsureCanvasExists();
 
 
         for (int row = 0; row < rows; row++)
@@ -309,26 +286,45 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
 
     public void CreateDropZonesForRow(int row)
     {
-        if (dropZonePrefab == null || row < 0 || row >= rowLockStates.Length) return;
+        EnsureCanvasExists();
+        // Add a null check for rowLockStates for safety during initialization
+        if (dropZonePrefab == null || row < 0 || rowLockStates == null || row >= rowLockStates.Length) return;
 
-        // --- THIS IS THE FIX ---
-        // 1. Get the lock state for the current row.
+        OperatingMode mode = (gameManager != null) ? gameManager.currentMode : OperatingMode.Editor;
         RowLockState state = rowLockStates[row];
 
-        // 2. Check if the LEFT side is unlocked before creating the left drop zone.
+        // --- UNIFIED POSITIONING LOGIC ---
+        // 1. Get the reliable center position of the row. This works for all modes.
+        Vector3 rowCenter = GetRowCenterPosition(row);
+
+        // 2. Calculate common dimensions.
+        float gridHalfWidth = (gridManager.cols * gridManager.tileWidth + (gridManager.cols - 1) * gridManager.gapX) / 2f;
+        float zoneWidth = gridManager.tileWidth * 1.5f;
+        float zoneHeight = gridManager.tileHeight + (gridManager.gapZ * 0.5f);
+
+        // --- Left Zone Creation (if unlocked) ---
         if (state != RowLockState.LeftLocked && state != RowLockState.BothLocked)
         {
-            // (The code to create the LEFT drop zone goes here - it is unchanged)
-            Vector3 rowCenter = GetRowCenterPosition(row);
-            float gridHalfWidth = (gridManager.cols * gridManager.tileWidth + (gridManager.cols - 1) * gridManager.gapX) / 2f;
-            float zoneWidth = gridManager.tileWidth * 1.5f;
-            float zoneHeight = gridManager.tileHeight + (gridManager.gapZ * 0.5f);
-            float offsetFromEdge = zoneWidth / 2f;
-            
+            float leftZoneX;
+            if (mode == OperatingMode.Endless)
+            {
+                // In Endless, place it cleanly just outside the grid.
+                float offsetFromEdge = zoneWidth / 2f;
+                leftZoneX = rowCenter.x - gridHalfWidth - offsetFromEdge + 2f;
+            }
+            else
+            {
+                // In Puzzle, use the original, slightly overlapping position that we know works.
+                float offsetFromEdge = zoneWidth / 2f;
+                leftZoneX = rowCenter.x - gridHalfWidth - offsetFromEdge + 2f;
+            }
+
+            // Instantiate and configure the left drop zone
             GameObject leftZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
             leftZoneGO.name = $"DropZone_Row{row}_L";
             RectTransform leftRect = leftZoneGO.GetComponent<RectTransform>();
-            leftRect.position = new Vector3(rowCenter.x - gridHalfWidth - offsetFromEdge + 2f, rowCenter.y, rowCenter.z - 0.25f);
+            // Use the calculated X, but the row's Y and Z from our reliable helper.
+            leftRect.position = new Vector3(leftZoneX, rowCenter.y, rowCenter.z - 0.25f);
             leftRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
             RowDropZone leftZone = leftZoneGO.GetComponent<RowDropZone>();
             leftZone.row = row;
@@ -337,20 +333,26 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
             dropZones[(row, true)] = leftZone;
         }
 
-        // 3. Check if the RIGHT side is unlocked before creating the right drop zone.
+        // --- Right Zone Creation (if unlocked) ---
         if (state != RowLockState.RightLocked && state != RowLockState.BothLocked)
         {
-            // (The code to create the RIGHT drop zone goes here - it is unchanged)
-            Vector3 rowCenter = GetRowCenterPosition(row);
-            float gridHalfWidth = (gridManager.cols * gridManager.tileWidth + (gridManager.cols - 1) * gridManager.gapX) / 2f;
-            float zoneWidth = gridManager.tileWidth * 1.5f;
-            float zoneHeight = gridManager.tileHeight + (gridManager.gapZ * 0.5f);
-            float offsetFromEdge = zoneWidth / 2f;
-
+            float rightZoneX;
+            if (mode == OperatingMode.Endless)
+            {
+                float offsetFromEdge = zoneWidth / 2f;
+                rightZoneX = rowCenter.x + gridHalfWidth + offsetFromEdge - 2f;
+            }
+            else
+            {
+                float offsetFromEdge = zoneWidth / 2f;
+                rightZoneX = rowCenter.x + gridHalfWidth + offsetFromEdge - 2f;
+            }
+            
+            // Instantiate and configure the right drop zone
             GameObject rightZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
             rightZoneGO.name = $"DropZone_Row{row}_R";
             RectTransform rightRect = rightZoneGO.GetComponent<RectTransform>();
-            rightRect.position = new Vector3(rowCenter.x + gridHalfWidth + offsetFromEdge - 2f, rowCenter.y, rowCenter.z - 0.25f);
+            rightRect.position = new Vector3(rightZoneX, rowCenter.y, rowCenter.z - 0.25f);
             rightRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
             RowDropZone rightZone = rightZoneGO.GetComponent<RowDropZone>();
             rightZone.row = row;
@@ -358,9 +360,8 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
             rightZone.riverControls = this;
             dropZones[(row, false)] = rightZone;
         }
-        // --- END OF FIX ---
     }
-    
+
 
 
 
@@ -509,17 +510,15 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
 
     private Vector3 GetRowCenterPosition(int row)
     {
-        // FIXED: Calculate the center position of a row using ACTUAL GridManager values
-        // This mirrors the GridManager's position calculation exactly
-        float totalWidth = (gridManager.cols - 1) * (gridManager.tileWidth + gridManager.gapX);
-        float totalHeight = (gridManager.rows - 1) * (gridManager.tileHeight + gridManager.gapZ);
+        // This new version is simpler and guarantees correctness by using the GridManager's
+        // own stable coordinate system, which has a non-changing origin point.
 
-        Vector3 boardOrigin = new Vector3(-totalWidth / 2f, 0f, -totalHeight / 2f);
+        // Get the world position of the first and last tile in the given row.
+        Vector3 leftEdgePos = gridManager.GetWorldPosition(0, row);
+        Vector3 rightEdgePos = gridManager.GetWorldPosition(gridManager.cols - 1, row);
 
-        return boardOrigin + new Vector3(
-            totalWidth / 2f,  // center X
-            0f,
-            row * (gridManager.tileHeight + gridManager.gapZ));
+        // The true center is the average of these two points.
+        return (leftEdgePos + rightEdgePos) / 2f;
     }
 
     // Also add this method to dynamically calculate arrow distance based on grid size:
@@ -752,8 +751,58 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
     }
 
 
+    public void ExpandLockStates(int newRowCount)
+    {
+        // If the array is already big enough, do nothing.
+        if (rowLockStates != null && newRowCount <= rowLockStates.Length)
+        {
+            return;
+        }
+
+        Debug.Log($"[RiverControls] Expanding lock states from {rowLockStates?.Length ?? 0} to {newRowCount}.");
+
+        // Create a new array of the required size.
+        // All new elements will default to RowLockState.Unlocked, which is what we want for Endless Mode.
+        RowLockState[] newStates = new RowLockState[newRowCount];
+
+        // If an old array exists, copy the old data into the new one.
+        if (rowLockStates != null)
+        {
+            for (int i = 0; i < rowLockStates.Length; i++)
+            {
+                newStates[i] = rowLockStates[i];
+            }
+        }
+
+        // Replace the old array with the new, larger one.
+        rowLockStates = newStates;
+    }
 
 
+    private void EnsureCanvasExists()
+    {
+        // If the canvas already exists and is active, do nothing.
+        if (dropZoneCanvas != null) return;
+
+        Debug.LogWarning("[RiverControls] DropZone Canvas was missing. Creating one dynamically.");
+
+        GameObject canvasGO = new GameObject("DropZoneCanvas");
+        canvasGO.transform.SetParent(this.transform);
+        dropZoneCanvas = canvasGO.AddComponent<Canvas>();
+        dropZoneCanvas.renderMode = RenderMode.WorldSpace;
+        canvasGO.AddComponent<GraphicRaycaster>();
+
+        Camera mainCamera = Camera.main;
+        if (mainCamera != null)
+        {
+            dropZoneCanvas.worldCamera = mainCamera;
+        }
+        else
+        {
+            Debug.LogError("[RiverControls] Main Camera not found! Drop zones will not work.");
+        }
+        dropZoneCanvas.transform.rotation = Quaternion.Euler(90, 0, 0);
+    }
 
 
 

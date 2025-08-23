@@ -220,16 +220,32 @@ public class GridManager : MonoBehaviour
         float totalHeight = (rows - 1) * (tileHeight + gapZ);
         boardOrigin = new Vector3(-totalWidth / 2f, 0f, -totalHeight / 2f);
 
-        for (int y = 0; y < rows; y++)
+        if (tileDataMap != null)
         {
-            for (int x = 0; x < cols; x++)
+            // --- BLUEPRINT MODE ---
+            // If a blueprint exists, ONLY create tiles specified in the blueprint.
+            // This is crucial for resuming an endless run correctly.
+            Debug.Log("[GridManager] Blueprint detected. Creating specified tiles only.");
+            foreach (var tileData in tileBlueprint)
             {
-                TileSaveData specificTileData = null;
-                // Try to get specific data only if the map exists.
-                tileDataMap?.TryGetValue((x, y), out specificTileData);
-
-                // This single call now handles both random and blueprint creation.
-                runningAnimations.Add(CreateTileAtGridPosition(x, y, specificTileData));
+                // We directly use the data from the list, ignoring the loops.
+                // This correctly handles sparse/offset grids.
+                runningAnimations.Add(CreateTileAtGridPosition(tileData.gridX, tileData.gridY, tileData));
+            }
+        }
+        else
+        {
+            // --- RANDOM/FULL GRID MODE ---
+            // If no blueprint is provided, create a full grid with random tiles.
+            // This is the original behavior for starting a new puzzle in the editor.
+            Debug.Log("[GridManager] No blueprint. Creating a full random grid.");
+            for (int y = 0; y < rows; y++)
+            {
+                for (int x = 0; x < cols; x++)
+                {
+                    // Passing 'null' to CreateTileAtGridPosition triggers random generation.
+                    runningAnimations.Add(CreateTileAtGridPosition(x, y, null));
+                }
             }
         }
         Debug.Log("[GridManager] River grid build process started.");

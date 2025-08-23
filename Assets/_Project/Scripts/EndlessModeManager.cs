@@ -634,23 +634,24 @@ public class EndlessModeManager : MonoBehaviour
 
     private void GenerateMissingRows(int targetTopRow)
     {
-        gridManager.ExpandGridForEndless(targetTopRow + 1); // +1 because row count is 1-based
-
-        // Loop from the row just above our current highest, up to the target.
+        // --- THIS IS THE FIX ---
+        // 1. Expand BOTH data structures to their final size BEFORE the loop.
+        //    This ensures their states are always synchronized.
+        gridManager.ExpandGridForEndless(targetTopRow + 1);
+        riverControls.ExpandLockStates(targetTopRow + 1);
+        
+        // 2. Loop and create the visuals. The check inside CreateDropZonesForRow will now always pass.
         for (int y = highestGeneratedRow + 1; y <= targetTopRow; y++)
         {
-
             gridManager.CreateNewEndlessRow(y, gridWidth, this.obstacleChance, this.blockerChance, this.extraMoveSpawnChance, this.extraMoveCollectiblePrefab);
-
-            // Update our boundary tracker.
+            
+            // Update our boundary tracker AFTER creating the row.
             highestGeneratedRow = y;
 
-            riverControls.CreateDropZonesForRow(y); // We will make CreateDropZonesForRow public.
-
-
-            // We also need to tell the RiverControls to expand its lock states
-            riverControls.InitializeLockStates(highestGeneratedRow + 1);
+            riverControls.CreateDropZonesForRow(y);
+            // The call to ExpandLockStates has been moved out of the loop.
         }
+        // --- END OF FIX ---
     }
 
     private void DestroyOldRows(int targetBottomRow)
