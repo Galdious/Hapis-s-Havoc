@@ -19,8 +19,10 @@ public class RiverBankManager : MonoBehaviour
     public bool createVisualBanks = true; // whether to create visible bank objects
 
     [Header("Spawn Points")]
-    public int spawnPointsPerSide = 4;    // how many spawn points per bank
+    public int spawnPointsPerSide = 1;    // how many spawn points per bank
     public float spawnPointSpacing = 1f;  // spacing between spawn points
+    [Tooltip("How far back from the bank's edge the spawn points are placed (Z-axis offset).")]
+    public float spawnPointEdgeOffset = 0f; 
     public bool showSpawnPointGizmos = true;
 
     [Header("Materials")]
@@ -92,6 +94,10 @@ public class RiverBankManager : MonoBehaviour
         // Calculate top bank position
         Vector3 bankPosition = GetBankPosition(BankSide.Top);
         topBankParent.position = bankPosition;
+
+        // Rotate to face the river (south)
+        topBankParent.rotation = Quaternion.Euler(0f, 180f, 0f);
+
 
         // Create visual bank if requested
         if (createVisualBanks)
@@ -190,7 +196,8 @@ public class RiverBankManager : MonoBehaviour
         float riverWidth = (gridManager.cols * gridManager.tileWidth) + ((gridManager.cols - 1) * gridManager.gapX);
 
         // Adjust number of spawn points based on grid size - ensure we have enough but not too many
-        int actualSpawnPoints = Mathf.Max(2, Mathf.Min(spawnPointsPerSide, gridManager.cols + 1));
+        // int actualSpawnPoints = Mathf.Max(2, Mathf.Min(spawnPointsPerSide, gridManager.cols + 1)); - with a minimum of 2 spawnpoints
+        int actualSpawnPoints = Mathf.Min(spawnPointsPerSide, gridManager.cols + 1);
 
         float totalSpacing = (actualSpawnPoints - 1) * spawnPointSpacing;
 
@@ -210,7 +217,7 @@ public class RiverBankManager : MonoBehaviour
             spawnPoint.transform.SetParent(bankParent);
 
             // Position spawn point along X axis (across the river) at snap point height
-            Vector3 localPos = new Vector3(startX + (i * spawnPointSpacing), bankHeight * 0.5f, 0f);
+            Vector3 localPos = new Vector3(startX + (i * spawnPointSpacing), bankHeight * 0.5f, spawnPointEdgeOffset);
             spawnPoint.transform.localPosition = localPos;
 
             // Orient spawn point toward river center
@@ -360,8 +367,24 @@ public class RiverBankManager : MonoBehaviour
 
         Debug.Log("[RiverBankManager] All existing banks cleared and references nulled.");
     }
-    
 
+
+    /// Finds the spawn point closest to the center of the bank.
+    /// <returns>The transform of the centermost spawn point, or null if none exist.</returns>
+    public Transform GetCenterSpawnPoint(BankSide side)
+    {
+        List<Transform> spawns = (side == BankSide.Top) ? topBankSpawns : bottomBankSpawns;
+
+        if (spawns.Count == 0)
+        {
+            Debug.LogWarning($"[RiverBankManager] Tried to get center spawn point for {side} bank, but no spawn points exist!");
+            return null;
+        }
+
+        // Integer division automatically finds the middle index for both odd and even counts.
+        int middleIndex = spawns.Count / 2;
+        return spawns[middleIndex];
+    }
 
 
     

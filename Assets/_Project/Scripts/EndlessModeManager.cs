@@ -239,7 +239,7 @@ public class EndlessModeManager : MonoBehaviour
         riverControls.InitializeLockStates(initialGridHeight);
         riverControls.GenerateControlsForGrid();
 
-        playerBoat = boatManager.SpawnPlayerBoat(RiverBankManager.BankSide.Bottom, 0);
+        playerBoat = boatManager.SpawnPlayerBoat(RiverBankManager.BankSide.Bottom);
 
 
 

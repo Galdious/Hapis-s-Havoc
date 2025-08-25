@@ -12785,13 +12785,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RiverBankManager
   bankPrefab: {fileID: 0}
-  bankDistance: 1
-  bankWidth: 0.5
+  bankDistance: 1.35
+  bankWidth: 1.5
   bankHeight: 0.5
   bankYPosition: 0
   createVisualBanks: 1
-  spawnPointsPerSide: 4
+  spawnPointsPerSide: 1
   spawnPointSpacing: 1
+  spawnPointEdgeOffset: -0.5
   showSpawnPointGizmos: 1
   bankMaterial: {fileID: 2100000, guid: fa541c8e8941a421e8681e04e18ef044, type: 2}
   spawnPointMaterial: {fileID: 0}

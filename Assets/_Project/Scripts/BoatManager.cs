@@ -60,7 +60,7 @@ public class BoatManager : MonoBehaviour
         }
 
         // For testing, just spawn one boat at the first spawn point of bottom bank
-        Transform spawnPoint = bankManager.GetSpawnPoint(testBankSide, 0);
+        Transform spawnPoint = bankManager.GetCenterSpawnPoint(testBankSide);
         if (spawnPoint != null)
         {
             SpawnBoatAtBank(spawnPoint, 0);
@@ -233,9 +233,9 @@ public class BoatManager : MonoBehaviour
         return new List<BoatController>(playerBoats);
     }
 
-    public BoatController SpawnPlayerBoat(RiverBankManager.BankSide side, int spawnIndex)
+    public BoatController SpawnPlayerBoat(RiverBankManager.BankSide side)
     {
-        Transform spawnPoint = bankManager.GetSpawnPoint(side, spawnIndex);
+        Transform spawnPoint = bankManager.GetCenterSpawnPoint(side);
         if (spawnPoint != null)
         {
             return SpawnBoatAtBank(spawnPoint, playerBoats.Count);
