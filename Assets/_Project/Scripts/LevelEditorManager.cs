@@ -308,6 +308,12 @@ public class LevelEditorManager : MonoBehaviour
 
     public int GetCurrentMaxMoves()
     {
+        // 1. Prioritize the loaded level data if it exists. This is the true source of authority.
+        if (currentLoadedLevelData != null)
+        {
+            return currentLoadedLevelData.maxMoves;
+        }
+
         // If the input field exists and we can parse its text into a number, return that number.
         if (maxMovesInput != null && int.TryParse(maxMovesInput.text, out int moves))
         {
