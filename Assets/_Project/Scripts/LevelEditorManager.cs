@@ -1707,66 +1707,55 @@ public class LevelEditorManager : MonoBehaviour
 
     public void LoadLevelFromFile(string path)
     {
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        // The 'path' we receive is now a RESOURCE path, like "Levels/01_01_MyFirstLevel".
+        // We use Resources.Load to get the TextAsset.
+        TextAsset levelAsset = Resources.Load<TextAsset>(path);
+
+        if (levelAsset == null)
         {
-            Debug.LogError($"[LevelEditorManager] Load failed: File not found or path is invalid: {path}");
+            Debug.LogError($"[LevelEditorManager] Load failed: Could not find level asset at resource path: {path}");
             return;
         }
 
         try
         {
-            string json = File.ReadAllText(path);
+            // The JSON content is now in the .text property of the TextAsset.
+            string json = levelAsset.text;
             LevelData loadedData = JsonUtility.FromJson<LevelData>(json);
 
             if (loadedData != null)
             {
-
+                // The rest of your loading logic is unchanged and will work perfectly.
                 var levelInfo = new LevelInfo(path);
-
                 currentLoadedLevelData = loadedData;
 
-                // Also update the UI with the loaded level's name!
                 if (UIManager.Instance != null)
                 {
                     string displayName = new LevelInfo(path).Description;
                     UIManager.Instance.UpdateCurrentLevelName($"World {levelInfo.WorldNumber}-{levelInfo.LevelNumber}: {levelInfo.Description}");
                 }
 
-                // Clear history for a new level.
                 if (HistoryManager.Instance != null)
                 {
                     HistoryManager.Instance.ClearHistory();
                 }
 
-                // Convert the loaded file data into a snapshot to reconstruct the initial state.
                 GameStateSnapshot initialSnapshot = CreateSnapshotFromLevelData(loadedData);
-
-                // Save the initial state immediately after creating it (before reconstruction starts).
                 if (HistoryManager.Instance != null)
                 {
-                    HistoryManager.Instance.SaveState(initialSnapshot); // Pass the initial snapshot
+                    HistoryManager.Instance.SaveState(initialSnapshot);
                 }
 
-
                 StartCoroutine(ReconstructLevelFromDataCoroutine(loadedData, levelInfo, initialSnapshot));
-
-                Debug.Log($"<color=cyan>Successfully loaded level data from: {path}</color>");
-
+                Debug.Log($"<color=cyan>Successfully loaded level data from resource: {path}</color>");
             }
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"Failed to load or parse level from {path}. Error: {e.Message}");
+            Debug.LogError($"Failed to load or parse level from resource {path}. Error: {e.Message}");
         }
-
-
-
-
-
-
-
-
     }
+    
 
 
 

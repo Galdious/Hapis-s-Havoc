@@ -16,28 +16,28 @@ public static class LevelFinder
     {
         List<LevelInfo> foundLevels = new List<LevelInfo>();
 
-        string fullPath = Path.Combine(Application.dataPath, levelsSubfolderName);
+        // 1. Load all "TextAsset" files from the "Resources/Levels" folder.
+        //    Unity automatically knows how to handle .json, .txt, .xml as TextAssets.
+        TextAsset[] levelAssets = Resources.LoadAll<TextAsset>(levelsSubfolderName);
 
-        if (!Directory.Exists(fullPath))
+        if (levelAssets.Length == 0)
         {
-            Debug.LogError($"[LevelFinder] The levels directory does not exist at: {fullPath}. Cannot find any levels.");
+            Debug.LogError($"[LevelFinder] Found no level files in the 'Resources/{levelsSubfolderName}' folder. Make sure your levels are there.");
             return foundLevels; // Return an empty list
         }
 
-        // Get all .json files from the directory.
-        string[] files = Directory.GetFiles(fullPath, "*.json", SearchOption.AllDirectories);
-
-        foreach (string filePath in files)
+        foreach (TextAsset levelAsset in levelAssets)
         {
-            // Create a new LevelInfo object, which parses the filename in its constructor.
-            var levelInfo = new LevelInfo(filePath);
+            // 2. The LevelInfo constructor needs a "path-like" string to parse the name.
+            //    We can give it the resource path, which is "Levels/LEVEL_NAME".
+            //    The constructor will correctly parse the name from this string.
+            //    We also store this resource path so we can load it later.
+            string resourcePath = $"{levelsSubfolderName}/{levelAsset.name}";
+            var levelInfo = new LevelInfo(resourcePath);
             foundLevels.Add(levelInfo);
-
         }
 
-        // --- Sort the list ---
-        // First, sort by World number.
-        // For ties in world number, sort by Level number.
+        // 3. Sort the list (this logic is unchanged and still works perfectly).
         List<LevelInfo> sortedLevels = foundLevels
             .OrderBy(level => level.WorldNumber)
             .ThenBy(level => level.LevelNumber)
@@ -45,4 +45,5 @@ public static class LevelFinder
 
         return sortedLevels;
     }
+
 }
