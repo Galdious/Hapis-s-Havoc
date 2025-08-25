@@ -5,7 +5,7 @@
     "lockedRows": [
         3,
         1,
-        2
+        0
     ],
     "tiles": [
         {
@@ -20,7 +20,7 @@
             "tileTypeName": "TileCross",
             "gridX": 1,
             "gridY": 0,
-            "rotationY": 180.0,
+            "rotationY": 0.000005008956122765085,
             "isFlipped": true,
             "isHardBlocker": false
         },
@@ -44,7 +44,7 @@
             "tileTypeName": "TileCross",
             "gridX": 1,
             "gridY": 1,
-            "rotationY": 180.0,
+            "rotationY": 0.000005008956122765085,
             "isFlipped": true,
             "isHardBlocker": true
         },
@@ -68,7 +68,7 @@
             "tileTypeName": "TileSimple_01",
             "gridX": 1,
             "gridY": 2,
-            "rotationY": 0.000005008956122765085,
+            "rotationY": 180.0,
             "isFlipped": true,
             "isHardBlocker": false
         },

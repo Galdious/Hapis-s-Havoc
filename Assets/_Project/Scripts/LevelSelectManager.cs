@@ -3,14 +3,31 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.UI;
 
 public class LevelSelectManager : MonoBehaviour
 {
+
+    [Header("UI References")] // It's good practice to organize Inspector fields
+    [SerializeField] private Button mainMenuButton;
+
+
     public static string LevelToLoad { get; set; }
     private List<LevelInfo> allLevelData;
 
     void Start()
     {
+
+        if (mainMenuButton != null)
+        {
+            mainMenuButton.onClick.AddListener(ReturnToMainMenu);
+        }
+        else
+        {
+            Debug.LogWarning("[LevelSelectManager] Main Menu Button is not assigned in the Inspector.", this);
+        }
+
+
         allLevelData = LevelFinder.GetAllLevels();
         LevelMarker[] markersInScene = FindObjectsByType<LevelMarker>(FindObjectsSortMode.None);
 
@@ -75,9 +92,24 @@ public class LevelSelectManager : MonoBehaviour
             SceneManager.LoadScene("LevelEditor"); // Or your main game scene name
         }
     }
-    
+
     private LevelInfo GetLevelInfo(int world, int level)
     {
         return allLevelData.FirstOrDefault(l => l.WorldNumber == world && l.LevelNumber == level);
     }
+
+    public void ReturnToMainMenu()
+    {
+        Debug.Log("Returning to Main Menu scene...");
+        SceneManager.LoadScene("MainMenu"); // Make sure your main menu scene is named "MainMenu"
+    }
+
+
+
+
+
+
+
+
+
 }
