@@ -1672,7 +1672,7 @@ public class LevelEditorManager : MonoBehaviour
         string json = JsonUtility.ToJson(levelData, true); // 'true' for pretty print
 
         // Define the path to our new "Levels" subfolder within Assets
-        string directoryPath = Path.Combine(Application.dataPath, "Levels");
+        string directoryPath = Path.Combine(Application.dataPath, "Resources", "Levels");
 
         // Ensure the directory exists. If not, create it.
         if (!Directory.Exists(directoryPath))
@@ -1755,7 +1755,7 @@ public class LevelEditorManager : MonoBehaviour
             Debug.LogError($"Failed to load or parse level from resource {path}. Error: {e.Message}");
         }
     }
-    
+
 
 
 
@@ -1955,24 +1955,9 @@ public class LevelEditorManager : MonoBehaviour
 
         // 6. Spawn the boat and RESTORE ITS STATE
         Debug.Log("Step 7: Spawning and restoring boat state...");
-        BoatController boat = boatManager.SpawnBoatWithoutPositioning(); // Spawn it without positioning
-        if (boat != null && snapshot.boatPosition != null)
-        {
-            // Restore dynamic values
-            boat.currentMovementPoints = snapshot.boatMovementPoints;
-            boat.SetCollectedStars(snapshot.boatStarsCollected);
+        boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
 
-            // Restore position
-            if (snapshot.boatPosition.isBankGoal)
-            {
-                boat.MoveToBank(snapshot.boatPosition.bankSide);
-            }
-            else
-            {
-                TileInstance boatTile = gridManager.GetTileAt(snapshot.boatPosition.tileX, snapshot.boatPosition.tileY);
-                boat.PlaceOnTile(boatTile, snapshot.boatPosition.snapPointIndex);
-            }
-        }
+
         // 10. Reset State for the New Run
         Debug.Log("Step 8: Finalizing game state and starting timer...");
         if (HistoryManager.Instance != null)

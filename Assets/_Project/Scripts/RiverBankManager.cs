@@ -345,16 +345,22 @@ public class RiverBankManager : MonoBehaviour
         if (topBankParent != null)
         {
             Destroy(topBankParent.gameObject);
-            topBankParent = null;
+            topBankParent = null; // Instantly clear the reference
         }
 
         if (bottomBankParent != null)
         {
             Destroy(bottomBankParent.gameObject);
-            bottomBankParent = null;
+            bottomBankParent = null; // Instantly clear the reference
         }
-        Debug.Log("[RiverBankManager] All existing banks cleared.");
+
+        // Also clear the spawn point lists, which is part of the original method
+        topBankSpawns.Clear();
+        bottomBankSpawns.Clear();
+
+        Debug.Log("[RiverBankManager] All existing banks cleared and references nulled.");
     }
+    
 
 
 

@@ -36,7 +36,7 @@
             "tileTypeName": "TileCross",
             "gridX": 0,
             "gridY": 1,
-            "rotationY": 180.0,
+            "rotationY": 0.000005008956122765085,
             "isFlipped": true,
             "isHardBlocker": true
         },
@@ -44,7 +44,7 @@
             "tileTypeName": "TileCross",
             "gridX": 1,
             "gridY": 1,
-            "rotationY": 180.0,
+            "rotationY": 0.000005008956122765085,
             "isFlipped": true,
             "isHardBlocker": true
         },
@@ -98,9 +98,9 @@
     "playerHand": [],
     "startPosition": {
         "isBankGoal": false,
-        "tileX": 0,
-        "tileY": 0,
-        "snapPointIndex": 3,
+        "tileX": -1,
+        "tileY": -1,
+        "snapPointIndex": -1,
         "bankSide": 0
     },
     "endPosition": {
