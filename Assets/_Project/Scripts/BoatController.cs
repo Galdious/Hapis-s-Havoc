@@ -487,6 +487,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                 case CollectibleType.Star:
                     starsCollected++;
                     UpdateStarCounterUI();
+                    FloatingTextManager.Instance.ShowText("+1", FloatingTextManager.FloatingTextType.StarGain, transform.position);
                     Debug.Log($"Collected a Star! Total stars: {starsCollected}");
                     break;
 
@@ -498,6 +499,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                         if (manager != null)
                         {
                             manager.AddStamina(collectible.value);
+                            FloatingTextManager.Instance.ShowText($"+{collectible.value}", FloatingTextManager.FloatingTextType.MoveGain, transform.position);
                             Debug.Log($"<color=green>ENDLESS:</color> Collected an Extra Move! Gained {collectible.value} Stamina.");
                         }
                         else
@@ -511,6 +513,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                         // PUZZLE MODE: Add to Movement Points (the original logic)
                         currentMovementPoints += collectible.value;
                         UpdateMoveCounterUI();
+                        FloatingTextManager.Instance.ShowText($"+{collectible.value}", FloatingTextManager.FloatingTextType.MoveGain, transform.position);
                         Debug.Log($"<color=yellow>PUZZLE:</color> Collected an Extra Move! Gained {collectible.value} moves. Current moves: {currentMovementPoints}");
                     }
                     break;
@@ -840,15 +843,24 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                             if (endlessManager != null)
                             {
                                 endlessManager.AddStamina(bonusAmount);
+                                FloatingTextManager.Instance.ShowSkipBonus(bonusAmount, transform.position);
                                 Debug.Log($"<color=green>ENDLESS SKIP BONUS!</color> Gained {bonusAmount} Stamina for skipping {tilesSkipped} tiles.");
                             }
                         }
                         else
                         {
                             // In PUZZLE MODE, we award standard MOVEMENT POINTS.
-                            currentMovementPoints += bonusAmount;
-                            UpdateMoveCounterUI();
-                            Debug.Log($"<color=yellow>PUZZLE SKIP BONUS!</color> Gained {bonusAmount} moves for skipping {tilesSkipped} tiles.");
+                            // currentMovementPoints += bonusAmount;
+                            // UpdateMoveCounterUI();
+                            // FloatingTextManager.Instance.ShowText("Skip Bonus!", FloatingTextManager.FloatingTextType.Neutral, transform.position);
+                            // FloatingTextManager.Instance.ShowText($"+{bonusAmount}", FloatingTextManager.FloatingTextType.MoveGain, transform.position, 0.3f); // 0.3s delay
+                            // Debug.Log($"<color=yellow>PUZZLE SKIP BONUS!</color> Gained {bonusAmount} moves for skipping {tilesSkipped} tiles.");
+
+                            // In PUZZLE MODE, the move across red tiles is allowed, but no bonus is awarded.
+                            // It's a strategic positional play, not a resource gain.
+                            
+                            Debug.Log($"<color=yellow>PUZZLE:</color> Successfully crossed {tilesSkipped} red tiles. No bonus awarded.");
+    
                         }
                     }
                 }
@@ -1345,6 +1357,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         if (starsCollected > 0)
         {
             Debug.Log($"Ejected! Lost {starsCollected} stars.");
+            FloatingTextManager.Instance.ShowText($"-{starsCollected}", FloatingTextManager.FloatingTextType.StarLoss, transform.position);
             starsCollected = 0; // WE CAN CHANGE THIS LATER TO -1 IF WE WANT TO KEEP SOME OF THE STARS
             UpdateStarCounterUI();
         }

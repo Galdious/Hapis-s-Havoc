@@ -15754,6 +15754,61 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!1 &1892238416
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1892238418}
+  - component: {fileID: 1892238417}
+  m_Layer: 0
+  m_Name: FloatingTextManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1892238417
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1892238416}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7964200141f094627ba985327373fbc2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FloatingTextManager
+  floatingTextPrefab: {fileID: 8405150190606266920, guid: 71a57c73e0881418a83ae6786ff200d7, type: 3}
+  textParentCanvas: {fileID: 1098016255}
+  screenYOffset: 50
+  starGainedIcon: {fileID: 21300000, guid: b5616ddf3a1984d0a95714e01c2dfad4, type: 3}
+  starLostIcon: {fileID: 21300000, guid: ad59b201abe864edfa6adda766fb85ea, type: 3}
+  moveGainedIcon: {fileID: 21300000, guid: b5616ddf3a1984d0a95714e01c2dfad4, type: 3}
+  moveLostIcon: {fileID: 21300000, guid: ad59b201abe864edfa6adda766fb85ea, type: 3}
+  gainColor: {r: 0, g: 1, b: 0, a: 1}
+  lossColor: {r: 1, g: 0, b: 0, a: 1}
+  neutralColor: {r: 1, g: 1, b: 1, a: 1}
+  skipBonusMessageDelay: 0.8
+--- !u!4 &1892238418
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1892238416}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1892326866
 GameObject:
   m_ObjectHideFlags: 0
@@ -17816,3 +17871,4 @@ SceneRoots:
   - {fileID: 1665655169}
   - {fileID: 2041203080}
   - {fileID: 537799367}
+  - {fileID: 1892238418}
