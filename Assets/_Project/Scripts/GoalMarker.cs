@@ -10,6 +10,7 @@ public class GoalMarker : MonoBehaviour
 {
 
     public GoalData goalInfo;
+    public float yOffset = 0.25f;
 
     // We store a direct reference to the object we need to follow.
     private TileInstance targetTile;
@@ -74,11 +75,11 @@ public class GoalMarker : MonoBehaviour
                 // ...update our position to match it.
                 if (goalInfo.snapPointIndex != -1)
                 {
-                    transform.position = targetTile.snapPoints[goalInfo.snapPointIndex].position;
+                    transform.position = targetTile.snapPoints[goalInfo.snapPointIndex].position + Vector3.up * yOffset;
                 }
                 else
                 {
-                    transform.position = targetTile.transform.position;
+                    transform.position = targetTile.transform.position + Vector3.up * yOffset;
                 }
             }
             // ...but the tile has been destroyed (is now null)...
@@ -92,7 +93,7 @@ public class GoalMarker : MonoBehaviour
         else if (targetBankParent != null)
         {
             // ...just keep following the bank's transform.
-            transform.position = targetBankParent.position;
+            transform.position = targetBankParent.position + Vector3.up * yOffset;
         }
     }
 

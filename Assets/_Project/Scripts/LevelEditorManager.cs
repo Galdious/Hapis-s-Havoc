@@ -22,6 +22,8 @@ public class LevelEditorManager : MonoBehaviour
     public Button loadLevelButton;
 
     [Header("Goal Settings")]
+    [Tooltip("The vertical (Y-axis) offset to apply to the end marker when it's spawned, lifting it off the surface.")]
+    [SerializeField] private float endMarkerYOffset = 0.3f; 
     public TMP_InputField maxMovesInput;
     public GameObject startMarkerPrefab; // A green flag/cone you create
     private GameObject activeStartMarker;
@@ -1169,6 +1171,7 @@ public class LevelEditorManager : MonoBehaviour
         // The snap point is null for the end position.
         var markerComponent = activeEndMarker.AddComponent<GoalMarker>();
         markerComponent.Setup(gridManager, tile, side, null, true);
+        markerComponent.yOffset = this.endMarkerYOffset; 
     }
 
 

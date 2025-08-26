@@ -7162,6 +7162,7 @@ MonoBehaviour:
   filenameInput: {fileID: 1556660526}
   saveLevelButton: {fileID: 497292017}
   loadLevelButton: {fileID: 0}
+  endMarkerYOffset: 0.25
   maxMovesInput: {fileID: 361424750}
   startMarkerPrefab: {fileID: 5073483993972841151, guid: 4ad607a30fd2841dea7988b81fbcc674, type: 3}
   endMarkerPrefab: {fileID: 3065368649120530297, guid: 1f57610918aca4e1ca64185258e4647f, type: 3}
