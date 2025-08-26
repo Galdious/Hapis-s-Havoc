@@ -1952,6 +1952,17 @@ public class LevelEditorManager : MonoBehaviour
             if (startGoalData.isBankGoal) SetStartPosition(null, startGoalData.bankSide, null);
             else if (startGoalData.tileX != -1) SetStartPosition(gridManager.GetTileAt(startGoalData.tileX, startGoalData.tileY), null, startGoalData.snapPointIndex);
         }
+        if (GameManager.Instance != null && GameManager.Instance.currentMode == OperatingMode.Playing)
+        {
+            if (activeStartMarker != null)
+            {
+                Destroy(activeStartMarker);
+                // We don't need to set it to null, as it will be cleared on the next level load anyway.
+            }
+        }
+
+
+
         var endGoalData = levelData.endPosition;
         if (endGoalData != null)
         {
