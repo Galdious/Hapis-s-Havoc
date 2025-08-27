@@ -833,7 +833,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         originalBankMaterials.Clear();
     }
 
-    public void OnTileClicked(TileInstance clickedTile)
+        
+public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
     {
 
         if (reversedPathways.ContainsKey(clickedTile))
@@ -918,7 +919,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         }
         else
         {
-            int targetSnapPoint = DetermineRiverSnapPoint(clickedTile);
+            int targetSnapPoint = DetermineRiverSnapPoint(clickedTile, eventData);
             if (targetSnapPoint != -1) MoveFromTileToTile(clickedTile, targetSnapPoint);
         }
     }
@@ -989,14 +990,14 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
 
 
-    int DetermineRiverSnapPoint(TileInstance tile)
+    int DetermineRiverSnapPoint(TileInstance tile, PointerEventData eventData)
     {
         bool isPath = tileToSnapPoint.ContainsKey(tile);
         bool isReverse = tileToReverseSnapPoint.ContainsKey(tile);
 
         if (isPath && isReverse)
         {
-            Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
+            Ray ray = eventData.pressEventCamera.ScreenPointToRay(eventData.position);
             if (Physics.Raycast(ray, out RaycastHit hit))
             {
                 int continueSnapIndex = tileToSnapPoint[tile];
@@ -1672,7 +1673,7 @@ public class SimpleTileClickHandler : MonoBehaviour, IPointerClickHandler
     {
         if (targetBoat != null && targetTile != null)
         {
-            targetBoat.OnTileClicked(targetTile);
+            targetBoat.OnTileClicked(targetTile, eventData);
         }
     }
 

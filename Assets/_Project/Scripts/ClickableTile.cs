@@ -23,7 +23,7 @@ public class ClickableTile : MonoBehaviour, IPointerClickHandler
     {
         if (targetBoat != null && tileInstance != null)
         {
-            targetBoat.OnTileClicked(tileInstance);
+            targetBoat.OnTileClicked(tileInstance, eventData);
         }
     }
 }
