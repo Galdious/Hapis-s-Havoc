@@ -373,16 +373,16 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             switch (snapPoint)
             {
                 case 0: case 1:
-                    finalPos = snapPosition + (Vector3.back * snapOffset);
+                    finalPos = snapPosition - (destinationTile.transform.forward * snapOffset);
                     break;
                 case 2: case 3:
-                    finalPos = snapPosition + (Vector3.forward * snapOffset);
+                    finalPos = snapPosition + (destinationTile.transform.forward * snapOffset);
                     break;
                 case 4:
-                    finalPos = snapPosition + (Vector3.left * snapOffset);
+                    finalPos = snapPosition - (destinationTile.transform.right * snapOffset);
                     break;
                 case 5:
-                    finalPos = snapPosition + (Vector3.right * snapOffset);
+                    finalPos = snapPosition + (destinationTile.transform.right * snapOffset);
                     break;
                 default:
                     Vector3 tileCenter = destinationTile.transform.position;
@@ -1273,16 +1273,16 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
         switch (snapPoint)
         {
             case 0: case 1:
-                targetPos = snapPosition + (Vector3.back * snapOffset);
+                targetPos = snapPosition - (targetTile.transform.forward * snapOffset);
                 break;
             case 2: case 3:
-                targetPos = snapPosition + (Vector3.forward * snapOffset);
+                targetPos = snapPosition + (targetTile.transform.forward * snapOffset);
                 break;
             case 4:
-                targetPos = snapPosition + (Vector3.left * snapOffset);
+                targetPos = snapPosition - (targetTile.transform.right * snapOffset);
                 break;
             case 5:
-                targetPos = snapPosition + (Vector3.right * snapOffset);
+                targetPos = snapPosition + (targetTile.transform.right * snapOffset);
                 break;
             default:
                 Vector3 tileCenter = targetTile.transform.position;
@@ -1497,24 +1497,24 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
         {
             case 0: // Top-Left
             case 1: // Top-Right
-                // For top snaps, the boat should be offset purely DOWNWARDS (negative Z).
-                finalPosition = snapPosition + (Vector3.back * snapOffset);
+                // The top edge is on the tile's local positive Z. Offset is in the negative local Z.
+                finalPosition = snapPosition - (tile.transform.forward * snapOffset);
                 break;
             case 2: // Down-Left
             case 3: // Down-Right
-                // For bottom snaps, the boat should be offset purely UPWARDS (positive Z).
-                finalPosition = snapPosition + (Vector3.forward * snapOffset);
+                // The bottom edge is on the tile's local negative Z. Offset is in the positive local Z.
+                finalPosition = snapPosition + (tile.transform.forward * snapOffset);
                 break;
             case 4: // Right
-                // For the right snap, offset purely LEFT (negative X).
-                finalPosition = snapPosition + (Vector3.left * snapOffset);
+                // The right edge is on the tile's local positive X. Offset is in the negative local X.
+                finalPosition = snapPosition - (tile.transform.right * snapOffset);
                 break;
             case 5: // Left
-                // For the left snap, offset purely RIGHT (positive X).
-                finalPosition = snapPosition + (Vector3.right * snapOffset);
+                // The left edge is on the tile's local negative X. Offset is in the positive local X.
+                finalPosition = snapPosition + (tile.transform.right * snapOffset);
                 break;
             default:
-                // Fallback to the old logic just in case.
+                // Fallback to a simple diagonal offset if something goes wrong.
                 Vector3 tileCenter = tile.transform.position;
                 Vector3 direction = (snapPosition - tileCenter).normalized;
                 finalPosition = snapPosition - direction * snapOffset;
