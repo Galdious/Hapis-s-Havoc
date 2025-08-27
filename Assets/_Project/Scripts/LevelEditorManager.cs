@@ -1975,7 +1975,53 @@ public class LevelEditorManager : MonoBehaviour
 
         // 6. Spawn the boat and RESTORE ITS STATE
         Debug.Log("Step 7: Spawning and restoring boat state...");
-        boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
+        // Find the newly created boat in the scene.
+        
+
+
+        if (isUndoAction)
+        {
+            // --- UNDO PATH ---
+            // We are restoring a previous turn, so we use the snapshot's detailed data.
+            Debug.Log("<color=orange>[Undo Path]</color> Restoring boat from snapshot.");
+            BoatController boatToRestore = boatManager.SpawnBoatWithoutPositioning();
+
+            if (boatToRestore != null && snapshot.boatPosition != null)
+            {
+                // Restore its stats from the snapshot
+                boatToRestore.currentMovementPoints = snapshot.boatMovementPoints;
+                boatToRestore.SetCollectedStars(snapshot.boatStarsCollected);
+                boatToRestore.UpdateMoveCounterUI();
+
+                // Restore its physical position from the snapshot
+                if (snapshot.boatPosition.isBankGoal)
+                {
+                    boatToRestore.MoveToBank(snapshot.boatPosition.bankSide);
+                }
+                else
+                {
+                    TileInstance boatTile = gridManager.GetTileAt(snapshot.boatPosition.tileX, snapshot.boatPosition.tileY);
+                    if (boatTile != null)
+                    {
+                        boatToRestore.PlaceOnTile(boatTile, snapshot.boatPosition.snapPointIndex);
+                    }
+                    else
+                    {
+                        // Failsafe if the tile somehow doesn't exist
+                        Debug.LogError($"[Undo] Could not find tile for boat at ({snapshot.boatPosition.tileX}, {snapshot.boatPosition.tileY}). Placing at bank as fallback.");
+                        boatToRestore.MoveToBank(RiverBankManager.BankSide.Bottom);
+                    }
+                }
+            }
+        }
+        else
+        {
+            // --- INITIAL LOAD/RESTART PATH ---
+            // This is the original logic for starting a level fresh.
+            Debug.Log("<color=cyan>[Initial Load Path]</color> Spawning new boat at level start.");
+            boatManager.SpawnBoatAtLevelStart(startTile, startSnapPointIndex, startBank);
+        }
+
 
 
         // 10. Reset State for the New Run
