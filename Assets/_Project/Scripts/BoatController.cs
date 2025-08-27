@@ -367,10 +367,31 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
         if (destinationTile != null)
         {
-            Vector3 snapPosition = destinationTile.snapPoints[snapPoint].position;
-            Vector3 tileCenter = destinationTile.transform.position;
-            Vector3 direction = (snapPosition - tileCenter).normalized;
-            finalPos = snapPosition - direction * snapOffset;
+                        Vector3 snapPosition = destinationTile.snapPoints[snapPoint].position;
+
+            // --- NEW AXIS-ALIGNED OFFSET LOGIC ---
+            switch (snapPoint)
+            {
+                case 0: case 1:
+                    finalPos = snapPosition + (Vector3.back * snapOffset);
+                    break;
+                case 2: case 3:
+                    finalPos = snapPosition + (Vector3.forward * snapOffset);
+                    break;
+                case 4:
+                    finalPos = snapPosition + (Vector3.left * snapOffset);
+                    break;
+                case 5:
+                    finalPos = snapPosition + (Vector3.right * snapOffset);
+                    break;
+                default:
+                    Vector3 tileCenter = destinationTile.transform.position;
+                    Vector3 direction = (snapPosition - tileCenter).normalized;
+                    finalPos = snapPosition - direction * snapOffset;
+                    break;
+            }
+            // --- END OF NEW LOGIC ---
+
             finalRot = GetSnapPointRotation(destinationTile, snapPoint);
         }
         else
@@ -1245,9 +1266,29 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         Quaternion targetRot = GetSnapPointRotation(targetTile, snapPoint);
 
         Vector3 snapPosition = targetTile.snapPoints[snapPoint].position;
-        Vector3 tileCenter = targetTile.transform.position;
-        Vector3 direction = (snapPosition - tileCenter).normalized;
-        Vector3 targetPos = snapPosition - direction * snapOffset;
+        Vector3 targetPos;
+
+        // --- NEW AXIS-ALIGNED OFFSET LOGIC ---
+        switch (snapPoint)
+        {
+            case 0: case 1:
+                targetPos = snapPosition + (Vector3.back * snapOffset);
+                break;
+            case 2: case 3:
+                targetPos = snapPosition + (Vector3.forward * snapOffset);
+                break;
+            case 4:
+                targetPos = snapPosition + (Vector3.left * snapOffset);
+                break;
+            case 5:
+                targetPos = snapPosition + (Vector3.right * snapOffset);
+                break;
+            default:
+                Vector3 tileCenter = targetTile.transform.position;
+                Vector3 direction = (snapPosition - tileCenter).normalized;
+                targetPos = snapPosition - direction * snapOffset;
+                break;
+        }
 
         float elapsed = 0f;
         while (elapsed < moveSpeed)
@@ -1441,16 +1482,47 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
 
 
-    public void PlaceOnTile(TileInstance tile, int snapPointIndex)
+public void PlaceOnTile(TileInstance tile, int snapPointIndex)
     {
         if (tile == null || snapPointIndex < 0 || snapPointIndex >= tile.snapPoints.Length) return;
 
         // First, calculate and set the physical transform
         Vector3 snapPosition = tile.snapPoints[snapPointIndex].position;
-        Vector3 tileCenter = tile.transform.position;
-        Vector3 direction = (snapPosition - tileCenter).normalized;
-        transform.position = snapPosition - direction * snapOffset;
+        Vector3 finalPosition;
+
+        // --- NEW AXIS-ALIGNED OFFSET LOGIC ---
+        // This implements the fix you correctly diagnosed.
+        switch (snapPointIndex)
+        {
+            case 0: // Top-Left
+            case 1: // Top-Right
+                // For top snaps, the boat should be offset purely DOWNWARDS (negative Z).
+                finalPosition = snapPosition + (Vector3.back * snapOffset);
+                break;
+            case 2: // Down-Left
+            case 3: // Down-Right
+                // For bottom snaps, the boat should be offset purely UPWARDS (positive Z).
+                finalPosition = snapPosition + (Vector3.forward * snapOffset);
+                break;
+            case 4: // Right
+                // For the right snap, offset purely LEFT (negative X).
+                finalPosition = snapPosition + (Vector3.left * snapOffset);
+                break;
+            case 5: // Left
+                // For the left snap, offset purely RIGHT (positive X).
+                finalPosition = snapPosition + (Vector3.right * snapOffset);
+                break;
+            default:
+                // Fallback to the old logic just in case.
+                Vector3 tileCenter = tile.transform.position;
+                Vector3 direction = (snapPosition - tileCenter).normalized;
+                finalPosition = snapPosition - direction * snapOffset;
+                break;
+        }
+
+        transform.position = finalPosition;
         transform.rotation = GetSnapPointRotation(tile, snapPointIndex);
+        // --- END OF NEW LOGIC ---
 
         // Now, call the new method to update the internal state
         InitializeStateOnTile(tile, snapPointIndex);
