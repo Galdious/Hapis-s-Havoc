@@ -733,7 +733,7 @@ public class LevelEditorManager : MonoBehaviour
             {
                 float gridHeight = (gridManager.rows - 1) * (gridManager.tileHeight + gridManager.gapZ);
                 float gridBottomEdgeZ = -gridHeight / 2f;
-                float buffer = 2f;
+                float buffer = 3.5f;
                 float paletteZ = gridBottomEdgeZ - buffer;
                 targetContainer.position = new Vector3(0, 0, paletteZ);
             }

@@ -223,7 +223,7 @@ public class RiverBankManager : MonoBehaviour
             // Orient spawn point toward river center
             if (side == BankSide.Top)
             {
-                spawnPoint.transform.localRotation = Quaternion.Euler(0f, 180f, 0f); // Face south (into river)
+                spawnPoint.transform.rotation = Quaternion.Euler(0f, 180f, 0f); // Face south (into river)
             }
             else
             {

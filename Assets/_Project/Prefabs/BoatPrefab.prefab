@@ -83,8 +83,11 @@ MonoBehaviour:
   settleDuration: 0.6
   ejectionFadeOutDuration: 0.2
   maxMovementPoints: 3
-  hasCargo: 0
+  currentMovementPoints: 3
+  moveBonusMultiplier: 2
   selectedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  starCounterText: {fileID: 0}
+  moveCounterText: {fileID: 0}
   showDebugInfo: 1
   isSelected: 0
 --- !u!1 &8313586836549718392
