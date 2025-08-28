@@ -172,7 +172,7 @@ public class GridManager : MonoBehaviour
     }
 
 
-    public List<Coroutine> CreateGridFromEditor(int newCols, int newRows, List<TileSaveData> tileBlueprint = null)
+    public List<Coroutine> CreateGridFromEditor(int newCols, int newRows, List<TileSaveData> tileBlueprint = null, bool animate = true)
     {
 
         Dictionary<(int, int), TileSaveData> tileDataMap = null;
@@ -230,7 +230,7 @@ public class GridManager : MonoBehaviour
             {
                 // We directly use the data from the list, ignoring the loops.
                 // This correctly handles sparse/offset grids.
-                runningAnimations.Add(CreateTileAtGridPosition(tileData.gridX, tileData.gridY, tileData));
+                runningAnimations.Add(CreateTileAtGridPosition(tileData.gridX, tileData.gridY, tileData, animate));
             }
         }
         else
@@ -244,7 +244,7 @@ public class GridManager : MonoBehaviour
                 for (int x = 0; x < cols; x++)
                 {
                     // Passing 'null' to CreateTileAtGridPosition triggers random generation.
-                    runningAnimations.Add(CreateTileAtGridPosition(x, y, null));
+                    runningAnimations.Add(CreateTileAtGridPosition(x, y, null, animate));
                 }
             }
         }
@@ -271,8 +271,7 @@ public class GridManager : MonoBehaviour
     // 5.  Tile creation helper
     // ------------------------------------------------------------
 
-    private Coroutine CreateTileAtGridPosition(int x, int y, TileSaveData data = null)
-
+    private Coroutine CreateTileAtGridPosition(int x, int y, TileSaveData data = null, bool animate = true)
     {
         TileType template;
         Quaternion rotation;
@@ -331,8 +330,17 @@ public class GridManager : MonoBehaviour
         grid[x, y] = ti;
 
         // Play staggered pop-in animation
-        float delay = Random.Range(delayRange.x, delayRange.y);
-        return StartCoroutine(ScaleIn(go.transform, delay, scaleTime));
+        if (animate)
+        {
+            float delay = Random.Range(delayRange.x, delayRange.y);
+            return StartCoroutine(ScaleIn(go.transform, delay, scaleTime));
+        }
+        else
+        {
+            // If not animating, return null because no coroutine was started.
+            return null;
+        }
+    
     }
 
 
@@ -1646,7 +1654,7 @@ public class GridManager : MonoBehaviour
 
 
 
-    public List<TileInstance> CreateNewEndlessRow(int y, int width, float obstacleChance, float blockerChance, float collectibleChance, GameObject collectiblePrefab)
+    public void CreateNewEndlessRow(int y, int width, bool animate, float obstacleChance, float blockerChance, float collectibleChance, GameObject collectiblePrefab)
 
     {
         // This method assumes the grid array is large enough. We will resize it later if needed.
@@ -1680,6 +1688,13 @@ public class GridManager : MonoBehaviour
 
             go.name = $"Tile ({x},{y})";
 
+            if (animate)
+            {
+                float delay = Random.Range(delayRange.x, delayRange.y);
+                StartCoroutine(ScaleIn(go.transform, delay, scaleTime));
+            }
+
+
             Rigidbody rb = go.GetComponent<Rigidbody>();
             if (rb == null) rb = go.AddComponent<Rigidbody>();
             rb.isKinematic = true;
@@ -1692,8 +1707,7 @@ public class GridManager : MonoBehaviour
             // 3. Finally, update visuals based on the final state.
             UpdateBlockerVisualForTile(ti);
 
-            // Add to our list to return
-            newTiles.Add(ti);
+            
 
             if (!isFlipped && collectiblePrefab != null && Random.value < collectibleChance)
             {
@@ -1708,7 +1722,7 @@ public class GridManager : MonoBehaviour
             grid[x, y] = ti;
             // }
         }
-        return newTiles;
+        
     }
 
     /// Destroys all tile GameObjects in a given row for Endless Mode.

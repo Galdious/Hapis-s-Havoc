@@ -485,7 +485,7 @@ public class EndlessModeManager : MonoBehaviour
         yield return new WaitForEndOfFrame();
 
         // yield return StartCoroutine(UpdateWorldBounds());
-        yield return StartCoroutine(GenerateNewRowsIfNeeded());
+        GenerateNewRowsIfNeeded();
 
         if (playerBoat != null)
         {
@@ -644,7 +644,7 @@ public class EndlessModeManager : MonoBehaviour
         // 2. Loop and create the visuals. The check inside CreateDropZonesForRow will now always pass.
         for (int y = highestGeneratedRow + 1; y <= targetTopRow; y++)
         {
-            gridManager.CreateNewEndlessRow(y, gridWidth, this.obstacleChance, this.blockerChance, this.extraMoveSpawnChance, this.extraMoveCollectiblePrefab);
+            gridManager.CreateNewEndlessRow(y, gridWidth, false, this.obstacleChance, this.blockerChance, this.extraMoveSpawnChance, this.extraMoveCollectiblePrefab);
 
             // Update our boundary tracker AFTER creating the row.
             highestGeneratedRow = y;
@@ -747,20 +747,18 @@ public class EndlessModeManager : MonoBehaviour
     }
 
 
-    private IEnumerator GenerateNewRowsIfNeeded()
+    private void GenerateNewRowsIfNeeded()
     {
-        if (playerBoat == null || playerBoat.GetCurrentTile() == null) yield break;
+        if (playerBoat == null || playerBoat.GetCurrentTile() == null) return;
 
         var boatCoords = gridManager.GetTileCoordinates(playerBoat.GetCurrentTile());
         int boatY = boatCoords.y;
         int highestRequiredRow = boatY + leadingBuffer;
 
-        // This only calls the generation part, not the destruction part.
         if (highestRequiredRow > highestGeneratedRow)
         {
             GenerateMissingRows(highestRequiredRow);
         }
-        yield return null;
     }
 
 
@@ -987,7 +985,7 @@ public class EndlessModeManager : MonoBehaviour
         // gridManager.ExpandGridForEndless(requiredGridHeight); 
 
         // 1. Call the method and CAPTURE the list of running animations.
-        List<Coroutine> gridAnimations = gridManager.CreateGridFromEditor(this.gridWidth, requiredGridHeight, gridBlueprint);
+        List<Coroutine> gridAnimations = gridManager.CreateGridFromEditor(this.gridWidth, requiredGridHeight, gridBlueprint, false);
 
         // 2. WAIT for all of those animations to complete before proceeding.
         if (gridAnimations != null)
@@ -1052,16 +1050,33 @@ public class EndlessModeManager : MonoBehaviour
                 }
             }
         }
-
-        // 5. Finalize Camera and Game Loop
+        
         if (cameraProxy != null && playerBoat != null && endlessVCam != null)
         {
             Vector3 boatStartPos = playerBoat.transform.position;
-            cameraProxy.position = new Vector3(0, 0, boatStartPos.z);
-            cameraTargetPosition = cameraProxy.position;
+            Vector3 finalProxyPos = new Vector3(0, 0, boatStartPos.z);
+            cameraProxy.position = finalProxyPos;
+            cameraTargetPosition = finalProxyPos;
             endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
         }
 
+        // B. NOW, tell Cinemachine to cut to the correctly positioned camera.
+        // CinemachineBrain brain = Camera.main.GetComponent<CinemachineBrain>();
+        if (brain != null)
+        {
+            originalCameraBlend = brain.DefaultBlend;
+            var cutBlend = new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.Cut, 0f);
+            brain.DefaultBlend = cutBlend;
+        }
+        if (CameraManager.Instance != null)
+        {
+            CameraManager.Instance.SwitchToEndlessView();
+        }
+        
+        // C. Wait one frame for the cut to happen.
+        yield return null; 
+
+        // D. Restore the original blend setting for future camera moves.
         if (brain != null)
         {
             brain.DefaultBlend = originalCameraBlend;
