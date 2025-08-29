@@ -88,6 +88,8 @@ MonoBehaviour:
   selectedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   starCounterText: {fileID: 0}
   moveCounterText: {fileID: 0}
+  embarkArrowPrefab: {fileID: 7140026992631679912, guid: a950d8783f8614bf8b4bd7b093bb6771, type: 3}
+  arrowHoverHeight: 0.3
   showDebugInfo: 1
   isSelected: 0
 --- !u!1 &8313586836549718392

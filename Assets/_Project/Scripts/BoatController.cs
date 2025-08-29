@@ -65,6 +65,11 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     public TMP_Text starCounterText;
     public TMP_Text moveCounterText;
 
+    [Header("Embarking Visuals")]
+    [SerializeField] private GameObject embarkArrowPrefab;
+    [SerializeField] private float arrowHoverHeight = 0.3f;
+
+
     [Header("Debug")]
     public bool showDebugInfo = true;
 
@@ -790,6 +795,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
     void ClearHighlights()
     {
+
+
         // Restore tile materials
         foreach (var pair in originalMaterials)
         {
@@ -808,16 +815,32 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             }
         }
 
-        // Clean up GameObjects and components
+        // --- Clean Up GameObjects in ONE PASS ---
         foreach (GameObject tileGO in highlightedTiles)
         {
             if (tileGO != null)
             {
+                // 1. Find the arrows and tell them to start fading out.
+                // The arrow's own script will handle its destruction after the animation.
+                EmbarkArrow[] arrows = tileGO.GetComponentsInChildren<EmbarkArrow>();
+                foreach (EmbarkArrow arrow in arrows)
+                {
+                    arrow.TriggerFadeOutAndDestroy();
+                }
+
+                // 2. Animate the tile lowering.
                 StartCoroutine(LiftTileSmooth(tileGO.GetComponent<TileInstance>(), false));
+
+                // 3. Schedule the click handler for destruction at the end of the frame.
+                // We use the gentle Destroy(), NOT DestroyImmediate().
                 var clicker = tileGO.GetComponent<SimpleTileClickHandler>();
-                if (clicker != null) DestroyImmediate(clicker);
+                if (clicker != null)
+                {
+                    Destroy(clicker);
+                }
             }
         }
+        
         foreach (GameObject bankGO in highlightedBanks)
         {
             if (bankGO != null)
@@ -1219,7 +1242,8 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
     void MoveFromBankToTile(TileInstance targetTile, int snapPoint)
     {
         StopAllCoroutines();
-        ClearNonTargetHighlights(targetTile);
+        ClearHighlights();
+        // ClearNonTargetHighlights(targetTile);
         StartCoroutine(MoveToTileCoroutine(targetTile, snapPoint));
     }
 
@@ -1583,6 +1607,30 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
         var clickHandler = tile.gameObject.AddComponent<SimpleTileClickHandler>();
         clickHandler.targetBoat = this;
         clickHandler.targetTile = tile;
+
+        if (isAtBank && embarkArrowPrefab != null)
+        {
+            bool tileIsRotated = Mathf.RoundToInt(tile.transform.eulerAngles.y) == 180;
+            int[] snapIndices = tileIsRotated ? new int[] { 0, 1 } : new int[] { 2, 3 };
+
+            foreach (int index in snapIndices)
+            {
+                // 1. Get the actual Snap Point Transform.
+                Transform snapPointTransform = tile.snapPoints[index];
+
+                // 2. Instantiate the arrow with the SNAP POINT as its parent.
+                GameObject arrowGO = Instantiate(embarkArrowPrefab, snapPointTransform);
+
+                // 3. Set its LOCAL position to be slightly above its parent (the snap point).
+                arrowGO.transform.localPosition = Vector3.up * arrowHoverHeight;
+
+                // 4. Set its LOCAL rotation to point inwards, towards the tile center.
+                // Snaps 0/1 are on the "top" edge and must point down (180 degrees).
+                // Snaps 2/3 are on the "bottom" edge and must point up (0 degrees).
+                arrowGO.transform.localRotation = (index <= 1) ? Quaternion.Euler(0, 180, 0) : Quaternion.identity;
+            }
+        }
+        
     }
 
     IEnumerator LiftTileSmooth(TileInstance tile, bool lift)
