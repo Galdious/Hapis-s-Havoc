@@ -307,4 +307,4 @@ MonoBehaviour:
   iconComponent: {fileID: 7853007227376657964}
   floatSpeed: 50
   fadeDuration: 1
-  lifetime: 1.2
+  lifetime: 2
