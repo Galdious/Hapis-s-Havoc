@@ -11,6 +11,17 @@ public class EmbarkArrow : MonoBehaviour
     {
         // Get the Animator component on this GameObject.
         animator = GetComponent<Animator>();
+
+        // Find the Mesh Renderer on the child object.
+        MeshRenderer meshRenderer = GetComponentInChildren<MeshRenderer>();
+        if (meshRenderer != null)
+        {
+            // Set the starting alpha to 0. The animator will take over from here.
+            Color startColor = meshRenderer.material.color;
+            startColor.a = 0f;
+            meshRenderer.material.color = startColor;
+        }
+        
     }
 
     // This public method will be called by the BoatController.
