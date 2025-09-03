@@ -45,6 +45,16 @@ public class EndlessModeManager : MonoBehaviour
     [Tooltip("The chance (0-1) that a red obstacle tile will also be a hard blocker.")]
     [SerializeField][Range(0f, 1f)] private float blockerChance = 0.1f;
 
+    [Header("Endless Storm Phase")]
+    [Tooltip("How many rows behind the boat's current row can be targeted for a push.")]
+    [SerializeField] private int pushRangeBehind = 1;
+    [Tooltip("How many rows ahead of the boat's current row can be targeted for a push.")]
+    [SerializeField] private int pushRangeAhead = 8;
+    [Tooltip("The number of BLUE (safe) tiles that will be pushed each Storm phase.")]
+    [SerializeField] private int numberOfBluePushes = 2;
+    [Tooltip("The number of RED (obstacle) tiles that will be pushed each Storm phase.")]
+    [SerializeField] private int numberOfRedPushes = 1;
+
     [Header("Collectible Settings")]
     [Tooltip("The chance (0-1) that an Extra Move collectible will spawn on a new blue tile.")]
     [SerializeField][Range(0f, 1f)] private float extraMoveSpawnChance = 0.1f; // 10% chance
@@ -295,31 +305,46 @@ public class EndlessModeManager : MonoBehaviour
             if (!skipFirstForecast)
             {
 
-                // 1. River Forecast Phase
                 Debug.Log("Endless Cycle: Forecast Phase");
                 plannedPushes.Clear();
 
-                // Plan 3 pushes on unique random rows: 1 red, 2 blue
-                // Get a list of all rows that CURRENTLY exist in the game world.
+                // 1. Get the boat's current row.
+                int boatY = lowestGeneratedRow; // Default to the bottom row if boat isn't on a tile.
+                if (playerBoat != null && playerBoat.GetCurrentTile() != null)
+                {
+                    var boatCoords = gridManager.GetTileCoordinates(playerBoat.GetCurrentTile());
+                    boatY = boatCoords.y;
+                }
+
+                // 2. Define the "Danger Zone" of rows that can be pushed.
+                int minPushableRow = Mathf.Max(lowestGeneratedRow, boatY - pushRangeBehind);
+                int maxPushableRow = Mathf.Min(highestGeneratedRow, boatY + pushRangeAhead);
+                
+                // 3. Create a list of all rows available within that zone.
                 List<int> availableRows = new List<int>();
-                for (int i = lowestGeneratedRow; i <= highestGeneratedRow; i++)
+                for (int i = minPushableRow; i <= maxPushableRow; i++)
                 {
                     availableRows.Add(i);
                 }
+                Debug.Log($"[Endless Storm] Boat at row {boatY}. Danger Zone is from {minPushableRow} to {maxPushableRow}. ({availableRows.Count} available rows)");
+                
+                // 4. Plan the pushes, picking unique rows from our limited list.
+                for (int i = 0; i < numberOfRedPushes; i++)
+                {
+                    if (availableRows.Count == 0) break; // Stop if we run out of rows
+                    int randomIndex = Random.Range(0, availableRows.Count);
+                    PlanSinglePush(availableRows[randomIndex], true); // true = isObstacle
+                    availableRows.RemoveAt(randomIndex);
+                }
 
-                // Plan the red push
-                int redRowIndex = Random.Range(0, availableRows.Count);
-                PlanSinglePush(availableRows[redRowIndex], true);
-                availableRows.RemoveAt(redRowIndex);
+                for (int i = 0; i < numberOfBluePushes; i++)
+                {
+                    if (availableRows.Count == 0) break;
+                    int randomIndex = Random.Range(0, availableRows.Count);
+                    PlanSinglePush(availableRows[randomIndex], false); // false = not an obstacle
+                    availableRows.RemoveAt(randomIndex);
+                }
 
-                // Plan the first blue push
-                int blueRowIndex1 = Random.Range(0, availableRows.Count);
-                PlanSinglePush(availableRows[blueRowIndex1], false);
-                availableRows.RemoveAt(blueRowIndex1);
-
-                // Plan the second blue push
-                int blueRowIndex2 = Random.Range(0, availableRows.Count);
-                PlanSinglePush(availableRows[blueRowIndex2], false);
 
                 // Show the forecast visuals and wait for the player to see them
                 foreach (var push in plannedPushes) { push.forecastZone?.ShowForecast(push.isObstacle); }

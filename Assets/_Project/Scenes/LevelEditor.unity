@@ -17524,6 +17524,10 @@ MonoBehaviour:
   highScoreText: {fileID: 1204103366}
   obstacleChance: 0.25
   blockerChance: 0.1
+  pushRangeBehind: 1
+  pushRangeAhead: 8
+  numberOfBluePushes: 2
+  numberOfRedPushes: 1
   extraMoveSpawnChance: 0.01
   extraMoveCollectiblePrefab: {fileID: 1524352960819354318, guid: a57881d82202d413184a59d049dce4ea, type: 3}
   tileLibrary: {fileID: 11400000, guid: 42ea4e3dda0a94d06876c21e1eb8a05b, type: 2}
