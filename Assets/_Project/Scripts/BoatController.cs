@@ -109,6 +109,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     private Dictionary<Renderer, Material> originalMaterials = new Dictionary<Renderer, Material>();
     private Dictionary<Renderer, Material> originalBankMaterials = new Dictionary<Renderer, Material>();
     private Dictionary<TileInstance, List<TileInstance>> reversedPathways = new Dictionary<TileInstance, List<TileInstance>>();
+    private Dictionary<TileInstance, List<int>> bankEntrySnapPoints = new Dictionary<TileInstance, List<int>>();
 
 
     void Awake()
@@ -615,14 +616,37 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         {
             if (destinationTile != null)
             {
-                // This first call is the original logic: it lifts the tile and adds the click handler.
+                // This part is the same: lift the tile and add the click handler.
                 HighlightTile(destinationTile);
 
-                // Now, get the visualizer on the destination tile to highlight its paths.
+                // Get the visualizer for the destination tile.
                 var destinationVisualizer = destinationTile.GetComponent<PathVisualizer>();
-                if (destinationVisualizer != null)
+                if (destinationVisualizer == null) continue; // Skip if no visualizer
+
+                // --- NEW IF/ELSE BLOCK ---
+                if (isAtBank)
                 {
-                    // We need to figure out which snap point the boat will land on.
+                    // We are at a bank. Use our new dictionary of entry points.
+                    if (bankEntrySnapPoints.ContainsKey(destinationTile))
+                    {
+                        List<int> entryPoints = bankEntrySnapPoints[destinationTile];
+                        foreach (int entrySnap in entryPoints)
+                        {
+                            // For each entry point, find its connections on the tile and highlight them.
+                            foreach (var connection in destinationTile.connections)
+                            {
+                                if (connection.from == entrySnap || connection.to == entrySnap)
+                                {
+                                    int otherSnap = (connection.from == entrySnap) ? connection.to : connection.from;
+                                    destinationVisualizer.HighlightPath(entrySnap, otherSnap, true); // Gradient highlight
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // We are on a tile. Use the existing river-to-river logic.
                     int landingSnapPoint = -1;
                     if (tileToSnapPoint.ContainsKey(destinationTile))
                     {
@@ -635,25 +659,20 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
                     if (landingSnapPoint != -1)
                     {
-                        // Find all connections on the destination tile that involve our landing spot.
                         foreach (var connection in destinationTile.connections)
                         {
                             if (connection.from == landingSnapPoint || connection.to == landingSnapPoint)
                             {
-
-                                // Determine which snap is the "other" end of the path from our landing point.
                                 int otherSnap = (connection.from == landingSnapPoint) ? connection.to : connection.from;
-
-                                // Call the new method with the correct direction.
-                                // The highlight starts at our landingSnapPoint and goes towards the otherSnap.
                                 destinationVisualizer.HighlightPath(landingSnapPoint, otherSnap, true);
-                            
                             }
                         }
                     }
                 }
+                // --- END OF NEW IF/ELSE BLOCK ---
             }
         }
+    
     }
 
     void FindValidMoves()
@@ -661,7 +680,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         validMoves.Clear();
         tileToSnapPoint.Clear();
         tileToReverseSnapPoint.Clear();
-        reversedPathways.Clear(); // <<< ADD THIS LINE
+        bankEntrySnapPoints.Clear(); 
+        reversedPathways.Clear(); 
 
         if (isAtBank) FindBankEntryMoves();
         else if (currentTile != null) FindRiverPathMoves();
@@ -1277,11 +1297,33 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
                 }
                 else
                 {
-                    // This is a valid, non-obstacle tile. Add it as a potential move.
+                    // This is a valid, non-obstacle tile.
                     if (!validMoves.Contains(tile))
                     {
                         validMoves.Add(tile);
+
+                        // --- NEW LOGIC TO FIND ENTRY POINTS ---
+                        List<int> entryPoints = new List<int>();
+                        bool isRotated = Mathf.RoundToInt(tile.transform.eulerAngles.y) == 180;
+
+                        if (entryRow == 0) // Coming from the Bottom Bank
+                        {
+                            // If not rotated, the entry points are the bottom snaps (2, 3).
+                            // If rotated, the tile is upside down, so the entry points are now snaps (0, 1).
+                            entryPoints.AddRange(isRotated ? new int[] { 0, 1 } : new int[] { 2, 3 });
+                        }
+                        else // Coming from the Top Bank (entryRow == gridManager.rows - 1)
+                        {
+                            // If not rotated, the entry points are the top snaps (0, 1).
+                            // If rotated, the tile is upside down, so the entry points are now snaps (2, 3).
+                            entryPoints.AddRange(isRotated ? new int[] { 2, 3 } : new int[] { 0, 1 });
+                        }
+                        
+                        // Store the identified entry points for this tile.
+                        bankEntrySnapPoints[tile] = entryPoints;
+                        // --- END OF NEW LOGIC ---
                     }
+
 
                     // If we crossed any reversed tiles to get here, store that path.
                     if (crossedReversedTiles.Count > 0)
@@ -1356,7 +1398,7 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
                 if (tile != null)
                 {
                     tile.GetComponent<PathVisualizer>()?.ClearAllHighlights();
-                    
+
                     StartCoroutine(LiftTileSmooth(tile, false));
                     var clicker = tile.GetComponent<SimpleTileClickHandler>();
                     if (clicker != null) DestroyImmediate(clicker);
