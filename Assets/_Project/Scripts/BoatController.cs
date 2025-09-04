@@ -591,9 +591,68 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     {
         yield return new WaitForSeconds(tileLiftDelay);
         if (!isSelected) yield break;
-        foreach (TileInstance tile in validMoves)
+
+        // --- 1. Highlight "You Are Here" Paths (On the CURRENT Tile) ---
+        if (!isAtBank && currentTile != null)
         {
-            if (tile != null) HighlightTile(tile);
+            var currentTileVisualizer = currentTile.GetComponent<PathVisualizer>();
+            if (currentTileVisualizer != null)
+            {
+                // Find all connections on the current tile that involve our boat's snap point.
+                foreach (var connection in currentTile.connections)
+                {
+                    if (connection.from == currentSnapPoint || connection.to == currentSnapPoint)
+                    {
+                        // For solid highlights, the order doesn't matter.
+                        currentTileVisualizer.HighlightPath(connection.from, connection.to, false);
+                    }
+                }
+            }
+        }
+
+        // --- 2. Highlight "You Can Go Here" Tiles AND Their Paths ---
+        foreach (TileInstance destinationTile in validMoves)
+        {
+            if (destinationTile != null)
+            {
+                // This first call is the original logic: it lifts the tile and adds the click handler.
+                HighlightTile(destinationTile);
+
+                // Now, get the visualizer on the destination tile to highlight its paths.
+                var destinationVisualizer = destinationTile.GetComponent<PathVisualizer>();
+                if (destinationVisualizer != null)
+                {
+                    // We need to figure out which snap point the boat will land on.
+                    int landingSnapPoint = -1;
+                    if (tileToSnapPoint.ContainsKey(destinationTile))
+                    {
+                        landingSnapPoint = tileToSnapPoint[destinationTile];
+                    }
+                    else if (tileToReverseSnapPoint.ContainsKey(destinationTile))
+                    {
+                        landingSnapPoint = tileToReverseSnapPoint[destinationTile];
+                    }
+
+                    if (landingSnapPoint != -1)
+                    {
+                        // Find all connections on the destination tile that involve our landing spot.
+                        foreach (var connection in destinationTile.connections)
+                        {
+                            if (connection.from == landingSnapPoint || connection.to == landingSnapPoint)
+                            {
+
+                                // Determine which snap is the "other" end of the path from our landing point.
+                                int otherSnap = (connection.from == landingSnapPoint) ? connection.to : connection.from;
+
+                                // Call the new method with the correct direction.
+                                // The highlight starts at our landingSnapPoint and goes towards the otherSnap.
+                                destinationVisualizer.HighlightPath(landingSnapPoint, otherSnap, true);
+                            
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -795,6 +854,21 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
     void ClearHighlights()
     {
+        // 1. Clear highlights on the boat's current tile (the "You Are Here" paths).
+        if (currentTile != null)
+        {
+            // The ?. operator is a safe way to call a method on a component that might be null.
+            currentTile.GetComponent<PathVisualizer>()?.ClearAllHighlights();
+        }
+
+        // 2. Clear highlights on all the valid destination tiles.
+        foreach (GameObject tileGO in highlightedTiles)
+        {
+            if (tileGO != null)
+            {
+                tileGO.GetComponent<PathVisualizer>()?.ClearAllHighlights();
+            }
+        }
 
 
         // Restore tile materials
@@ -1256,6 +1330,15 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
 
     void ClearNonTargetHighlights(TileInstance targetTile)
     {
+
+        if (currentTile != null)
+        {
+            // At this point, "currentTile" is still the tile we are moving FROM.
+            // Clear its path highlights.
+            currentTile.GetComponent<PathVisualizer>()?.ClearAllHighlights();
+        }
+
+
         var renderersToKeep = new List<Renderer>();
         var renderer = targetTile?.GetComponentInChildren<MeshRenderer>();
         if (renderer != null) renderersToKeep.Add(renderer);
@@ -1272,6 +1355,8 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
                 var tile = pair.Key.GetComponentInParent<TileInstance>();
                 if (tile != null)
                 {
+                    tile.GetComponent<PathVisualizer>()?.ClearAllHighlights();
+                    
                     StartCoroutine(LiftTileSmooth(tile, false));
                     var clicker = tile.GetComponent<SimpleTileClickHandler>();
                     if (clicker != null) DestroyImmediate(clicker);

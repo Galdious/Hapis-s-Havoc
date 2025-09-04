@@ -350,9 +350,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f1c4680c33eb4d8fa51ec5349e525b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PathVisualizer
-  lineMat: {fileID: 2100000, guid: 9422a7b93b91042d6b31b703735995ee, type: 2}
+  lineMat: {fileID: 2100000, guid: ce7f9c3a696354dfda372b862e6329f9, type: 2}
   width: 0.07
   segsPerBezier: 18
+  highlightColor: {r: 0, g: 1, b: 0, a: 1}
+  defaultPathColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!114 &1971508661778685438
 MonoBehaviour:
   m_ObjectHideFlags: 0
