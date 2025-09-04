@@ -1741,26 +1741,42 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
 
         if (isAtBank && embarkArrowPrefab != null)
         {
-            bool tileIsRotated = Mathf.RoundToInt(tile.transform.eulerAngles.y) == 180;
-            int[] snapIndices = tileIsRotated ? new int[] { 0, 1 } : new int[] { 2, 3 };
+            // --- START OF CORRECTED LOGIC ---
 
+            // 1. Determine which edge of the tile is physically facing the bank.
+            bool tileIsRotated = Mathf.RoundToInt(tile.transform.eulerAngles.y) == 180;
+            int[] snapIndices;
+
+            if (CurrentBank == RiverBankManager.BankSide.Top)
+            {
+                // If at the TOP bank, we need the arrows on the tile's top-facing edge.
+                // This is snaps {0, 1} if not rotated, or {2, 3} if it is rotated.
+                snapIndices = tileIsRotated ? new int[] { 2, 3 } : new int[] { 0, 1 };
+            }
+            else // From Bottom Bank
+            {
+                // If at the BOTTOM bank, we need arrows on the tile's bottom-facing edge.
+                // This is snaps {2, 3} if not rotated, or {0, 1} if it is rotated.
+                snapIndices = tileIsRotated ? new int[] { 0, 1 } : new int[] { 2, 3 };
+            }
+
+            // 2. Create the arrows, applying the simple and correct rotation rule for each snap point.
             foreach (int index in snapIndices)
             {
-                // 1. Get the actual Snap Point Transform.
                 Transform snapPointTransform = tile.snapPoints[index];
-
-                // 2. Instantiate the arrow with the SNAP POINT as its parent.
                 GameObject arrowGO = Instantiate(embarkArrowPrefab, snapPointTransform);
-
-                // 3. Set its LOCAL position to be slightly above its parent (the snap point).
                 arrowGO.transform.localPosition = Vector3.up * arrowHoverHeight;
 
-                // 4. Set its LOCAL rotation to point inwards, towards the tile center.
+                // THIS is the original, correct rotation logic that we are restoring.
+                // It correctly sets the rotation based on the snap point's index, regardless of the bank.
                 // Snaps 0/1 are on the "top" edge and must point down (180 degrees).
                 // Snaps 2/3 are on the "bottom" edge and must point up (0 degrees).
                 arrowGO.transform.localRotation = (index <= 1) ? Quaternion.Euler(0, 180, 0) : Quaternion.identity;
             }
+            // --- END OF CORRECTED LOGIC ---
         }
+
+
         
     }
 
