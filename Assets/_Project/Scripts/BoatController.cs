@@ -593,6 +593,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
     IEnumerator HighlightValidMovesWithDelay()
     {
+        if (GameManager.Instance.currentState == GameState.LevelComplete) yield break;
+        
         yield return new WaitForSeconds(tileLiftDelay);
         if (!isSelected) yield break;
 
