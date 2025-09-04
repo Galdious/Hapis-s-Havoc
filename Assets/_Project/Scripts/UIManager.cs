@@ -68,6 +68,8 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Image noUndoStatusIcon;
 
     [Header("Level Complete - Bonus Collectibles")]
+    [Tooltip("The parent GameObject for the entire bonus collectibles section, including the title.")]
+    [SerializeField] private GameObject bonusCollectiblesSection;
     [Tooltip("The parent transform with the Horizontal Layout Group for bonus icons.")]
     [SerializeField] private Transform bonusIconContainer;
     [Tooltip("The prefab for the small bonus icon to be instantiated.")]
@@ -180,17 +182,21 @@ public class UIManager : MonoBehaviour
         }
 
         // --- 4. Populate Bonus Collectibles ---
-        if (bonusIconContainer != null && bonusIconPrefab != null)
+        if (bonusCollectiblesSection != null && bonusIconContainer != null && bonusIconPrefab != null)
         {
-            // First, clear out any icons from a previous run.
-            foreach (Transform child in bonusIconContainer)
+            // Check if there are any bonus items to show.
+            if (bonusItems != null && bonusItems.Count > 0)
             {
-                Destroy(child.gameObject);
-            }
+                // If there are items, make the whole section visible.
+                bonusCollectiblesSection.SetActive(true);
 
-            // Then, instantiate a new icon for each bonus item collected.
-            if (bonusItems != null)
-            {
+                // Clear out any icons from a previous run.
+                foreach (Transform child in bonusIconContainer)
+                {
+                    Destroy(child.gameObject);
+                }
+
+                // Instantiate a new icon for each bonus item collected.
                 foreach (var item in bonusItems)
                 {
                     for (int i = 0; i < item.count; i++)
@@ -200,7 +206,13 @@ public class UIManager : MonoBehaviour
                     }
                 }
             }
+            else
+            {
+                // If there are no bonus items, hide the entire section.
+                bonusCollectiblesSection.SetActive(false);
+            }
         }
+    
     }
 
     // --- This is the new, upgraded method ---

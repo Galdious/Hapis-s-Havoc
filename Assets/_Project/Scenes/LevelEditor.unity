@@ -176,6 +176,7 @@ MonoBehaviour:
   starsCollectedStatusIcon: {fileID: 1751482104}
   noUndoText: {fileID: 900118521}
   noUndoStatusIcon: {fileID: 1703289102}
+  bonusCollectiblesSection: {fileID: 492360748}
   bonusIconContainer: {fileID: 1596062257}
   bonusIconPrefab: {fileID: 5620625407024369345, guid: 7c20fcf867e724772960bec927a44358, type: 3}
   failureReasonText: {fileID: 1844496507}
