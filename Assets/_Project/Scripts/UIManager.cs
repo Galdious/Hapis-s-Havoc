@@ -15,7 +15,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button editor_restartButton;
     [SerializeField] private Button player_undoButton;
     [SerializeField] private Button player_restartButton;
-    [SerializeField] private Button endless_restartButton; 
+    [SerializeField] private Button endless_restartButton;
 
 
     [Header("Scene References")]
@@ -51,6 +51,28 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TMP_Text timeText;
     [SerializeField] private TMP_Text movesText;
     [SerializeField] private TMP_Text collectiblesText;
+    [Header("Level Complete - Achievement Breakdown")]
+    [Tooltip("The text component for the Moves Left bonus row.")]
+    [SerializeField] private TMP_Text movesBonusText;
+    [Tooltip("The star icon for the Moves Left bonus row.")]
+    [SerializeField] private Image movesBonusStatusIcon;
+
+    [Tooltip("The text component for the Stars Collected row.")]
+    [SerializeField] private TMP_Text starsCollectedText;
+    [Tooltip("The star icon for the Stars Collected row.")]
+    [SerializeField] private Image starsCollectedStatusIcon;
+
+    [Tooltip("The text component for the No Undos Used row.")]
+    [SerializeField] private TMP_Text noUndoText;
+    [Tooltip("The star icon for the No Undos Used row.")]
+    [SerializeField] private Image noUndoStatusIcon;
+
+    [Header("Level Complete - Bonus Collectibles")]
+    [Tooltip("The parent transform with the Horizontal Layout Group for bonus icons.")]
+    [SerializeField] private Transform bonusIconContainer;
+    [Tooltip("The prefab for the small bonus icon to be instantiated.")]
+    [SerializeField] private GameObject bonusIconPrefab;
+
 
     [Header("Level Failed Stats")]
     [SerializeField] private TMP_Text failureReasonText;
@@ -111,7 +133,7 @@ public class UIManager : MonoBehaviour
 
         if (endlessRetryButton != null) endlessRetryButton.onClick.AddListener(OnEndlessRetryClicked);
         if (endlessMainMenuButton != null) endlessMainMenuButton.onClick.AddListener(OnEndlessMainMenuClicked);
-        if (endless_restartButton != null) endless_restartButton.onClick.AddListener(HandleEndlessRestart); 
+        if (endless_restartButton != null) endless_restartButton.onClick.AddListener(HandleEndlessRestart);
 
         // Ensure all panels are hidden at the start of the game
         if (levelCompletePanel != null) levelCompletePanel.SetActive(false);
@@ -120,36 +142,64 @@ public class UIManager : MonoBehaviour
     }
 
     // --- This is the new, upgraded method ---
-    public void ShowLevelCompleteScreen(int finalScore, float elapsedTime, int movesUsed, int totalMoves, int starsCollected, int totalStarsInLevel)
+    public void ShowLevelCompleteScreen(
+    int finalScore, float elapsedTime, int movesLeft, int totalMoves,
+    int starsCollected, int totalStarsInLevel,
+    bool moveBonusAchieved, bool allStarsCollected, bool usedUndo,
+    List<BonusCollectibleInfo> bonusItems)
     {
-        if (levelCompletePanel != null)
-        {
-            levelCompletePanel.SetActive(true);
-            if (playerUI_Container != null) playerUI_Container.SetActive(false); // Hide the editor UI
+        if (levelCompletePanel == null) return;
 
-            // 1. Update Star Rating
-            for (int i = 0; i < starRatingImages.Count; i++)
+        levelCompletePanel.SetActive(true);
+        if (playerUI_Container != null) playerUI_Container.SetActive(false);
+
+        // --- 1. Update Top Star Rating (Unchanged) ---
+        for (int i = 0; i < starRatingImages.Count; i++)
+        {
+            starRatingImages[i].sprite = (i < finalScore) ? starWonSprite : starLostSprite;
+        }
+
+        // --- 2. Update Achievement Breakdown ---
+        // Moves Left Bonus
+        movesBonusText.text = $"Moves Left: {movesLeft} / {totalMoves}";
+        movesBonusStatusIcon.sprite = moveBonusAchieved ? starWonSprite : starLostSprite;
+
+        // Stars Collected
+        starsCollectedText.text = $"Stars Collected: {starsCollected} / {totalStarsInLevel}";
+        starsCollectedStatusIcon.sprite = allStarsCollected ? starWonSprite : starLostSprite;
+
+        // No Undos Used
+        noUndoText.text = "No Undos Used";
+        noUndoStatusIcon.sprite = !usedUndo ? starWonSprite : starLostSprite;
+
+        // --- 3. Update Time Text (Unchanged) ---
+        System.TimeSpan timeSpan = System.TimeSpan.FromSeconds(elapsedTime);
+        if (timeText != null)
+        {
+            timeText.text = string.Format("Time: {0:D2}:{1:D2}", timeSpan.Minutes, timeSpan.Seconds);
+        }
+
+        // --- 4. Populate Bonus Collectibles ---
+        if (bonusIconContainer != null && bonusIconPrefab != null)
+        {
+            // First, clear out any icons from a previous run.
+            foreach (Transform child in bonusIconContainer)
             {
-                if (i < finalScore)
-                {
-                    starRatingImages[i].sprite = starWonSprite; // Show a bright star
-                }
-                else
-                {
-                    starRatingImages[i].sprite = starLostSprite; // Show a greyed-out star
-                }
+                Destroy(child.gameObject);
             }
 
-            // 2. Update Time Text
-            // This formats the raw float time into MM:SS format
-            System.TimeSpan timeSpan = System.TimeSpan.FromSeconds(elapsedTime);
-            timeText.text = string.Format("Time: {0:D2}:{1:D2}", timeSpan.Minutes, timeSpan.Seconds);
-
-            // 3. Update Moves Text
-            movesText.text = $"Moves Used: {movesUsed} / {totalMoves}";
-
-            // 4. Update Collectibles Text
-            collectiblesText.text = $"Stars Gathered: {starsCollected} / {totalStarsInLevel}";
+            // Then, instantiate a new icon for each bonus item collected.
+            if (bonusItems != null)
+            {
+                foreach (var item in bonusItems)
+                {
+                    for (int i = 0; i < item.count; i++)
+                    {
+                        GameObject iconGO = Instantiate(bonusIconPrefab, bonusIconContainer);
+                        iconGO.GetComponent<Image>().sprite = item.icon;
+                    }
+                }
+            }
         }
     }
 
@@ -367,4 +417,13 @@ public class UIManager : MonoBehaviour
 
 
 
+}
+
+
+
+/// A simple data structure to pass bonus collectible info to the UI.
+public struct BonusCollectibleInfo
+{
+    public Sprite icon;
+    public int count;
 }

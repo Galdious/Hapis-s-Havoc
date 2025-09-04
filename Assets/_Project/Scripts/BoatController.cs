@@ -59,6 +59,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
     [Header("Gameplay State")]
     public int starsCollected { get; private set; } = 0; // inventory logic
+    public int extraMovesCollected { get; private set; } = 0;
 
     [Header("Visual Feedback")]
     public Color selectedColor = Color.magenta;
@@ -519,6 +520,8 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                     break;
 
                 case CollectibleType.ExtraMove:
+                    extraMovesCollected++;
+
                     // Check which mode we are in.
                     if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
                     {
@@ -533,7 +536,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                         {
                             Debug.LogError("Could not find EndlessModeManager to add stamina!");
                         }
-                    
+
                     }
                     else
                     {
@@ -1552,6 +1555,7 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
             Debug.Log($"Ejected! Lost {starsCollected} stars.");
             FloatingTextManager.Instance.ShowText($"-{starsCollected}", FloatingTextManager.FloatingTextType.StarLoss, transform.position);
             starsCollected = 0; // WE CAN CHANGE THIS LATER TO -1 IF WE WANT TO KEEP SOME OF THE STARS
+            extraMovesCollected = 0;
             UpdateStarCounterUI();
         }
 

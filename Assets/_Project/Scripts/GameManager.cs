@@ -44,6 +44,11 @@ public class GameManager : MonoBehaviour
     private int totalPowerupsInLevel = 0; // We can track this too
     private bool isReconstructing = false;
 
+    [Header("UI Asset References")]
+    [Tooltip("The sprite/icon for the 'Extra Move' collectible, used on the win screen.")]
+    [SerializeField] private Sprite extraMoveIconSprite;
+
+
 
     // TIME TRACKING
     private float levelStartTime;
@@ -285,8 +290,50 @@ public class GameManager : MonoBehaviour
                     // Tell the UI Manager to show the results
                     if (uiManager != null)
                     {
-                        uiManager.ShowLevelCompleteScreen(finalScore, elapsedTime, movesUsed, maxMoves, boat.starsCollected, totalStarsInLevel);
+                        // --- GATHER ALL DATA FOR THE NEW WIN SCREEN ---
+
+                        // 1. Get the Undo status from the HistoryManager.
+                        bool usedUndo = HistoryManager.Instance.hasUsedUndo;
+
+                        // 2. Determine if the move bonus was achieved.
+                        bool moveBonusAchieved = boat.currentMovementPoints > movePenaltyThreshold;
+
+                        // 3. Determine if all stars were collected.
+                        bool allStarsCollected = boat.starsCollected >= totalStarsInLevel;
+
+                        // 4. (Future-Proofing) Create a list of bonus collectibles.
+                        List<BonusCollectibleInfo> bonusItems = new List<BonusCollectibleInfo>();
+
+                        // Now, we check the boat's new counter.
+                        if (boat.extraMovesCollected > 0 && extraMoveIconSprite != null)
+                        {
+                            // If the boat collected extra moves, add them to our list for the UI.
+                            bonusItems.Add(new BonusCollectibleInfo 
+                            { 
+                                icon = extraMoveIconSprite, 
+                                count = boat.extraMovesCollected 
+                            });
+                        }
+                        // If you add more collectible types later (e.g., keys, coins),
+                        // you would add more `if` blocks here to count them.
+
+
+
+                        // 5. Call the new, more powerful UI method.
+                        uiManager.ShowLevelCompleteScreen(
+                            finalScore,
+                            elapsedTime,
+                            boat.currentMovementPoints,
+                            maxMoves,
+                            boat.starsCollected,
+                            totalStarsInLevel,
+                            moveBonusAchieved,
+                            allStarsCollected,
+                            usedUndo,
+                            bonusItems // Pass the list of bonus items
+                        );
                     }
+
                     break;
 
                 case GameState.LevelFailed:
