@@ -604,6 +604,9 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             var currentTileVisualizer = currentTile.GetComponent<PathVisualizer>();
             if (currentTileVisualizer != null)
             {
+                // Stop any fade-out animations that might still be running on this tile.
+                currentTileVisualizer.StopAllCoroutines();
+
                 // Find all connections on the current tile that involve our boat's snap point.
                 foreach (var connection in currentTile.connections)
                 {
@@ -627,6 +630,11 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                 // Get the visualizer for the destination tile.
                 var destinationVisualizer = destinationTile.GetComponent<PathVisualizer>();
                 if (destinationVisualizer == null) continue; // Skip if no visualizer
+
+
+                // Stop any fade-out animations that might be running on this destination tile.
+                destinationVisualizer.StopAllCoroutines();
+
 
                 // --- NEW IF/ELSE BLOCK ---
                 if (isAtBank)

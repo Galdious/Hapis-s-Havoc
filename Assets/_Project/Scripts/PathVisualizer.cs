@@ -13,6 +13,9 @@ public class PathVisualizer : MonoBehaviour
     [Header("Path Highlighting")]
     public Color highlightColor = Color.green; // The color for selected paths.
     public Color defaultPathColor = Color.white; // The standard color of a path.
+    [Tooltip("How long it takes for a path highlight to fade out.")]
+    public float highlightFadeDuration = 0.2f;
+
 
 
     TileInstance tile;
@@ -211,17 +214,53 @@ public class PathVisualizer : MonoBehaviour
     }
 
 
-    /// Resets all paths on this tile to their default, non-highlighted color.
+    /// Fades all highlighted paths on this tile back to their default color.
     public void ClearAllHighlights()
     {
-        foreach (var line in pathRenderers.Values)
+        // We must check if the component is active in the hierarchy.
+        // This prevents errors if a tile is destroyed while its paths are fading.
+        if (gameObject.activeInHierarchy)
         {
-            if (line != null)
+            foreach (var line in pathRenderers.Values)
             {
-                // We just reset the color. No need to create a new gradient.
-                line.startColor = defaultPathColor;
-                line.endColor = defaultPathColor;
+                if (line != null)
+                {
+                    // Start the fade coroutine for each individual line renderer.
+                    StartCoroutine(FadeLineRendererColor(line));
+                }
             }
+        }
+    }
+
+
+    private System.Collections.IEnumerator FadeLineRendererColor(LineRenderer line)
+    {
+        if (line == null) yield break;
+
+        // Get the color at the moment the fade begins.
+        Color startColor = line.startColor;
+        float elapsedTime = 0f;
+
+        while (elapsedTime < highlightFadeDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            float progress = elapsedTime / highlightFadeDuration;
+
+            // Linearly interpolate from the start color to the default color.
+            Color newColor = Color.Lerp(startColor, defaultPathColor, progress);
+
+            // Apply the new color to both ends of the line.
+            line.startColor = newColor;
+            line.endColor = newColor;
+
+            yield return null;
+        }
+
+        // Ensure the color is set perfectly to the default at the end.
+        if (line != null)
+        {
+            line.startColor = defaultPathColor;
+            line.endColor = defaultPathColor;
         }
     }
 
