@@ -1045,7 +1045,7 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
 
         if (isAtBank)
         {
-            MoveFromBankToTile(clickedTile, DetermineSnapPointFromClick(clickedTile));
+            MoveFromBankToTile(clickedTile, DetermineSnapPointFromClick(clickedTile, eventData));
         }
         else
         {
@@ -1694,12 +1694,12 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
         InitializeStateOnTile(tile, snapPointIndex);
     }
 
-    int DetermineSnapPointFromClick(TileInstance tile)
+    int DetermineSnapPointFromClick(TileInstance tile, PointerEventData eventData)
     {
         List<int> validSnapPoints = FindClosestSnapPointsToBank(tile);
         if (validSnapPoints.Count == 0) return 2;
         if (validSnapPoints.Count == 1) return validSnapPoints[0];
-        Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
+        Ray ray = eventData.pressEventCamera.ScreenPointToRay(eventData.position);
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
             Vector3 clickWorldPos = hit.point;
