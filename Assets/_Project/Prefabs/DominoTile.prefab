@@ -351,10 +351,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PathVisualizer
   lineMat: {fileID: 2100000, guid: ce7f9c3a696354dfda372b862e6329f9, type: 2}
-  width: 0.07
+  width: 0.1
   segsPerBezier: 18
-  highlightColor: {r: 0, g: 1, b: 0, a: 1}
-  defaultPathColor: {r: 1, g: 1, b: 1, a: 1}
+  highlightColor: {r: 1, g: 0, b: 0.009498596, a: 1}
+  defaultPathColor: {r: 0.5660378, g: 0.5660378, b: 0.5660378, a: 1}
   highlightFadeDuration: 0.5
 --- !u!114 &1971508661778685438
 MonoBehaviour:
