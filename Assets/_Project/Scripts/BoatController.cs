@@ -1455,6 +1455,8 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
                 break;
         }
 
+        targetPos.y = startPos.y;
+
         float elapsed = 0f;
         while (elapsed < moveSpeed)
         {
@@ -1468,7 +1470,17 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
         transform.position = targetPos;
         transform.rotation = targetRot;
 
-        PlaceOnTile(targetTile, snapPoint);
+        // Instead of calling PlaceOnTile (which would snap it down), we manually update the state
+        // and then prepare to resume bobbing in the new, lifted position.
+        InitializeStateOnTile(targetTile, snapPoint);
+        
+        // 2. Update the center point for the bobbing animation to our new location.
+        originalBoatPosition = transform.position;
+
+        // 3. Re-enable and restart the bobbing coroutine.
+        isBobbing = true;
+        StartCoroutine(BobBoat());
+
 
         if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
         {

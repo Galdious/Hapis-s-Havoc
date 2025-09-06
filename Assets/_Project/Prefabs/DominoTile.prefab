@@ -354,7 +354,7 @@ MonoBehaviour:
   width: 0.1
   segsPerBezier: 18
   highlightColor: {r: 1, g: 0, b: 0.009498596, a: 1}
-  defaultPathColor: {r: 0.5660378, g: 0.5660378, b: 0.5660378, a: 1}
+  defaultPathColor: {r: 0.3537736, g: 1, b: 0.3537736, a: 1}
   highlightFadeDuration: 0.5
 --- !u!114 &1971508661778685438
 MonoBehaviour:
