@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems; // We need this for the drag/click interfaces
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.UI;
 
 // This script goes on a full-screen, invisible UI Image with "Raycast Target" enabled.
 public class LevelSelectCameraController : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerUpHandler, IPointerDownHandler
@@ -37,9 +38,14 @@ public class LevelSelectCameraController : MonoBehaviour, IBeginDragHandler, IDr
     private float maxZClamp;
     
     private Vector2 pointerDownPosition;
+    private GraphicRaycaster graphicRaycaster; 
     
     void Start()
     {
+
+        // Find the GraphicRaycaster on the parent Canvas.
+        graphicRaycaster = GetComponentInParent<Canvas>().GetComponent<GraphicRaycaster>();
+
         if (cameraProxy == null)
         {
             Debug.LogError("[CameraController] The Camera Proxy transform has not been assigned!", this);
@@ -116,23 +122,57 @@ public class LevelSelectCameraController : MonoBehaviour, IBeginDragHandler, IDr
         }
     }
 
+
     private void HandleClick(PointerEventData eventData)
     {
-        // This is where we act as a "forwarder".
-        // We cast a ray from the camera to see if we hit a LevelMarker.
+        // 1. Create a list to store all the UI elements the click hit.
+        List<RaycastResult> results = new List<RaycastResult>();
+        graphicRaycaster.Raycast(eventData, results);
+
+        // 2. Loop through the results to find a clickable button.
+        foreach (var result in results)
+        {
+            // If we find a UI element that is NOT our input panel...
+            if (result.gameObject != this.gameObject)
+            {
+                // --- START OF THE CRITICAL FIX ---
+
+                // Instead of forwarding a generic event, we search for a Button component
+                // on the object we hit, or any of its parents.
+                Button button = result.gameObject.GetComponentInParent<Button>();
+
+                // If we found a button and it's interactable...
+                if (button != null && button.interactable)
+                {
+                    Debug.Log($"Click was on a UI Button ({button.name}). Invoking onClick.");
+
+                    // ...we manually and directly invoke its onClick event.
+                    // This will trigger any listeners added via code or the Inspector.
+                    button.onClick.Invoke();
+
+                    // We've handled the click, so we stop here.
+                    return;
+                }
+
+                // --- END OF THE CRITICAL FIX ---
+            }
+        }
+
+        // 3. If we get here, it means no UI buttons were clicked.
+        // Now we can safely check for 3D level markers.
         Ray ray = Camera.main.ScreenPointToRay(eventData.position);
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
-            // We check if the object we hit (or its parent) has a LevelMarker component.
             LevelMarker marker = hit.collider.GetComponentInParent<LevelMarker>();
             if (marker != null)
             {
                 Debug.Log($"Forwarding click to LevelMarker: {marker.name}");
-                // Manually call the marker's public click handler.
                 marker.HandleClick();
             }
         }
     }
+
+
 
     // --- The rest of the script is unchanged ---
 
