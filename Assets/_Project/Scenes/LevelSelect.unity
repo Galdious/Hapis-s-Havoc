@@ -814,8 +814,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LevelSelectCameraController
   cameraProxy: {fileID: 1336067295}
-  panSpeed: 1
-  friction: 4
+  panSpeed: 0.3
+  friction: 10
   clampPadding: 5
   clickThreshold: 10
   playIntroAnimation: 1
