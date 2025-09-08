@@ -1604,7 +1604,20 @@ public class LevelEditorManager : MonoBehaviour
         // 3. Populate Grid & Rules Data
         levelData.gridWidth = gridManager.cols;
         levelData.gridHeight = gridManager.rows;
-        levelData.maxMoves = GetCurrentMaxMoves();
+
+        // At the moment of saving, the input field is the absolute source of truth.
+        // We parse it directly, with a failsafe.
+        if (maxMovesInput != null && int.TryParse(maxMovesInput.text, out int parsedMoves))
+        {
+            levelData.maxMoves = parsedMoves;
+        }
+        else
+        {
+            // If the field is empty or contains non-numbers, save a safe default.
+            Debug.LogWarning($"Could not parse Max Moves input field value '{maxMovesInput?.text}'. Saving a default value of 3.");
+            levelData.maxMoves = 3;
+        }
+
         //levelData.lockedRows = riverControls.GetLockStates(); // We will need to add this helper function
         levelData.lockedRows = riverControls.GetLockStatesAsInts();
 
