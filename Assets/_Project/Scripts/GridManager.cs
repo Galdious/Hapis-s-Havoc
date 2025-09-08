@@ -75,6 +75,7 @@ public class GridManager : MonoBehaviour
 
     [Header("Gameplay Visuals")]
     public GameObject blockerMarkerPrefab;
+    public GameObject reversedTileMarkerPrefab;
 
 
     // ------------------------------------------------------------
@@ -325,7 +326,7 @@ public class GridManager : MonoBehaviour
         ti.IsHardBlocker = isHardBlocker; // Set blocker status from the correct source
 
         // After setting all the data, tell the grid manager to update the visuals accordingly.
-        UpdateBlockerVisualForTile(ti);
+        UpdateTileGameplayVisuals(ti);
 
         grid[x, y] = ti;
 
@@ -1626,31 +1627,55 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    public void UpdateBlockerVisualForTile(TileInstance tile)
+    public void UpdateTileGameplayVisuals(TileInstance tile)
     {
         if (tile == null) return;
 
-        string markerName = "BlockerMarker";
-        Transform existingMarker = tile.transform.Find(markerName);
+        // Define the names we'll use for the markers to easily find them.
+        string blockerMarkerName = "BlockerMarker";
+        string reversedMarkerName = "ReversedMarker";
 
-        // A blocker marker should only appear if the tile is a hard blocker AND is flipped to its red side.
-        if (tile.IsHardBlocker && tile.IsReversed)
+        // Find any existing markers on the tile.
+        Transform existingBlocker = tile.transform.Find(blockerMarkerName);
+        Transform existingReversed = tile.transform.Find(reversedMarkerName);
+
+        // --- Logic for what SHOULD be on the tile ---
+
+        if (tile.IsReversed)
         {
-            // If it should have a marker but doesn't, create one.
-            if (existingMarker == null && blockerMarkerPrefab != null)
+            if (tile.IsHardBlocker)
             {
-                Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform).name = markerName;
+                // CONDITION: Should be a hard blocker.
+                // Action: Ensure blocker marker exists, and reversed marker does NOT.
+                if (existingReversed != null) Destroy(existingReversed.gameObject);
+                if (existingBlocker == null && blockerMarkerPrefab != null)
+                {
+                    Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform).name = blockerMarkerName;
+                }
+            }
+            else
+            {
+                // CONDITION: Should be a standard reversed tile (our vortex).
+                // Action: Ensure reversed marker exists, and blocker marker does NOT.
+                if (existingBlocker != null) Destroy(existingBlocker.gameObject);
+                if (existingReversed == null && reversedTileMarkerPrefab != null)
+                {
+                    // For the vortex, we need to apply the tile's rotation to the marker itself.
+                    Quaternion markerRotation = tile.transform.rotation * Quaternion.Euler(90, 0, 0);
+                    Vector3 markerPosition = tile.transform.position + (tile.transform.up * 0.01f);
+                    Instantiate(reversedTileMarkerPrefab, markerPosition, markerRotation, tile.transform).name = reversedMarkerName;
+                }
             }
         }
         else
         {
-            // If it should NOT have a marker but does, destroy the existing one.
-            if (existingMarker != null)
-            {
-                Destroy(existingMarker.gameObject);
-            }
+            // CONDITION: Tile is blue (not reversed).
+            // Action: Ensure NO markers exist.
+            if (existingBlocker != null) Destroy(existingBlocker.gameObject);
+            if (existingReversed != null) Destroy(existingReversed.gameObject);
         }
     }
+
 
 
 
@@ -1705,7 +1730,7 @@ public class GridManager : MonoBehaviour
             // 2. NOW, initialize. This method will read the IsReversed state and correctly set up paths.
             InitializeTile(ti, template, isFlipped);
             // 3. Finally, update visuals based on the final state.
-            UpdateBlockerVisualForTile(ti);
+            UpdateTileGameplayVisuals(ti);
 
             
 

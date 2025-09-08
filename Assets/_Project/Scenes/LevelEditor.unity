@@ -7124,6 +7124,7 @@ MonoBehaviour:
   floorHeight: -0.8
   separationTime: 0.4
   blockerMarkerPrefab: {fileID: 3578985545442099175, guid: b9cccfe652e0c4c988de0352c12b4191, type: 3}
+  reversedTileMarkerPrefab: {fileID: 3181402151518565514, guid: 06c1fea0e57fb418a89509dd7cbf7821, type: 3}
 --- !u!4 &806644535
 Transform:
   m_ObjectHideFlags: 0
