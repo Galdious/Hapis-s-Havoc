@@ -651,7 +651,13 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                                 if (connection.from == entrySnap || connection.to == entrySnap)
                                 {
                                     int otherSnap = (connection.from == entrySnap) ? connection.to : connection.from;
-                                    destinationVisualizer.HighlightPath(entrySnap, otherSnap, true); // Gradient highlight
+                                    // Check if this connection is a U-turn (0-1 or 2-3).
+                                    bool isU_Turn = (connection.from == 0 && connection.to == 1) || (connection.from == 1 && connection.to == 0) ||
+                                    (connection.from == 2 && connection.to == 3) || (connection.from == 3 && connection.to == 2);
+
+                                    // Use a gradient for normal paths, but a solid color for U-turns.
+                                    destinationVisualizer.HighlightPath(entrySnap, otherSnap, !isU_Turn);
+
                                 }
                             }
                         }
