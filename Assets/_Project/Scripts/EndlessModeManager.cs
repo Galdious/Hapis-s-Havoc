@@ -17,6 +17,9 @@ public class EndlessModeManager : MonoBehaviour
     [SerializeField] private UIManager uiManager;
     [SerializeField] private RiverBankManager riverBankManager;
     [SerializeField] private Unity.Cinemachine.CinemachineCamera endlessVCam;
+    [Header("Camera Control")]
+    [SerializeField] private UniversalCameraController cameraController;
+
 
 
     [Header("Gameplay Settings")]
@@ -123,33 +126,72 @@ public class EndlessModeManager : MonoBehaviour
 
     void LateUpdate()
     {
-
-
         if (cameraProxy == null || playerBoat == null || endlessVCam == null)
         {
-            // --- EMERGENCY FOLLOW LOGIC ---
-            if (isPlayerTurn) // Only check this during the player's actual turn
+            return;
+        }
+
+        // --- ENHANCED CAMERA SYSTEM ---
+        
+        // Step 1: Calculate base target position (where camera should be based on boat)
+        Vector3 boatPosition = playerBoat.transform.position;
+        Vector3 baseTarget = new Vector3(0, 0, boatPosition.z);
+        
+        // Step 2: Get player pan offset from camera controller
+        Vector3 playerOffset = Vector3.zero;
+        if (cameraController != null)
+        {
+            playerOffset = cameraController.GetEndlessCameraOffset();
+        }
+        
+        // Step 3: Apply emergency snap logic if boat goes off-screen
+        if (isPlayerTurn)
+        {
+            Vector3 boatViewportPos = Camera.main.WorldToViewportPoint(boatPosition);
+            float topThreshold = 0.9f;
+            
+            if (boatViewportPos.y > topThreshold)
             {
-                // Convert the boat's world position to a screen position (0-1 range)
-                Vector3 boatViewportPos = Camera.main.WorldToViewportPoint(playerBoat.transform.position);
-
-                // Define our "emergency" threshold near the top of the screen
-                float topThreshold = 0.9f;
-
-                // If the boat has moved above the threshold...
-                if (boatViewportPos.y > topThreshold)
+                // Emergency snap - reset player offset and snap to boat
+                if (cameraController != null)
                 {
-                    // ...immediately update the camera's target to the boat's current Z position.
-                    cameraTargetPosition = new Vector3(0, 0, playerBoat.transform.position.z);
+                    cameraController.ResetEndlessOffset();
+                    playerOffset = Vector3.zero;
                 }
+                cameraTargetPosition = baseTarget;
             }
         }
-        // --- REGULAR SMOOTH MOVEMENT LOGIC (Unchanged) ---
-        // This part always runs, smoothly moving the proxy towards its current target,
-        // whether that target was set at the end of the turn or during an emergency.
-        cameraProxy.position = Vector3.Lerp(cameraProxy.position, cameraTargetPosition, Time.deltaTime * cameraMoveSpeed);
+        
+        // Step 4: Combine base target with player offset
+        Vector3 finalTarget = baseTarget + playerOffset;
+        
+        // Step 5: Handle different movement scenarios
+        if (cameraController != null && cameraController.IsPlayerControllingCamera)
+        {
+            // Player is actively controlling camera - move proxy directly to final target
+            cameraProxy.position = finalTarget;
+            cameraTargetPosition = finalTarget;
+        }
+        else
+        {
+            // Player is not controlling camera - use smooth following
+            cameraTargetPosition = finalTarget;
+            cameraProxy.position = Vector3.Lerp(cameraProxy.position, cameraTargetPosition, Time.deltaTime * cameraMoveSpeed);
+        }
+        
+        // Step 6: Update Cinemachine camera position
         endlessVCam.transform.position = new Vector3(0, cameraHeight, cameraProxy.position.z + cameraZOffset);
     }
+
+    // Add this method to reset camera offset when needed:
+    public void ResetCameraOffset()
+    {
+        if (cameraController != null)
+        {
+            cameraController.ResetEndlessOffset();
+        }
+    }
+
 
 
 
@@ -447,11 +489,11 @@ public class EndlessModeManager : MonoBehaviour
 
         StartCoroutine(FinalizeBoatStateAfterMove());
 
-        // if (currentAP > 0)
-        // {
-        //     // Re-selecting the boat will handle all the state and visuals for the next move.
-        //     StartCoroutine(ReselectBoatAfterMove());
-        // }
+        // Reset camera offset when turn is about to end
+        if (currentAP <= 0)
+        {
+            ResetCameraOffset();
+        }
 
 
         Debug.Log($"Move made. AP left: {currentAP}, Stamina left: {currentStamina}");
@@ -488,6 +530,10 @@ public class EndlessModeManager : MonoBehaviour
         if (!isPlayerTurn) return;
 
         Debug.Log("Player ended turn manually.");
+
+        // Reset camera offset when turn ends
+        ResetCameraOffset();
+
         isPlayerTurn = false;
         // Setting isPlayerTurn to false will satisfy the 'WaitUntil' in our game loop,
         // allowing the cycle to proceed to the River Push phase.

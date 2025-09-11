@@ -176,6 +176,12 @@ public class GridManager : MonoBehaviour
     public List<Coroutine> CreateGridFromEditor(int newCols, int newRows, List<TileSaveData> tileBlueprint = null, bool animate = true)
     {
 
+        var cameraController = FindFirstObjectByType<UniversalCameraController>();
+        if (cameraController != null)
+        {
+            cameraController.OnGridChanged();
+        }
+
         Dictionary<(int, int), TileSaveData> tileDataMap = null;
         if (tileBlueprint != null)
         {
