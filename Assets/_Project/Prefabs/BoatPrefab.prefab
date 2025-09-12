@@ -49,7 +49,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BoatController
   snapOffset: 0.15
   moveSpeed: 2
-  hoverHeight: 0.5
+  hoverHeight: 0.35
   aboveTileHoverDistance: 0.1
   bobAmount: 0.1
   bobSpeed: 2

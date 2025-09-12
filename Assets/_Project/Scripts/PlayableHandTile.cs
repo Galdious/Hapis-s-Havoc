@@ -35,7 +35,7 @@ public class PlayableHandTile : MonoBehaviour, IPointerClickHandler, IBeginDragH
 
 
     // --- Settings ---
-    private float liftHeight = 0.5f;
+    private float liftHeight = 1f;
     private float returnAnimationTime = 0.2f;
 
 
