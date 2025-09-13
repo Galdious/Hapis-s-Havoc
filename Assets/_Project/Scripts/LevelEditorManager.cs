@@ -983,30 +983,31 @@ public class LevelEditorManager : MonoBehaviour
 
         }
     }
-    private void UpdateBlockerVisual(TileInstance tile)
-    {
-        string markerName = "BlockerMarker";
-        Transform existingMarker = tile.transform.Find(markerName);
+    // private void UpdateBlockerVisual(TileInstance tile)
+    // {
+    //     string markerName = "BlockerMarker";
+    //     Transform existingMarker = tile.transform.Find(markerName);
 
-        // If the tile's data says it's a blocker...
-        if (tile.IsHardBlocker)
-        {
-            // ...and it's a red tile and doesn't have a marker, add one.
-            if (tile.IsReversed && existingMarker == null && blockerMarkerPrefab != null)
-            {
-                Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform).name = markerName;
-            }
-        }
-        // If the tile's data says it's NOT a blocker...
-        else
-        {
-            // ...and it has a marker, remove it.
-            if (existingMarker != null)
-            {
-                Destroy(existingMarker.gameObject);
-            }
-        }
-    }
+    //     // If the tile's data says it's a blocker...
+    //     if (tile.IsHardBlocker)
+    //     {
+    //         // ...and it's a red tile and doesn't have a marker, add one.
+    //         if (tile.IsReversed && existingMarker == null && blockerMarkerPrefab != null)
+    //         {
+    //             Instantiate(blockerMarkerPrefab, tile.transform.position, Quaternion.identity, tile.transform).name = markerName;
+    //         }
+    //     }
+    //     // If the tile's data says it's NOT a blocker...
+    //     else
+    //     {
+    //         // ...and it has a marker, remove it.
+    //         if (existingMarker != null)
+    //         {
+    //             Destroy(existingMarker.gameObject);
+    //         }
+    //     }
+    // }
+    
     private void ToggleTileBlocker(TileInstance tile)
     {
         // This method is for user clicks.
@@ -1021,7 +1022,9 @@ public class LevelEditorManager : MonoBehaviour
         Debug.Log($"Tile {tile.name} IsHardBlocker set to: {tile.IsHardBlocker}");
 
         // Tell the new helper to update the visual to match the new data state.
-        UpdateBlockerVisual(tile);
+        // UpdateBlockerVisual(tile);
+        // Tell the GRID MANAGER to update the visual to match the new data state.
+        gridManager.UpdateTileGameplayVisuals(tile);
     }
 
 
@@ -1923,7 +1926,7 @@ public class LevelEditorManager : MonoBehaviour
                     var editorTile = tile.gameObject.AddComponent<EditorGridTile>();
                     editorTile.editorManager = this;
                     editorTile.tileInstance = tile;
-                    UpdateBlockerVisual(tile); // Update blocker visuals after creation
+                    gridManager.UpdateTileGameplayVisuals(tile); // Update blocker visuals after creation
                 }
             }
         }
