@@ -1358,6 +1358,8 @@ public class LevelEditorManager : MonoBehaviour
             visualizer.CleanUpPaths();
         }
 
+
+
         // We need to know which way to flip it
         bool willBeReversed = !tileToFlip.IsReversed;
 
@@ -1375,6 +1377,7 @@ public class LevelEditorManager : MonoBehaviour
                 new TileInstance.Connection { from = 4, to = 5 },
             };
             tileToFlip.Initialise(straightPaths, true, tileToFlip.originalTemplate);
+
         }
         else
         {
@@ -1388,6 +1391,7 @@ public class LevelEditorManager : MonoBehaviour
         {
             visualizer.DrawPaths();
         }
+        gridManager.UpdateTileGameplayVisuals(tileToFlip);
     }
 
 

@@ -414,7 +414,7 @@ public class GridManager : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // 8.  Push implementation
+    // 8.  Push implementation - First Coroutine (for Sandbox Mode)
     // ------------------------------------------------------------
 
     public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, bool showObstacleSide)
@@ -549,6 +549,8 @@ public class GridManager : MonoBehaviour
 
         TileInstance newTile = newTileGO.GetComponent<TileInstance>();
         InitializeTile(newTile, newTileTemplate, showObstacleSide);
+
+        UpdateTileGameplayVisuals(newTile);
 
         if (levelEditorManager != null)
         {
@@ -757,7 +759,7 @@ public class GridManager : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // NEW OVERLOAD
+    // NEW OVERLOAD - Second Coroutine (for Puzzle Mode pushes)
     // ------------------------------------------------------------
 
 
@@ -889,6 +891,8 @@ public class GridManager : MonoBehaviour
         TileInstance newTile = newTileGO.GetComponent<TileInstance>();
         // Initialize the tile with the correct paths based on its flipped state.
         InitializeTile(newTile, newTileTemplate, handTile.isFlipped);
+
+        UpdateTileGameplayVisuals(newTile);
 
         if (levelEditorManager != null)
         {
@@ -1092,7 +1096,7 @@ public class GridManager : MonoBehaviour
     // ------------------------------------------------------------
 
     // ------------------------------------------------------------
-    // START OF SECOND OVERLOAD
+    // START OF SECOND OVERLOAD - Third Coroutine (for Endless Mode / Drag-and-Drop)
     // ------------------------------------------------------------
 
     public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile handTile, GameObject newTileGO)
@@ -1166,6 +1170,12 @@ public class GridManager : MonoBehaviour
 
         // --- Core Change: We use the provided newTileGO ---
         TileInstance newTile = newTileGO.GetComponent<TileInstance>();
+
+        // 1. Set the tile's internal data (paths, isReversed state)
+        InitializeTile(newTile, handTile.tileType, handTile.isFlipped); 
+        // 2. Now update its visuals (the vortex) based on that new data
+        UpdateTileGameplayVisuals(newTile);
+
 
         // --- Animation Logic ---
         List<Coroutine> essentialAnimations = new List<Coroutine>();
