@@ -146,9 +146,10 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
     void Update()
     {
-        if (Keyboard.current.eKey.wasPressedThisFrame) EndMovementTurn();
-        if (Keyboard.current.rKey.wasPressedThisFrame) ResetMovementPoints();
+        // if (Keyboard.current.eKey.wasPressedThisFrame) EndMovementTurn();
+        // if (Keyboard.current.rKey.wasPressedThisFrame) ResetMovementPoints();
     }
+    
     private void UpdateStarCounterUI()
     {
         if (starCounterText != null)
