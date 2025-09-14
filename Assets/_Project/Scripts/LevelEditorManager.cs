@@ -1918,7 +1918,7 @@ public class LevelEditorManager : MonoBehaviour
         Debug.Log("Step 4: Placing collectibles and editor components...");
         for (int y = 0; y < levelData.gridHeight; y++)
         {
-            for (int x = 0; x < currentLoadedLevelData.gridWidth; x++)
+            for (int x = 0; x < levelData.gridWidth; x++)
             {
                 TileInstance tile = gridManager.GetTileAt(x, y);
                 if (tile != null)

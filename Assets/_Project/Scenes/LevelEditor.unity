@@ -10692,7 +10692,7 @@ MonoBehaviour:
   levelEditorManager: {fileID: 820239330}
   currentState: 0
   movePenaltyThreshold: 0
-  extraMoveIconSprite: {fileID: 21300000, guid: ce416a6a5e29c4f89a5573a92c0fb011, type: 3}
+  extraMoveIconSprite: {fileID: 21300000, guid: 4a2c90316d3544122b106656e26cb8ad, type: 3}
 --- !u!4 &1041370791
 Transform:
   m_ObjectHideFlags: 0
@@ -15037,7 +15037,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 250, y: -85}
-  m_SizeDelta: {x: 50, y: 50}
+  m_SizeDelta: {x: 500, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1596062258
 MonoBehaviour:
