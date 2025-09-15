@@ -96,13 +96,13 @@ MonoBehaviour:
     tint: {r: 1, g: 1, b: 1, a: 1}
   endlessModeOriginalState:
     sprite: {fileID: 0}
-    tint: {r: 0, g: 0, b: 0, a: 0.2784314}
+    tint: {r: 0, g: 0, b: 0, a: 0.09803922}
   highlightState:
     sprite: {fileID: 0}
-    tint: {r: 0.36862746, g: 0.9815198, b: 0, a: 0.78431374}
+    tint: {r: 0.36862746, g: 0.9815198, b: 0, a: 1}
   forecastBlueState:
     sprite: {fileID: 0}
-    tint: {r: 0.033018887, g: 0.7749126, b: 1, a: 0.78431374}
+    tint: {r: 0.033018887, g: 0.7749126, b: 1, a: 1}
   forecastRedState:
     sprite: {fileID: 0}
-    tint: {r: 1, g: 0, b: 0, a: 0.78431374}
+    tint: {r: 1, g: 0, b: 0, a: 1}
