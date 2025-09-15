@@ -82,9 +82,14 @@ public class MainMenuController : MonoBehaviour
 
         SceneManager.LoadScene("LevelEditor"); // Or your main game scene name
     }
-    
 
 
+
+    public void QuitGame()
+    {
+        Debug.Log("Quitting game...");
+        Application.Quit();
+    }
 
 
 
