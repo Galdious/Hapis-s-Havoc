@@ -327,6 +327,7 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
             // Use the calculated X, but the row's Y and Z from our reliable helper.
             leftRect.position = new Vector3(leftZoneX, rowCenter.y, rowCenter.z - 0.25f);
             leftRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
+            leftRect.localScale = new Vector3(-1f, 1f, 1f); // FLIP The Left Zone
             RowDropZone leftZone = leftZoneGO.GetComponent<RowDropZone>();
             leftZone.row = row;
             leftZone.fromLeft = true;
@@ -355,6 +356,7 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
             RectTransform rightRect = rightZoneGO.GetComponent<RectTransform>();
             rightRect.position = new Vector3(rightZoneX, rowCenter.y, rowCenter.z - 0.25f);
             rightRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
+            rightRect.localScale = Vector3.one; // <<< ADD THIS LINE (sets scale to 1,1,1)
             RowDropZone rightZone = rightZoneGO.GetComponent<RowDropZone>();
             rightZone.row = row;
             rightZone.fromLeft = false;
