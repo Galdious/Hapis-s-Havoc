@@ -50,6 +50,7 @@ MonoBehaviour:
   snapOffset: 0.15
   moveSpeed: 2
   hoverHeight: 0.35
+  boatRestingHeight: 0.25
   aboveTileHoverDistance: 0.1
   bobAmount: 0.1
   bobSpeed: 2
@@ -86,7 +87,8 @@ MonoBehaviour:
   maxMovementPoints: 3
   currentMovementPoints: 3
   moveBonusMultiplier: 2
-  selectedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  selectedColor: {r: 0.12941177, g: 0.61960787, b: 0.7372549, a: 1}
+  bankHighlightColor: {r: 0.12941177, g: 0.61960787, b: 0.7372549, a: 1}
   starCounterText: {fileID: 0}
   moveCounterText: {fileID: 0}
   embarkArrowPrefab: {fileID: 7140026992631679912, guid: a950d8783f8614bf8b4bd7b093bb6771, type: 3}

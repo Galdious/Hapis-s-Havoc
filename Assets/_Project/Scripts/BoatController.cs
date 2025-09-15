@@ -24,6 +24,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     public float snapOffset = 0.15f;
     public float moveSpeed = 1f;
     public float hoverHeight = 0.5f;
+    public float boatRestingHeight = 0.25f; 
 
     public float aboveTileHoverDistance = 0.1f; // How high the boat hovers above the tile when selected.
     public float bobAmount = 0.1f;
@@ -63,6 +64,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
     [Header("Visual Feedback")]
     public Color selectedColor = Color.magenta;
+    public Color bankHighlightColor = Color.cyan; 
     public TMP_Text starCounterText;
     public TMP_Text moveCounterText;
 
@@ -558,7 +560,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
 
     IEnumerator LiftAndBobBoat(bool lift)
     {
-        float baseY = isAtBank && bankPosition != null ? bankPosition.position.y : 0f;
+        float baseY = isAtBank && bankPosition != null ? bankPosition.position.y : boatRestingHeight;
         Vector3 startPos = transform.position;
         Vector3 targetPos = startPos;
         targetPos.y = lift ? baseY + hoverHeight + aboveTileHoverDistance : baseY;
@@ -880,7 +882,7 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
                 {
                     originalBankMaterials[renderer] = renderer.sharedMaterial;
                 }
-                renderer.material.color = Color.cyan;
+                renderer.material.color = bankHighlightColor;
 
                 highlightedBanks.Add(bankGO);
             }
@@ -1430,7 +1432,18 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
 
     IEnumerator MoveToTileCoroutine(TileInstance targetTile, int snapPoint)
     {
-        Vector3 startPos = transform.position;
+        float preMoveDuration = 0.1f; // A very quick transition
+        float elapsedPreMove = 0f;
+        Vector3 currentBobPos = transform.position; // Capture the boat's exact current position
+        
+        while (elapsedPreMove < preMoveDuration)
+        {
+            transform.position = Vector3.Lerp(currentBobPos, originalBoatPosition, elapsedPreMove / preMoveDuration);
+            elapsedPreMove += Time.deltaTime;
+            yield return null;
+        }
+
+        Vector3 startPos = originalBoatPosition; 
         Quaternion startRot = transform.rotation;
 
         // The temporary state change is no longer needed and has been removed.
@@ -1462,7 +1475,7 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
                 break;
         }
 
-        targetPos.y = startPos.y;
+        targetPos.y = originalBoatPosition.y;
 
         float elapsed = 0f;
         while (elapsed < moveSpeed)
