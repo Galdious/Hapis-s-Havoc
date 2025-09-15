@@ -1,99 +1,99 @@
-/*
- *  RowDropZone.cs
- *  ---------------------------------------------------------------
- *  An invisible UI component that acts as a target for dropping
- *  hand tiles. It highlights when hovered over and provides its
- *  grid location data to the tile being dropped.
- */
-
+/* RowDropZone.cs (Upgraded for Sprite Swapping) */
 using UnityEngine;
-using UnityEngine.UI; // Required for the Image component
+using UnityEngine.UI;
+
+[System.Serializable]
+public struct VisualState
+{
+    public Sprite sprite;
+    public Color tint;
+}
 
 [RequireComponent(typeof(Image))]
 public class RowDropZone : MonoBehaviour
 {
-    // --- Public References & Data (Set by RiverControls) ---
+    // --- Public References & Data ---
     [HideInInspector] public int row;
     [HideInInspector] public bool fromLeft;
     [HideInInspector] public RiverControls riverControls;
-
-    [Header("Visual Feedback")]
-    [SerializeField] private Color highlightColor = new Color(1f, 1f, 0f, 0.3f); // Yellow, semi-transparent
-    [SerializeField] private Color forecastBlueColor = new Color(0f, 0.5f, 1f, 0.4f);
-    [SerializeField] private Color forecastRedColor = new Color(1f, 0.2f, 0f, 0.4f);
+    
+    // --- NEW: Visual State Configuration ---
+    [Header("Visual States")]
+    [Tooltip("The default appearance for Puzzle/Play mode.")]
+    [SerializeField] private VisualState playModeOriginalState;
+    [Tooltip("The default appearance for Endless mode.")]
+    [SerializeField] private VisualState endlessModeOriginalState;
+    [Space(10)]
+    [Tooltip("Appearance when a tile is hovered over.")]
+    [SerializeField] private VisualState highlightState;
+    [Tooltip("Appearance for a blue tile forecast.")]
+    [SerializeField] private VisualState forecastBlueState;
+    [Tooltip("Appearance for a red tile forecast.")]
+    [SerializeField] private VisualState forecastRedState;
 
     // --- Private State ---
     private Image dropZoneImage;
-    private Color originalColor;
+    private VisualState originalState; // Will be set to one of the above based on game mode
     private bool isHovered = false;
 
+    // Note: We don't have an Initialize method anymore, Awake handles it all.
     void Awake()
     {
         dropZoneImage = GetComponent<Image>();
-        if (dropZoneImage != null)
-        {
-            // Start completely transparent
 
-            originalColor = dropZoneImage.color;
+        // Determine which original state to use based on the current game mode
+        GameManager gameManager = FindFirstObjectByType<GameManager>();
+        if (gameManager != null && gameManager.currentMode == OperatingMode.Endless)
+        {
+            originalState = endlessModeOriginalState;
         }
+        else
+        {
+            originalState = playModeOriginalState;
+        }
+
+        // Apply the chosen original state
+        ApplyVisualState(originalState);
     }
 
+    // --- NEW: A helper method to apply a state ---
+    private void ApplyVisualState(VisualState state)
+    {
+        if (dropZoneImage == null) return;
+        
+        // If a sprite is provided in the state, use it. Otherwise, keep the current sprite.
+        if (state.sprite != null)
+        {
+            dropZoneImage.sprite = state.sprite;
+        }
+        
+        // Always apply the tint color.
+        dropZoneImage.color = state.tint;
+    }
 
-    /// This is called BY the PlayableHandTile script when a drag enters our bounds.
     public void OnHoverEnter()
     {
         if (isHovered) return;
         isHovered = true;
-
-        if (dropZoneImage != null)
-        {
-            dropZoneImage.color = highlightColor;
-        }
-
-        // --- NEW: Trigger the "make room" animation ---
-        // We'll add these methods to RiverControls later. For now, the calls can stay.
+        ApplyVisualState(highlightState);
         riverControls?.AnimateRowForDrop(row, fromLeft);
-
-        Debug.Log($"Hovering over drop zone: Row {row}, From Left: {fromLeft}");
     }
 
-
-    /// This is called BY the PlayableHandTile script when a drag leaves our bounds.
     public void OnHoverExit()
     {
         if (!isHovered) return;
         isHovered = false;
-
-        if (dropZoneImage != null)
-        {
-            dropZoneImage.color = originalColor;
-        }
-
-        // --- NEW: Reset the "make room" animation ---
+        ApplyVisualState(originalState);
         riverControls?.ResetRowAnimation(row);
     }
     
-
-
     public void ShowForecast(bool isObstacle)
     {
-        if (dropZoneImage != null)
-        {
-            dropZoneImage.color = isObstacle ? forecastRedColor : forecastBlueColor;
-        }
+        ApplyVisualState(isObstacle ? forecastRedState : forecastBlueState);
     }
 
     public void HideForecast()
     {
-        if (dropZoneImage != null)
-        {
-            dropZoneImage.color = originalColor; // Resets it to be fully transparent
-        }
+        ApplyVisualState(originalState);
     }
-
-
-
-
-
-
 }
