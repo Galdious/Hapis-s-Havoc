@@ -218,14 +218,19 @@ public class BoatManager : MonoBehaviour
 
 
 
+#if UNITY_EDITOR
+    // Editor-only debug shortcut. Excluded from player builds: on a device with no
+    // keyboard Keyboard.current is null, and this threw an NRE every frame.
+    // Wrapping the whole method (not just its body) also keeps Unity from
+    // registering an Update callback per BoatManager in a build.
     void Update()
     {
-        // Test controls using new Input System
-        if (Keyboard.current.bKey.wasPressedThisFrame)
+        if (Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame)
         {
             RespawnAllBoats();
         }
     }
+#endif
 
     // Public methods for game management
     public List<BoatController> GetPlayerBoats()

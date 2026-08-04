@@ -10,6 +10,12 @@ using System.Text;
 [RequireComponent(typeof(TileInstance))]
 public class ConnectionDump : MonoBehaviour
 {
+    // This component sits on the DominoTile prefab, so it ran for EVERY tile
+    // spawned - a StringBuilder allocation plus a Debug.Log per tile, in release
+    // builds too. The class itself is kept (removing it from the prefab by hand
+    // would leave a dangling component entry and a "missing script" warning on
+    // every tile), but it now does nothing outside the Editor.
+#if UNITY_EDITOR
     void Start()   // runs once when the tile spawns
     {
         TileInstance tile = GetComponent<TileInstance>();
@@ -45,4 +51,5 @@ public class ConnectionDump : MonoBehaviour
          *──────────────────────────────────────────────────────────*/
         Debug.Log(sb.ToString(), this);
     }
+#endif
 }
