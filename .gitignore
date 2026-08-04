@@ -97,3 +97,22 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# --- Project-specific additions ---
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Unity crash-recovery scene dumps — never source of truth
+/[Aa]ssets/_[Rr]ecovery/
+/[Aa]ssets/_[Rr]ecovery.meta
+
+# Unity AI / generated content cache
+/GeneratedAssets/
+/GeneratedAssets.meta
+
+# Explicit build output. The template's /[Bb]uilds/ pattern only matches
+# BUILDS/ on this machine because core.ignorecase=true. On a case-sensitive
+# filesystem (Linux CI, another contributor) it would not match at all.
+/BUILDS/
