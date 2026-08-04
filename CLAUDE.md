@@ -153,4 +153,36 @@ FIX ---` comments throughout record the same handful of failures over and over:
 - Every change must work in all three operating modes (Editor, Playing,
   Endless) or explicitly state which mode it is scoped to.
 - This is a mobile target. Per-frame allocation and draw-call count matter.
-- Do not run Unity or attempt to build. Report what needs testing instead.
+- Do not run Unity or attempt to build, EXCEPT via `tools/run-tests.sh` (see Testing).
+  Outside the harness, report what needs testing instead.
+
+## 6. Testing
+
+Harness lives in `Assets/Tests/` (PlayMode + Editor asmdefs). Run it with
+`tools/run-tests.sh [filter]`. Captures land in `TestOutput/Captures/` (gitignored);
+the committed reference set is `Assets/Tests/Golden/` (tracked).
+
+Standing rules:
+
+- **The Unity Editor MUST be closed before running the harness.** Unity takes an exclusive
+  lock on the project; a second instance silently does nothing. `run-tests.sh` checks for the
+  lock and fails loudly, but check yourself first.
+- **Run the suite before every commit.**
+- **After running, READ YOUR OWN CAPTURES before presenting results.** Look at the PNGs.
+  Iterate at least once on what you actually see, and say what you changed after looking.
+  "The test passed" is not evidence the image is right — the first framing pass here rendered
+  the board in a middle band with the hand palette sliced off at the frame edge, and every
+  assertion still went green.
+- **Any new assertion ships with a matching meta-test proving it can fail.** A test that has
+  never been observed to go red is not a test. Broken controls live in `Assets/Tests/BrokenControls/`.
+- **`-batchmode` WITHOUT `-nographics`, always.** `-nographics` kills the render loop, every
+  capture comes back black, and every image comparison then passes vacuously.
+- Determinism is the foundation. If `DeterminismGateTests` is red, every other visual result
+  is noise — fix that first and do not interpret anything downstream.
+- Captures render through an explicit synchronous `Camera.Render()` into a fixed 1080x1920
+  RenderTexture, never the frame loop. Waits are wall-clock (`WaitForSecondsRealtime`) with
+  loud timeouts, never frame counts — batchmode runs uncapped.
+- **Do not enable *Disable Domain Reload*** in Enter Play Mode Options. The project relies on
+  six singletons (`GameManager`, `UIManager`, `HistoryManager`, `FloatingTextManager`,
+  `ScreenFader`, `CameraManager`) plus the static `LevelSelectManager.LevelToLoad`; without
+  domain reload they leak across tests and failures become non-reproducible.
