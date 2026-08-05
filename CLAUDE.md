@@ -119,6 +119,34 @@ FIX ---` comments throughout record the same handful of failures over and over:
    note the shipped levels store `rotationY` values like `0.000005008956122765085`, so exact
    float comparison is not safe.
 
+   **That idiom is broken for flipped tiles, and this is measured, not theoretical.** A tile is
+   built as `Quaternion.Euler(isFlipped ? 180 : 0, rotationY, 0)`. Unity normalises the euler
+   representation of that product, so `eulerAngles.y` does **not** read back as the authored
+   `rotationY` once the X flip is involved:
+
+   | authored | `eulerAngles.y` reads |
+   |---|---|
+   | `rotationY=0,   isFlipped=false` | `0` |
+   | `rotationY=180, isFlipped=false` | `180` |
+   | `rotationY=0,   isFlipped=true`  | **`180`** — inverted |
+   | `rotationY=180, isFlipped=true`  | **`0`** — inverted |
+
+   For a flipped tile the value is exactly inverted relative to the authored `rotationY`.
+   Confirmed on `01_06_TestLevel`: tiles (1,0) and (1,1) are authored `rotationY≈0` + flipped
+   and read back `180`; tile (1,2) is authored `rotationY=180` + flipped and reads back `0`.
+
+   > **Never compare tile rotation by reading `transform.eulerAngles.y` directly.** Use
+   > `TileOrientation` (`Assets/_Project/Scripts/TileOrientation.cs`) everywhere — gameplay and
+   > tests alike. It reads basis vectors, which are representation-independent:
+   > `IsYawFlipped(t)` (local +X points along world −X), `IsFaceFlipped(t)` (local +Y points
+   > down), plus `SameOrientation(a, b)`, `MatchesAuthored(t, rotationY, isFlipped)` and
+   > `Describe(t)` for failure messages.
+
+   `TileOrientation` also distinguishes an **X flip from a Z flip** (`Rz(180)` inverts local +X,
+   `Rx(180)` does not). That is deliberate: `GridManager`'s three `PushRowCoroutine` overloads
+   do not agree on which axis they flip (risk R1), and a rotation comparison that hid that
+   difference would make the parity test unable to see the bug it exists to catch.
+
 4. **Coroutine collisions / `StopAllCoroutines()`.** `DeselectBoat` has an explicit comment
    removing `StopAllCoroutines()` because it was killing in-flight tile-lowering animations.
    `PrepareForForcedMove`, `OnBankClicked`, `MoveFromBankToTile` and `EndlessModeManager.EndGame`
