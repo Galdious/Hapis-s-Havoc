@@ -43,6 +43,7 @@ ExportedObj/
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
@@ -116,3 +117,7 @@ InitTestScene*.unity*
 # BUILDS/ on this machine because core.ignorecase=true. On a case-sensitive
 # filesystem (Linux CI, another contributor) it would not match at all.
 /BUILDS/
+
+# Test harness output (captures, logs, results).
+# The golden set lives in Assets/Tests/Golden and IS tracked.
+/TestOutput/
