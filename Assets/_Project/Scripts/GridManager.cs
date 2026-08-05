@@ -1590,6 +1590,10 @@ public class GridManager : MonoBehaviour
 
     public TileInstance GetTileAt(int x, int y)
     {
+        // cols/rows come from serialised defaults (6/6), so the bounds check below passes
+        // before the array exists - notably in Endless mode, which builds the grid later.
+        if (grid == null) return null;
+
         if (x >= 0 && x < cols && y >= 0 && y < rows)
             return grid[x, y];
         return null;

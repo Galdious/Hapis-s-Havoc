@@ -1545,6 +1545,16 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
             transform.rotation = Quaternion.Slerp(startRot, targetRot, easeProgress);
             yield return null;
         }
+
+        // Land exactly, then re-home the bob/animation origin - MoveToTileCoroutine already
+        // does this at its end. Without it originalBoatPosition keeps pointing at the tile we
+        // departed FROM, so the next move animates out of thin air. Nothing else refreshes it
+        // on this path: the "moves remaining" branch of RefreshMovementOptionsCoroutine never
+        // calls LiftAndBobBoat, and ResynchronizeStateWithTransform early-returns at a bank.
+        transform.position = targetPos;
+        transform.rotation = targetRot;
+        originalBoatPosition = transform.position;
+
         SetStateForBank(targetSpawn);
 
         // --- START OF MODIFIED LOGIC ---

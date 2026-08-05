@@ -488,7 +488,16 @@ public class LevelEditorManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError("Cannot apply hand to bag: The hand is empty!");
+            // An empty hand is a VALID state, not an error: levels 01_01, 01_02 and 01_03
+            // ship with no player hand at all, and ReconstructLevelFromDataCoroutine calls
+            // this unconditionally on every load. Firing an error on normal gameplay trains
+            // everyone to ignore the console, which defeats the point of keeping it quiet.
+            // Kept as an editor-only Log because clicking the Apply Hand button with an
+            // empty hand IS a mistake worth surfacing to whoever is authoring a level.
+#if UNITY_EDITOR
+            Debug.Log("[LevelEditorManager] Apply-hand-to-bag skipped: the hand is empty. " +
+                      "Expected for levels that ship without a player hand.");
+#endif
         }
     }
 

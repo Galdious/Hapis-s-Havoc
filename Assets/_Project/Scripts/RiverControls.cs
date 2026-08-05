@@ -455,7 +455,6 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
 
         arrow.transform.localScale = Vector3.one * arrowScale;
         arrow.name = $"Arrow_Row{row}_{(fromLeft ? "L" : "R")}_{(isRed ? "Red" : "Blue")}";
-        arrow.tag = "Arrow"; // Add tag for identification
         arrow.layer = LayerMask.NameToLayer("UI") != -1 ? LayerMask.NameToLayer("UI") : 5; // Put on UI layer or layer 5
 
         // Ensure it has a collider for mouse detection - make it much bigger for easier clicking

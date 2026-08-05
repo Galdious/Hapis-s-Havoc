@@ -66,5 +66,5 @@
     "explorer.fileNesting.patterns": {
         "*.sln": "*.csproj"
     },
-    "dotnet.defaultSolution": "Hapis-s-Havoc.sln"
+    "dotnet.defaultSolution": "Hapis-s-Havoc.slnx"
 }

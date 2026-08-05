@@ -1,6 +1,6 @@
 # Hapi's Havoc — Agent Brief
 
-Unity 6 (6000.2.0b8) URP mobile puzzle game. Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Unity 6.3 LTS (6000.3.21f1) URP mobile puzzle game. Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## 1. Project snapshot
 
@@ -119,6 +119,34 @@ FIX ---` comments throughout record the same handful of failures over and over:
    note the shipped levels store `rotationY` values like `0.000005008956122765085`, so exact
    float comparison is not safe.
 
+   **That idiom is broken for flipped tiles, and this is measured, not theoretical.** A tile is
+   built as `Quaternion.Euler(isFlipped ? 180 : 0, rotationY, 0)`. Unity normalises the euler
+   representation of that product, so `eulerAngles.y` does **not** read back as the authored
+   `rotationY` once the X flip is involved:
+
+   | authored | `eulerAngles.y` reads |
+   |---|---|
+   | `rotationY=0,   isFlipped=false` | `0` |
+   | `rotationY=180, isFlipped=false` | `180` |
+   | `rotationY=0,   isFlipped=true`  | **`180`** — inverted |
+   | `rotationY=180, isFlipped=true`  | **`0`** — inverted |
+
+   For a flipped tile the value is exactly inverted relative to the authored `rotationY`.
+   Confirmed on `01_06_TestLevel`: tiles (1,0) and (1,1) are authored `rotationY≈0` + flipped
+   and read back `180`; tile (1,2) is authored `rotationY=180` + flipped and reads back `0`.
+
+   > **Never compare tile rotation by reading `transform.eulerAngles.y` directly.** Use
+   > `TileOrientation` (`Assets/_Project/Scripts/TileOrientation.cs`) everywhere — gameplay and
+   > tests alike. It reads basis vectors, which are representation-independent:
+   > `IsYawFlipped(t)` (local +X points along world −X), `IsFaceFlipped(t)` (local +Y points
+   > down), plus `SameOrientation(a, b)`, `MatchesAuthored(t, rotationY, isFlipped)` and
+   > `Describe(t)` for failure messages.
+
+   `TileOrientation` also distinguishes an **X flip from a Z flip** (`Rz(180)` inverts local +X,
+   `Rx(180)` does not). That is deliberate: `GridManager`'s three `PushRowCoroutine` overloads
+   do not agree on which axis they flip (risk R1), and a rotation comparison that hid that
+   difference would make the parity test unable to see the bug it exists to catch.
+
 4. **Coroutine collisions / `StopAllCoroutines()`.** `DeselectBoat` has an explicit comment
    removing `StopAllCoroutines()` because it was killing in-flight tile-lowering animations.
    `PrepareForForcedMove`, `OnBankClicked`, `MoveFromBankToTile` and `EndlessModeManager.EndGame`
@@ -153,4 +181,36 @@ FIX ---` comments throughout record the same handful of failures over and over:
 - Every change must work in all three operating modes (Editor, Playing,
   Endless) or explicitly state which mode it is scoped to.
 - This is a mobile target. Per-frame allocation and draw-call count matter.
-- Do not run Unity or attempt to build. Report what needs testing instead.
+- Do not run Unity or attempt to build, EXCEPT via `tools/run-tests.sh` (see Testing).
+  Outside the harness, report what needs testing instead.
+
+## 6. Testing
+
+Harness lives in `Assets/Tests/` (PlayMode + Editor asmdefs). Run it with
+`tools/run-tests.sh [filter]`. Captures land in `TestOutput/Captures/` (gitignored);
+the committed reference set is `Assets/Tests/Golden/` (tracked).
+
+Standing rules:
+
+- **The Unity Editor MUST be closed before running the harness.** Unity takes an exclusive
+  lock on the project; a second instance silently does nothing. `run-tests.sh` checks for the
+  lock and fails loudly, but check yourself first.
+- **Run the suite before every commit.**
+- **After running, READ YOUR OWN CAPTURES before presenting results.** Look at the PNGs.
+  Iterate at least once on what you actually see, and say what you changed after looking.
+  "The test passed" is not evidence the image is right — the first framing pass here rendered
+  the board in a middle band with the hand palette sliced off at the frame edge, and every
+  assertion still went green.
+- **Any new assertion ships with a matching meta-test proving it can fail.** A test that has
+  never been observed to go red is not a test. Broken controls live in `Assets/Tests/BrokenControls/`.
+- **`-batchmode` WITHOUT `-nographics`, always.** `-nographics` kills the render loop, every
+  capture comes back black, and every image comparison then passes vacuously.
+- Determinism is the foundation. If `DeterminismGateTests` is red, every other visual result
+  is noise — fix that first and do not interpret anything downstream.
+- Captures render through an explicit synchronous `Camera.Render()` into a fixed 1080x1920
+  RenderTexture, never the frame loop. Waits are wall-clock (`WaitForSecondsRealtime`) with
+  loud timeouts, never frame counts — batchmode runs uncapped.
+- **Do not enable *Disable Domain Reload*** in Enter Play Mode Options. The project relies on
+  six singletons (`GameManager`, `UIManager`, `HistoryManager`, `FloatingTextManager`,
+  `ScreenFader`, `CameraManager`) plus the static `LevelSelectManager.LevelToLoad`; without
+  domain reload they leak across tests and failures become non-reproducible.
