@@ -1,6 +1,6 @@
 # Hapi's Havoc — Agent Brief
 
-Unity 6 (6000.2.0b8) URP mobile puzzle game. Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Unity 6.3 LTS (6000.3.21f1) URP mobile puzzle game. Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## 1. Project snapshot
 
