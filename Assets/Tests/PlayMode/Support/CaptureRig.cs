@@ -21,7 +21,21 @@ namespace HapisHavoc.Tests
         public static string Capture(DeterministicContext ctx, string suite, string name)
         {
             ctx.Quiesce();
-            return RenderAndSave(ctx.Cam, ctx.Target, suite, name);
+            var path = RenderAndSave(ctx.Cam, ctx.Target, suite, name);
+            WriteConditions(path, ctx);
+            return path;
+        }
+
+        /// <summary>
+        /// Writes a sidecar recording every condition that could change what the image looks
+        /// like. A golden PNG on its own is not interpretable a year later - this is what makes
+        /// "the baseline changed" answerable rather than a guess.
+        /// </summary>
+        public static void WriteConditions(string pngPath, DeterministicContext ctx)
+        {
+            if (string.IsNullOrEmpty(pngPath) || ctx == null) return;
+            File.WriteAllText(Path.ChangeExtension(pngPath, ".conditions.txt"),
+                              ctx.Conditions + "\n");
         }
 
         /// <summary>
@@ -50,6 +64,7 @@ namespace HapisHavoc.Tests
                 Quaternion.Euler(90f, 0f, 0f));
 
             var path = RenderAndSave(cam, ctx.Target, suite, name);
+            WriteConditions(path, ctx);
 
             cam.clearFlags = prevClear;
             cam.backgroundColor = prevBg;
@@ -75,6 +90,7 @@ namespace HapisHavoc.Tests
 
             var path = WritePng(tex, suite, name);
             Object.DestroyImmediate(tex);
+            WriteConditions(path, ctx);
             return path;
         }
 

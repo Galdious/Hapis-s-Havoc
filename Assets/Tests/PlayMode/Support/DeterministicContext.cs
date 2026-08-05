@@ -78,6 +78,19 @@ namespace HapisHavoc.Tests
             SuppressDebugOverlays();
         }
 
+        /// <summary>The quality level actually in force for this capture. Recorded in the
+        /// sidecar next to every PNG so a golden always carries the conditions it was made under.</summary>
+        public string ResolvedQualityLevel { get; private set; }
+
+        /// <summary>Active build target, or "unknown" outside the Editor. Quality levels can be
+        /// excluded per platform, so the build target changes which levels even exist.</summary>
+        public static string ActiveBuildTarget =>
+#if UNITY_EDITOR
+            UnityEditor.EditorUserBuildSettings.activeBuildTarget.ToString();
+#else
+            "unknown(player)";
+#endif
+
         void PinQualityLevel()
         {
             _prevQuality = QualitySettings.GetQualityLevel();
@@ -87,12 +100,30 @@ namespace HapisHavoc.Tests
                 if (names[i] == PinnedQualityLevel)
                 {
                     QualitySettings.SetQualityLevel(i, true);
+                    ResolvedQualityLevel = names[i];
                     return;
                 }
             }
-            Debug.LogWarning($"[DeterministicContext] Quality level '{PinnedQualityLevel}' not found. " +
-                             $"Captures may not be comparable across machines. Available: {string.Join(", ", names)}");
+
+            // FAIL LOUDLY. QualitySettings.names only lists levels not excluded for the active
+            // build target, so switching to Android drops "PC" from the list entirely. Warning
+            // and continuing would silently capture at a different renderScale (Mobile is 0.8,
+            // PC is 1.0) and bake that into the goldens without announcing itself.
+            throw new InvalidOperationException(
+                $"[DeterministicContext] Quality level '{PinnedQualityLevel}' is not available for " +
+                $"build target '{ActiveBuildTarget}'. Available: [{string.Join(", ", names)}]. " +
+                "Captures would not be comparable, so refusing to continue. Switch the build target " +
+                "back, or change PinnedQualityLevel deliberately and re-capture every golden.");
         }
+
+        /// <summary>One line describing everything that could change what a capture looks like.</summary>
+        public string Conditions =>
+            $"editor={Application.unityVersion} " +
+            $"quality={ResolvedQualityLevel} " +
+            $"buildTarget={ActiveBuildTarget} " +
+            $"rt={Width}x{Height} " +
+            $"colorSpace={QualitySettings.activeColorSpace} " +
+            $"renderPipeline={(QualitySettings.renderPipeline != null ? QualitySettings.renderPipeline.name : "default")}";
 
         void AcquireCameraAndSuppressDrivers()
         {
