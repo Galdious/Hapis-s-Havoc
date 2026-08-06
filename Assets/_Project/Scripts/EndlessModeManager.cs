@@ -798,8 +798,12 @@ public class EndlessModeManager : MonoBehaviour
         // Since this is endless mode, the tile is "consumed" and doesn't come from a limited hand.
         PuzzleHandTile tileToPush = new PuzzleHandTile(tileType)
         {
-            rotationY = droppedTileGO.transform.eulerAngles.y,
-            isFlipped = (Mathf.RoundToInt(droppedTileGO.transform.eulerAngles.x) == 180)
+            // Read the orientation from basis vectors, not eulerAngles. Quaternion.Euler(180, y, 0)
+            // does not read back as y once the flip is involved (CLAUDE.md gotcha 3), so the old
+            // eulerAngles.x test mislabelled flipped tiles - and isFlipped decides whether
+            // InitializeTile makes this tile reversed.
+            rotationY = TileOrientation.IsYawFlipped(droppedTileGO.transform) ? 180f : 0f,
+            isFlipped = TileOrientation.IsFaceFlipped(droppedTileGO.transform)
         };
 
         // We call the third overload of PushRowCoroutine, which accepts a pre-made GameObject.

@@ -763,7 +763,13 @@ public class LevelEditorManager : MonoBehaviour
                 ? new Vector3(0, 0, startPos - (index * spacing)) // Vertical layout
                 : new Vector3(startPos - (index * spacing), 0, 0); // Horizontal layout
 
-            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
+            // R1: the flip is on X, matching the loader and GridManager.CreateIncomingTile.
+            // Euler(0, y, 180) is Euler(180, y, 0) plus an extra 180 yaw (ZXY order), which
+            // permuted the snap-point labels. This tile is not just the palette display - it is
+            // the GameObject PlayableHandTile hands to PushRowCoroutine's dragged-tile overload,
+            // so the wrong orientation reached the board.
+            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos,
+                Quaternion.Euler(representativeTile.isFlipped ? 180f : 0f, representativeTile.rotationY, 0f));
             tileGO.transform.SetParent(targetContainer, false);
             tileGO.name = "HandPalette_" + type.displayName;
 
