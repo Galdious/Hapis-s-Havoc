@@ -45,7 +45,9 @@ now explicit. Recorded here so nobody later mistakes it for a rendering change.
 These images were captured from a build with the following unfixed defects. They are visible
 in, or affect, the baseline.
 
-**R1 — push rotation divergence.** `GridManager.PushRowCoroutine` overload 2 builds
+**R1 — push rotation divergence. FIXED** in `d66dc80`, at all three sites; `L1` and `M1`
+are green. Retained here because it explains the re-baked push golden.
+`GridManager.PushRowCoroutine` overload 2 built
 `Quaternion.Euler(0, rotationY, isFlipped ? 180 : 0)` — a **Z-axis** flip, where every other
 path in the project flips on **X**. Two more sites share the fault:
 `LevelEditorManager:766` (the dragged hand tile) and `EndlessModeManager:801` (which recovers
@@ -63,10 +65,16 @@ path in the project flips on **X**. Two more sites share the fault:
 > not being 180°-yaw symmetric: **0.5364 % for one tile, 1.6414 % for three.**
 
 **`push/post-push_01_06_row2_flipped.png`** — the one golden captured *after* a push rather than
-at load. Row 2 of `01_06` filled with three flipped tiles pushed via overload 2, so it bakes in
-R1. Three tiles rather than one deliberately: a single tile clears the 0.5 % threshold by only
-0.036 points, which is not a margin worth trusting. **This golden is EXPECTED to change when R1
-is fixed** — that is what it is for.
+at load. Row 2 of `01_06` filled with three flipped tiles pushed through the hand path. Three
+tiles rather than one deliberately: a single tile clears the 0.5 % threshold by only 0.036
+points, which is not a margin worth trusting.
+
+> **Re-baked on the fixed code.** It was first captured pre-fix to bake R1 in, then replaced
+> once R1 was fixed — the change it recorded was **1.6414 %**, confined to a single contiguous
+> band (`y 772..905`, the row-2 tiles), with every other pixel in the frame identical. That
+> figure matches the predicted R1-only delta exactly, which is the evidence that the
+> `PushRowInternal` consolidation changed nothing else. The pushed tiles now read
+> `yaw180=False faceFlipped=True`, matching how they were authored.
 
 **R3 — LineRenderer leak on reversed tiles.** `GridManager.InitializeTile` writes six
 connections for a reversed tile (`0-2, 2-0, 1-3, 3-1, 4-5, 5-4` — three logical paths written
@@ -92,10 +100,13 @@ banks staying cyan. **FIXED in `51c5c35`** via `HighlightService` (`MaterialProp
 `V1`, `V1b`, `V1c` guard the observable symptom and `X7` is the control for the new mechanism.
 The leak was never visible in these images, so the captures remain valid.
 
-**Boat state desync after a row push** (CLAUDE.md gotcha 2). A push re-parents and slides the
-boat without updating `currentTile` / `currentSnapPoint`; `ResynchronizeStateWithTransform`
-corrects it on the next `SelectBoat` and logs `Boat Desync Detected!`.
-**Test `L2` is RED on this.**
+**Boat state desync after a row push. FIXED** in `2eb1678` — `L2` is green, with `X8` as its
+control. Not the documented cause: the push tracks the boat correctly (distance to its own snap
+point was 0.1500 both before and after). `FindTileAndSnapPointAtWorldPos` compared in 3D against
+a 0.5 threshold while a resting boat sits 0.5 *above* the snap plane, so Y alone exhausted the
+budget and the lookup fell through to a coincident snap point on the neighbouring tile. It now
+compares in the horizontal plane. `ResynchronizeStateWithTransform` is retained as a safety net
+that should never fire.
 
 ## Regeneration policy
 
