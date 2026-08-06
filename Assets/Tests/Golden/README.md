@@ -45,18 +45,36 @@ now explicit. Recorded here so nobody later mistakes it for a rendering change.
 These images were captured from a build with the following unfixed defects. They are visible
 in, or affect, the baseline.
 
-**R1 — push rotation mirroring.** `GridManager.PushRowCoroutine` overload 2 builds
+**R1 — push rotation divergence.** `GridManager.PushRowCoroutine` overload 2 builds
 `Quaternion.Euler(0, rotationY, isFlipped ? 180 : 0)` — a **Z-axis** flip, where every other
-path flips on **X**. `Rz(180)` inverts local +X and `Rx(180)` does not, so a hand-pushed
-reversed tile renders mirrored relative to the same tile placed by the loader.
+path in the project flips on **X**. Two more sites share the fault:
+`LevelEditorManager:766` (the dragged hand tile) and `EndlessModeManager:801` (which recovers
+`isFlipped` by reading `eulerAngles.x`, the readback trap of CLAUDE.md gotcha 3).
 **Test `L1` is RED on this.**
+
+> **It is not a mirror.** Unity's Euler order is ZXY, so
+> `Euler(0, y, 180) = Ry(y)·Rz(180) = Ry(y)·Rx(180)·Ry(180) = Euler(180, y, 0)·Ry(180)`.
+> R1 is the correct orientation plus an extra **180° local yaw**. Measured on a pushed tile:
+> snap points swap `0↔3`, `1↔2`, `4↔5` and land on the *same six world positions*, relabelled.
+> A reversed tile is forced straight along `{0-2, 1-3, 4-5}` — a set that permutation maps onto
+> itself — so **the drawn paths are pixel-identical and R1 is gameplay-invisible while the tile
+> stays reversed**. It becomes real when the labels are next used: un-flipping the tile, or any
+> code that reads `snapPoints[i]` by index. The only pixel signature is the mesh/vortex decal
+> not being 180°-yaw symmetric: **0.5364 % for one tile, 1.6414 % for three.**
+
+**`push/post-push_01_06_row2_flipped.png`** — the one golden captured *after* a push rather than
+at load. Row 2 of `01_06` filled with three flipped tiles pushed via overload 2, so it bakes in
+R1. Three tiles rather than one deliberately: a single tile clears the 0.5 % threshold by only
+0.036 points, which is not a margin worth trusting. **This golden is EXPECTED to change when R1
+is fixed** — that is what it is for.
 
 **R3 — LineRenderer leak on reversed tiles.** `GridManager.InitializeTile` writes six
 connections for a reversed tile (`0-2, 2-0, 1-3, 3-1, 4-5, 5-4` — three logical paths written
 twice) while `PathVisualizer` registers them under canonical `(min,max)` keys, so only three
 land in the dictionary. `CleanUpPaths()` destroys dictionary values only, orphaning **three
 `LineRenderer` GameObjects per reversed tile**. Measured growth: exactly **+3 per flip cycle**
-(3, 6, 9 … 63 across 20 cycles). **Test `L4` is RED on this.**
+(3, 6, 9 … 63 across 20 cycles). **FIXED in `33d74f9`** — `L4` is green. The images did not move
+beyond tolerance, so these captures remain valid.
 
 **`BankClickHandler` leak.** `BoatController:890` adds the handler to `renderer.gameObject`
 — the **child** mesh object — while `ClearHighlights:963` removes it via
@@ -64,14 +82,15 @@ land in the dictionary. `CleanUpPaths()` destroys dictionary values only, orphan
 children, so it is never destroyed. The `AddComponent` also sits outside the
 already-highlighted guard, so it fires on every qualifying call. Measured accumulation on the
 bottom bank across three select/deselect cycles: 1 → 2 → 3, with `onParentOnly = 0` every time,
-confirming the parent/child mismatch directly. Scheduled to be fixed alongside R2.
+confirming the parent/child mismatch directly. **FIXED in `51c5c35`** — `L8` is green.
 
 **R2 — highlight material mutation.** `BoatController:885` and four other sites do
 `renderer.material.color = X` (silently instantiating a per-renderer material) and restore via
 `renderer.sharedMaterial = original` (orphaning that instance). This is the root of the
 recurring "highlight stuck on" family — `BoatController` carries a v03 changelog header about
-banks staying cyan. **Tests `V1`, `V1b` and `V1c` guard the observable symptom**; they pass
-today, so the leak is invisible in these images, but the leaked materials are real.
+banks staying cyan. **FIXED in `51c5c35`** via `HighlightService` (`MaterialPropertyBlock`).
+`V1`, `V1b`, `V1c` guard the observable symptom and `X7` is the control for the new mechanism.
+The leak was never visible in these images, so the captures remain valid.
 
 **Boat state desync after a row push** (CLAUDE.md gotcha 2). A push re-parents and slides the
 boat without updating `currentTile` / `currentSnapPoint`; `ResynchronizeStateWithTransform`

@@ -149,5 +149,94 @@ namespace HapisHavoc.Tests
                 $"{frac:P3} differing, within V8's {AllowedDifferingFraction:P2} tolerance. V8 would pass " +
                 "on a corrupted baseline, which means V8 is broken. Fix V8, not this control.");
         }
+
+        /// <summary>
+        /// V9. A golden for the board AFTER a push, which the load-time goldens never cover -
+        /// they are all captured before any push happens, so the push path has no visual baseline.
+        ///
+        /// Fills row 2 of 01_06 with FLIPPED tiles pushed through the hand path (overload 2).
+        /// Captured deliberately on the pre-fix code so it bakes in R1: overload 2 builds
+        /// Quaternion.Euler(0, rotationY, isFlipped ? 180 : 0) where every other path in the
+        /// project flips on X. Unity's Euler order is ZXY, so
+        ///     Euler(0, y, 180) = Ry(y).Rz(180) = Ry(y).Rx(180).Ry(180) = Euler(180, y, 0).Ry(180)
+        /// i.e. R1 is NOT a mirror - it is the correct orientation plus an extra 180 local yaw.
+        ///
+        /// WHY THREE TILES AND NOT ONE. That yaw permutes snap points 0-3, 1-2, 4-5, and a
+        /// reversed tile is forced straight along {0-2, 1-3, 4-5} - a set the permutation maps
+        /// onto itself. The six snap points end up on the same six world positions, so the drawn
+        /// paths are pixel-identical and R1 contributes nothing through them. The only signature
+        /// is the tile mesh/vortex decal not being 180-yaw symmetric, measured at 0.5364% for a
+        /// single tile - a 0.036 point margin over the 0.5% threshold, too thin to trust. Three
+        /// tiles measure 1.6414%, a 3.3x margin. (Measured by R1VisualDiagnostic.)
+        ///
+        /// This golden EXISTS so R1's fix has visible proof. It is expected to change when R1 is
+        /// fixed - see Golden/README.md.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator V9_GoldenAfterHandTilePush()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            bool regenerate = System.Environment.GetEnvironmentVariable("HAPI_REGENERATE_GOLDENS") == "1";
+
+            const string lvl = "Levels/01_06_TestLevel";
+            yield return SceneFixture.Load(FixtureMode.Playing, lvl);
+
+            var grid = SceneFixture.Grid;
+            var boat = SceneFixture.Boat;
+            Assert.IsNotNull(grid, "no GridManager");
+
+            // Row 2 is the only unlocked row in 01_06 (lockedRows [3,1,0]). Three pushes fill it.
+            const int row = 2;
+            var type = System.Linq.Enumerable.First(SceneFixture.PlayableTileTypes(),
+                                                    t => t.displayName == "TileCross");
+            for (int i = 0; i < 3; i++)
+                yield return grid.PushRowCoroutine(row, true,
+                    new PuzzleHandTile(type) { rotationY = 0f, isFlipped = true });
+
+            // Settle to an un-highlighted state so no selection state is baked in.
+            if (boat != null) boat.DeselectBoat();
+            yield return new WaitForSecondsRealtime(1.6f);
+
+            for (int c = 0; c < 3; c++)
+            {
+                var pushed = grid.GetTileAt(c, row);
+                Assert.IsNotNull(pushed, $"V9: nothing was pushed into ({c},{row})");
+                Debug.Log($"[V9] ({c},{row}) {TileOrientation.Describe(pushed)}");
+            }
+
+            string shot;
+            using (var ctx = new DeterministicContext())
+                shot = CaptureRig.Capture(ctx, "golden", "post-push_01_06_row2_flipped");
+            Assert.IsTrue(CaptureRig.LooksRendered(shot), "V9: capture is black");
+
+            var goldenPath = System.IO.Path.Combine(GoldenDir, "push", "post-push_01_06_row2_flipped.png");
+
+            if (regenerate)
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(goldenPath));
+                System.IO.File.Copy(shot, goldenPath, true);
+                var cond = System.IO.Path.ChangeExtension(shot, ".conditions.txt");
+                if (System.IO.File.Exists(cond))
+                    System.IO.File.Copy(cond, System.IO.Path.ChangeExtension(goldenPath, ".conditions.txt"), true);
+                Assert.Inconclusive("V9: golden regenerated, not compared.");
+                yield break;
+            }
+
+            Assert.IsTrue(System.IO.File.Exists(goldenPath),
+                $"V9: no committed golden at {goldenPath}. Run with HAPI_REGENERATE_GOLDENS=1.");
+
+            var a = PixelUtil.Load(goldenPath);
+            var b = PixelUtil.Load(shot);
+            float frac = PixelUtil.FractionDiffering(a, b, PixelTolerance);
+            PixelUtil.MeanMaxDelta(a, b, out float mean, out int max);
+            Debug.Log($"[V9] post-push golden: differing={frac:P4} mean={mean:F3} max={max}");
+
+            Assert.LessOrEqual(frac, AllowedDifferingFraction,
+                $"V9: post-push board differs from its golden by {frac:P4} (mean {mean:F3}, max {max}). " +
+                "If this followed an R1 fix, that is EXPECTED - the pushed tiles should no longer " +
+                "carry an extra 180 yaw. Compare both images and replace the golden per " +
+                "Golden/README.md.");
+        }
+
     }
 }
