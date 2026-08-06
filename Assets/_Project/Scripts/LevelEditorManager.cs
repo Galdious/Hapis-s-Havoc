@@ -1242,11 +1242,11 @@ public class LevelEditorManager : MonoBehaviour
         // We use sharedMaterial for reading to avoid creating material instances unintentionally.
         if (!originalPaletteMaterial.ContainsKey(renderer))
         {
-            originalPaletteMaterial[renderer] = renderer.sharedMaterial;
+            originalPaletteMaterial[renderer] = renderer.sharedMaterial;   // key only
         }
 
-        // Change the color. Accessing .material creates a new instance if one doesn't exist.
-        renderer.material.color = paletteSelectionColor;
+        // R2: MaterialPropertyBlock, so no per-renderer material instance is created or leaked.
+        HighlightService.Apply(renderer, paletteSelectionColor);
 
         // Lift the tile.
         StartCoroutine(LiftTileSmooth(tileGO.transform, true));
@@ -1264,8 +1264,7 @@ public class LevelEditorManager : MonoBehaviour
         var renderer = currentlyHighlightedPaletteTile.GetComponentInChildren<MeshRenderer>();
         if (renderer != null && originalPaletteMaterial.ContainsKey(renderer))
         {
-            // Restore the original material.
-            renderer.sharedMaterial = originalPaletteMaterial[renderer];
+            HighlightService.Clear(renderer);
 
             // Lower the tile.
             StartCoroutine(LiftTileSmooth(currentlyHighlightedPaletteTile.transform, false));
@@ -1570,8 +1569,7 @@ public class LevelEditorManager : MonoBehaviour
         var renderer = currentlyHighlightedHandTile.GetComponentInChildren<MeshRenderer>();
         if (renderer != null && originalPaletteMaterial.ContainsKey(renderer))
         {
-            // Restore the original material.
-            renderer.sharedMaterial = originalPaletteMaterial[renderer];
+            HighlightService.Clear(renderer);
 
             // Lower the tile.
             StartCoroutine(LiftTileSmooth(currentlyHighlightedHandTile.transform, false));

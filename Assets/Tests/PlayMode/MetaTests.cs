@@ -20,6 +20,8 @@ namespace HapisHavoc.Tests
     ///   X5 (L1 must fail)  - implemented below, against a SYNTHETIC control rather than the live
     ///                        R1 bug, so it keeps proving L1 can fail after R1 is fixed.
     ///   X6 (L7 must fail)  - implemented below.
+    ///   X7 (V1 must fail)  - implemented below. Replaces X3's relevance now that R2 is fixed:
+    ///                        X3 breaks the OLD mechanism, X7 breaks the NEW one.
     /// </summary>
     [TestFixture]
     public class MetaTests
@@ -159,6 +161,53 @@ namespace HapisHavoc.Tests
                 "X5 META-FAILURE: a tile yawed 180 relative to the reference was reported as the " +
                 "SAME orientation. L1's rotation comparison cannot detect a wrong rotation, so L1 " +
                 "would pass on a genuine parity break. Fix L1, not this control.");
+        }
+
+
+        /// <summary>
+        /// X7 -> V1 must fail. R2 is now fixed, so X3's "mutate renderer.material directly"
+        /// control no longer represents how highlighting works. This is the equivalent control
+        /// for the NEW mechanism: apply a HighlightService tint and never Clear it - exactly
+        /// what a Clear() that silently did nothing would leave behind. V1 must still catch it.
+        /// Same reasoning as X5: the assertion needs a control that survives the fix.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator X7_V1_FailsWhenHighlightServiceClearDoesNothing()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return SceneFixture.Load(FixtureMode.Playing, "Levels/01_06_TestLevel");
+
+            var boat = SceneFixture.Boat;
+            var grid = SceneFixture.Grid;
+            boat.DeselectBoat();
+            yield return new WaitForSecondsRealtime(Settle);
+
+            string before, after;
+            using (var ctx = new DeterministicContext())
+                before = CaptureRig.Capture(ctx, "meta", "x7-before");
+
+            // THE BREAKAGE: tint through the real service and never clear it, which is what a
+            // no-op Clear() would leave on screen.
+            var victim = grid.GetTileAt(1, 1);
+            Assert.IsNotNull(victim, "no tile at (1,1)");
+            var rend = victim.GetComponentInChildren<MeshRenderer>();
+            Assert.IsNotNull(rend, "tile has no MeshRenderer");
+            HighlightService.Apply(rend, Color.magenta);
+            yield return new WaitForSecondsRealtime(0.3f);
+
+            using (var ctx = new DeterministicContext())
+                after = CaptureRig.Capture(ctx, "meta", "x7-after-uncleared");
+
+            float diff = PixelUtil.FractionDiffering(PixelUtil.Load(before), PixelUtil.Load(after), 8);
+            Debug.Log($"[X7] uncleared HighlightService tint changed {diff:P3} of pixels " +
+                      $"(V1 threshold is 0.5%)");
+
+            HighlightService.Clear(rend);   // tidy up so later tests are unaffected
+
+            Assert.Greater(diff, 0.005f,
+                $"X7 META-FAILURE: a HighlightService tint was applied and never cleared, yet only " +
+                $"{diff:P3} of pixels differ - under V1's 0.5% threshold. V1 would pass on a Clear() " +
+                "that silently does nothing. Fix V1, not this control.");
         }
 
         [Test]
