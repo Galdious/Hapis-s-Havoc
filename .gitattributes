@@ -1,0 +1,77 @@
+# Git LFS
+# ---------------------------------------------------------------------------
+# THE REPOSITORY IS IN A DELIBERATE MIXED STATE. READ THIS BEFORE DEBUGGING IT.
+#
+# LFS was enabled at v0.3-cleanup WITHOUT migrating existing history. Every
+# binary committed before that point is still a normal git blob, and stays that
+# way until the file is next modified. So at any moment some PNGs are LFS
+# pointers and some are ordinary blobs, and that is correct, not a mistake.
+#
+# Why not migrate: rewriting history would change every commit SHA, break the
+# v0.3-cleanup tag and every existing clone, to reclaim ~3.3 MB. The reason LFS
+# is here at all is what comes NEXT - a per-theme, per-tile golden matrix
+# (13 tile types x states x themes) that will add far more binary weight than
+# the current baseline.
+#
+# To check what a given file actually is:
+#     git lfs ls-files                 # everything currently in LFS
+#     git cat-file -p HEAD:<path> | head -1
+#         "version https://git-lfs.github.com/spec/v1"  -> LFS pointer
+#         PNG header bytes                              -> ordinary blob
+#
+# NEW CLONES MUST RUN `git lfs install` ONCE. Without it the working tree gets
+# pointer text files instead of images, and the golden comparison would be
+# reading 130-byte text files as PNGs. PixelUtil.Load rejects pointer files
+# explicitly with a loud error rather than failing obscurely - see its guard.
+# ---------------------------------------------------------------------------
+
+# Images
+*.png  filter=lfs diff=lfs merge=lfs -text
+*.PNG  filter=lfs diff=lfs merge=lfs -text
+*.jpg  filter=lfs diff=lfs merge=lfs -text
+*.JPG  filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.psd  filter=lfs diff=lfs merge=lfs -text
+*.PSD  filter=lfs diff=lfs merge=lfs -text
+*.tga  filter=lfs diff=lfs merge=lfs -text
+*.TGA  filter=lfs diff=lfs merge=lfs -text
+*.tif  filter=lfs diff=lfs merge=lfs -text
+*.tiff filter=lfs diff=lfs merge=lfs -text
+*.gif  filter=lfs diff=lfs merge=lfs -text
+*.bmp  filter=lfs diff=lfs merge=lfs -text
+*.exr  filter=lfs diff=lfs merge=lfs -text
+*.hdr  filter=lfs diff=lfs merge=lfs -text
+
+# Models
+*.fbx  filter=lfs diff=lfs merge=lfs -text
+*.FBX  filter=lfs diff=lfs merge=lfs -text
+*.obj  filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+*.dae  filter=lfs diff=lfs merge=lfs -text
+
+# Audio - none in the repo yet; ThemeDefinition carries an unpopulated audio
+# field, so these are tracked ahead of the first sound landing.
+*.wav  filter=lfs diff=lfs merge=lfs -text
+*.mp3  filter=lfs diff=lfs merge=lfs -text
+*.ogg  filter=lfs diff=lfs merge=lfs -text
+*.aif  filter=lfs diff=lfs merge=lfs -text
+*.aiff filter=lfs diff=lfs merge=lfs -text
+
+# Video
+*.mp4  filter=lfs diff=lfs merge=lfs -text
+*.mov  filter=lfs diff=lfs merge=lfs -text
+
+# Fonts
+*.ttf  filter=lfs diff=lfs merge=lfs -text
+*.otf  filter=lfs diff=lfs merge=lfs -text
+
+# Other binaries
+*.pdf  filter=lfs diff=lfs merge=lfs -text
+*.unitypackage filter=lfs diff=lfs merge=lfs -text
+*.dll  filter=lfs diff=lfs merge=lfs -text
+*.bundle filter=lfs diff=lfs merge=lfs -text
+*.dylib filter=lfs diff=lfs merge=lfs -text
+
+# NOT tracked, deliberately: Unity's own text formats stay in plain git so they
+# stay diffable and mergeable - .meta, .asset, .prefab, .unity, .mat,
+# .shadergraph, .asmdef, .json. They are YAML, not binary.

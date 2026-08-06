@@ -20,12 +20,37 @@ namespace HapisHavoc.Tests
             if (!File.Exists(path))
                 throw new FileNotFoundException($"[PixelUtil] No image at {path}");
             var bytes = File.ReadAllBytes(path);
+
+            // The repo uses Git LFS for images (see /.gitattributes). A clone that has not run
+            // `git lfs install` gets ~130-byte POINTER TEXT FILES on disk instead of PNGs. Left
+            // unchecked, two pointer files would decode to nothing and compare equal, so every
+            // golden assertion would pass vacuously against files containing no image at all.
+            // Fail loudly instead - a silently green golden suite is the worst outcome here.
+            if (LooksLikeLfsPointer(bytes))
+                throw new InvalidOperationException(
+                    $"[PixelUtil] {path} is a Git LFS POINTER, not an image. This clone has not " +
+                    "fetched LFS content. Run `git lfs install` then `git lfs pull`. Comparing " +
+                    "goldens now would pass vacuously.");
+
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false, false);
             if (!tex.LoadImage(bytes, false))
                 throw new InvalidOperationException($"[PixelUtil] Could not decode {path}");
             var img = new Image { Pixels = tex.GetPixels32(), Width = tex.width, Height = tex.height };
             UnityEngine.Object.DestroyImmediate(tex);
             return img;
+        }
+
+        /// <summary>
+        /// An LFS pointer is a small ASCII file whose first line is the spec URL. Checking the
+        /// magic prefix is enough and costs nothing.
+        /// </summary>
+        static bool LooksLikeLfsPointer(byte[] bytes)
+        {
+            const string magic = "version https://git-lfs.github.com/spec/v1";
+            if (bytes.Length < magic.Length || bytes.Length > 1024) return false;
+            for (int i = 0; i < magic.Length; i++)
+                if (bytes[i] != (byte)magic[i]) return false;
+            return true;
         }
 
         /// <summary>Byte-exact equality. Used by the determinism gate - no tolerance at all.</summary>

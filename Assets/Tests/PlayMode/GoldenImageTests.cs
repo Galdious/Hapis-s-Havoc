@@ -151,6 +151,37 @@ namespace HapisHavoc.Tests
         }
 
         /// <summary>
+        /// X11 -> the golden suite must not run against LFS pointers. The repo stores images in
+        /// Git LFS; a clone without `git lfs install` gets pointer TEXT files on disk. Two such
+        /// files decode to no image and would compare equal, so every golden assertion would
+        /// pass while comparing nothing. This feeds PixelUtil.Load a real pointer file and
+        /// requires it to refuse.
+        /// </summary>
+        [Test]
+        public void X11_PixelUtil_RefusesAnLfsPointerInsteadOfComparingNothing()
+        {
+            var dir = Path.Combine(CaptureRig.Root, "meta");
+            Directory.CreateDirectory(dir);
+            var pointerPath = Path.Combine(dir, "x11-lfs-pointer.png");
+
+            // Byte-for-byte the shape git-lfs writes.
+            File.WriteAllText(pointerPath,
+                "version https://git-lfs.github.com/spec/v1\n" +
+                "oid sha256:63288503b105828b7dc2f3505501f509a57c65d245d846c03a740139625cdacf\n" +
+                "size 101\n");
+
+            var ex = Assert.Catch(() => PixelUtil.Load(pointerPath));
+
+            Debug.Log($"[X11] PixelUtil.Load on an LFS pointer threw: " +
+                      $"{ex.GetType().Name}: {ex.Message}");
+
+            Assert.IsTrue(ex.Message.Contains("LFS"),
+                "X11 META-FAILURE: PixelUtil.Load accepted a Git LFS pointer file, or failed for " +
+                "an unrelated reason. On a clone without LFS content every golden comparison " +
+                "would run against 130-byte text files and pass vacuously. Fix the guard.");
+        }
+
+        /// <summary>
         /// V9. A golden for the board AFTER a push, which the load-time goldens never cover -
         /// they are all captured before any push happens, so the push path has no visual baseline.
         ///
