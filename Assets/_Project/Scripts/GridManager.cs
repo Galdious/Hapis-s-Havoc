@@ -335,6 +335,7 @@ public class GridManager : MonoBehaviour
         UpdateTileGameplayVisuals(ti);
 
         grid[x, y] = ti;
+        BoardTile.MarkAsBoard(ti);   // board, not inventory - see BoardTile
 
         // Play staggered pop-in animation
         if (animate)
@@ -523,6 +524,7 @@ public class GridManager : MonoBehaviour
         rb.mass = 1f;
 
         TileInstance tile = go.GetComponent<TileInstance>();
+        BoardTile.MarkAsBoard(tile);   // board, not inventory - see BoardTile
         InitializeTile(tile, template, isFlipped);
         UpdateTileGameplayVisuals(tile);
 
@@ -1222,6 +1224,7 @@ public class GridManager : MonoBehaviour
             // if (x < this.cols && y < this.rows)
             // {
             grid[x, y] = ti;
+            BoardTile.MarkAsBoard(ti);   // board, not inventory - see BoardTile
             // }
         }
         

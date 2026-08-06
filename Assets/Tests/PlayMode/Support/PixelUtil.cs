@@ -53,6 +53,50 @@ namespace HapisHavoc.Tests
             return true;
         }
 
+        /// <summary>
+        /// Fraction of pixels differing WITHIN a viewport-space rect, as a fraction of that
+        /// RECT - not of the frame.
+        ///
+        /// WHY THIS EXISTS. Assertions that measured "x% of the FRAME changed" after altering
+        /// one tile were really measuring how big that tile happened to appear, so every
+        /// reframing of the camera broke them. Measuring a subject against its own projected
+        /// area is invariant: a tile that changes colour changes ~100% of its own pixels whether
+        /// it fills the screen or a corner of it.
+        ///
+        /// Viewport coords are 0..1 with origin bottom-left, and so are the stored rows.
+        /// </summary>
+        public static float FractionDifferingInRect(Image a, Image b, int tolerance,
+                                                    UnityEngine.Rect viewportRect,
+                                                    out int pixelsConsidered)
+        {
+            pixelsConsidered = 0;
+            if (a.Width != b.Width || a.Height != b.Height)
+                throw new InvalidOperationException("[PixelUtil] size mismatch");
+
+            int x0 = Mathf.Clamp(Mathf.FloorToInt(viewportRect.xMin * a.Width), 0, a.Width - 1);
+            int x1 = Mathf.Clamp(Mathf.CeilToInt(viewportRect.xMax * a.Width), 0, a.Width - 1);
+            // DIRECT mapping, no Y flip: Texture2D.GetPixels32 returns rows bottom-first, which
+            // is the same origin viewport coords use. This was measured, not assumed - a flipped
+            // mapping reported 0.00% change inside a tile whose colour had demonstrably changed
+            // (whole-frame diff 0.617%), because it was looking at the mirrored band.
+            int y0 = Mathf.Clamp(Mathf.FloorToInt(viewportRect.yMin * a.Height), 0, a.Height - 1);
+            int y1 = Mathf.Clamp(Mathf.CeilToInt(viewportRect.yMax * a.Height), 0, a.Height - 1);
+
+            int differing = 0;
+            for (int y = y0; y <= y1; y++)
+                for (int x = x0; x <= x1; x++)
+                {
+                    int i = y * a.Width + x;
+                    var p = a.Pixels[i]; var q = b.Pixels[i];
+                    pixelsConsidered++;
+                    if (Mathf.Abs(p.r - q.r) > tolerance ||
+                        Mathf.Abs(p.g - q.g) > tolerance ||
+                        Mathf.Abs(p.b - q.b) > tolerance) differing++;
+                }
+
+            return pixelsConsidered > 0 ? (float)differing / pixelsConsidered : 0f;
+        }
+
         /// <summary>Byte-exact equality. Used by the determinism gate - no tolerance at all.</summary>
         public static bool BytesIdentical(string pathA, string pathB)
         {

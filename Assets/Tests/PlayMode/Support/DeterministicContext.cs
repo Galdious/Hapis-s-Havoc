@@ -269,7 +269,7 @@ namespace HapisHavoc.Tests
             foreach (var grid in FindAll<GridManager>())
                 grid.StopAllCoroutines();
 
-            foreach (var t in FindAll<TileInstance>())
+            foreach (var t in FindAll<BoardTile>())
                 t.transform.localScale = Vector3.one;
 
             HideHandPalettes();

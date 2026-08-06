@@ -29,6 +29,15 @@ namespace HapisHavoc.Tests
         const float Settle = 1.6f;
 
         /// <summary>
+        /// Minimum fraction of THE SUBJECT'S OWN projected pixels that must change. Recolouring a
+        /// tile changes nearly all of them; 25% leaves generous room for the parts of a tile's
+        /// bounding rect that are background, path lines or a neighbouring tile, while still
+        /// being far above anything a no-op could produce. Deliberately NOT frame-relative -
+        /// that made these controls break on every reframe.
+        /// </summary>
+        const float MinSubjectChange = 0.25f;
+
+        /// <summary>
         /// X3 -> V1 must fail. Mutates a tile's material directly and never restores it, which
         /// is precisely the risk-R2 pattern (renderer.material.color = X, restored via
         /// sharedMaterial, orphaning the instance). V1's comparison must catch it.
@@ -44,28 +53,45 @@ namespace HapisHavoc.Tests
             boat.DeselectBoat();
             yield return new WaitForSecondsRealtime(Settle);
 
-            string before, after;
-            using (var ctx = new DeterministicContext())
-                before = CaptureRig.Capture(ctx, "meta", "x3-before");
-
-            // THE BREAKAGE: light a tile and never put it back.
+            // Capture, recolour, capture again - and measure the change WITHIN THE VICTIM TILE'S
+            // OWN projected rect, as a fraction of that rect. Measuring the whole frame made this
+            // a test of how large the tile happened to appear, so it broke on every reframe.
             var victim = grid.GetTileAt(1, 1);
             Assert.IsNotNull(victim, "no tile at (1,1)");
             var rend = victim.GetComponentInChildren<MeshRenderer>();
             Assert.IsNotNull(rend, "tile has no MeshRenderer");
-            rend.material.color = Color.magenta;      // deliberately never restored
+
+            string before, after;
+            Rect tileRect;
+            using (var ctx = new DeterministicContext())
+            {
+                before = CaptureRig.Capture(ctx, "meta", "x3-before");
+                tileRect = BoardFraming.ViewportRectOf(rend.bounds, ctx.Cam);
+            }
+
+            rend.material.color = Color.magenta;      // THE BREAKAGE, deliberately never restored
             yield return new WaitForSecondsRealtime(0.3f);
 
             using (var ctx = new DeterministicContext())
                 after = CaptureRig.Capture(ctx, "meta", "x3-after-unrestored");
 
-            float diff = PixelUtil.FractionDiffering(PixelUtil.Load(before), PixelUtil.Load(after), 8);
-            Debug.Log($"[X3] unrestored highlight changed {diff:P3} of pixels (V1 threshold is 0.5%)");
+            float diff = PixelUtil.FractionDifferingInRect(
+                PixelUtil.Load(before), PixelUtil.Load(after), 8, tileRect, out int considered);
 
-            Assert.Greater(diff, 0.005f,
-                $"X3 META-FAILURE: a tile was recoloured and never restored, yet only {diff:P3} of pixels " +
-                "differ - under V1's 0.5% threshold. V1 would pass on a genuinely stuck highlight, which " +
-                "means V1 is broken. Fix V1, not this control.");
+            float frameDiff = PixelUtil.FractionDiffering(PixelUtil.Load(before), PixelUtil.Load(after), 8);
+            Debug.Log($"[X3] unrestored highlight changed {diff:P2} of the TILE'S OWN " +
+                      $"{considered} projected pixels (threshold {MinSubjectChange:P0}); " +
+                      $"tile rect {tileRect}; whole-frame diff {frameDiff:P3}; " +
+                      $"renderer '{rend.name}' enabled={rend.enabled} " +
+                      $"active={rend.gameObject.activeInHierarchy} mat='{rend.sharedMaterial?.name}'");
+
+            Assert.Greater(considered, 200,
+                "X3: the victim tile projected to almost no pixels, so this measures nothing.");
+
+            Assert.Greater(diff, MinSubjectChange,
+                $"X3 META-FAILURE: a tile was recoloured and never restored, yet only {diff:P2} of " +
+                "ITS OWN pixels differ. A tile that changes colour changes nearly all of them, so " +
+                "either the highlight did not apply or the projection is wrong. Fix V1, not this control.");
         }
 
         /// <summary>
@@ -182,32 +208,43 @@ namespace HapisHavoc.Tests
             boat.DeselectBoat();
             yield return new WaitForSecondsRealtime(Settle);
 
-            string before, after;
-            using (var ctx = new DeterministicContext())
-                before = CaptureRig.Capture(ctx, "meta", "x7-before");
-
-            // THE BREAKAGE: tint through the real service and never clear it, which is what a
-            // no-op Clear() would leave on screen.
             var victim = grid.GetTileAt(1, 1);
             Assert.IsNotNull(victim, "no tile at (1,1)");
             var rend = victim.GetComponentInChildren<MeshRenderer>();
             Assert.IsNotNull(rend, "tile has no MeshRenderer");
-            HighlightService.Apply(rend, Color.magenta);
+
+            string before, after;
+            Rect tileRect;
+            using (var ctx = new DeterministicContext())
+            {
+                before = CaptureRig.Capture(ctx, "meta", "x7-before");
+                tileRect = BoardFraming.ViewportRectOf(rend.bounds, ctx.Cam);
+            }
+
+            HighlightService.Apply(rend, Color.magenta);   // THE BREAKAGE: tint, never cleared
             yield return new WaitForSecondsRealtime(0.3f);
 
             using (var ctx = new DeterministicContext())
                 after = CaptureRig.Capture(ctx, "meta", "x7-after-uncleared");
 
-            float diff = PixelUtil.FractionDiffering(PixelUtil.Load(before), PixelUtil.Load(after), 8);
-            Debug.Log($"[X7] uncleared HighlightService tint changed {diff:P3} of pixels " +
-                      $"(V1 threshold is 0.5%)");
+            float diff = PixelUtil.FractionDifferingInRect(
+                PixelUtil.Load(before), PixelUtil.Load(after), 8, tileRect, out int considered);
+
+            float frameDiff = PixelUtil.FractionDiffering(PixelUtil.Load(before), PixelUtil.Load(after), 8);
+            Debug.Log($"[X7] uncleared HighlightService tint changed {diff:P2} of the TILE'S OWN " +
+                      $"{considered} projected pixels (threshold {MinSubjectChange:P0}); " +
+                      $"whole-frame diff {frameDiff:P3}; renderer '{rend.name}' " +
+                      $"enabled={rend.enabled} active={rend.gameObject.activeInHierarchy}");
+
+            Assert.Greater(considered, 200,
+                "X7: the victim tile projected to almost no pixels, so this measures nothing.");
 
             HighlightService.Clear(rend);   // tidy up so later tests are unaffected
 
-            Assert.Greater(diff, 0.005f,
+            Assert.Greater(diff, MinSubjectChange,
                 $"X7 META-FAILURE: a HighlightService tint was applied and never cleared, yet only " +
-                $"{diff:P3} of pixels differ - under V1's 0.5% threshold. V1 would pass on a Clear() " +
-                "that silently does nothing. Fix V1, not this control.");
+                $"{diff:P2} of the TILE'S OWN pixels differ. V1 would pass on a Clear() that " +
+                "silently does nothing. Fix V1, not this control.");
         }
 
     }

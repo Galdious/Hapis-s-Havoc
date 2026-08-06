@@ -211,9 +211,10 @@ namespace HapisHavoc.Tests
             var outliers = new System.Collections.Generic.List<string>();
             var residuals = SampleTileResiduals(grid, cam, img, palette, outliers);
 
-            Assert.Greater(residuals.Count, 200,
-                $"V6: only sampled {residuals.Count} pixels - the projection is wrong and this " +
-                "would pass vacuously.");
+            Assert.Greater(residuals.Count, 100,
+                $"V6: only {residuals.Count} sample points landed on an actual tile. Either the " +
+                "tiles have no colliders for the verification raycast, or the projection is " +
+                "wrong - either way this would pass vacuously.");
 
             residuals.Sort();
             float median = residuals[residuals.Count / 2];
@@ -302,10 +303,8 @@ namespace HapisHavoc.Tests
                 for (int sx = 0; sx <= 4; sx++)
                 for (int sy = 0; sy <= 4; sy++)
                 {
-                    // Middle 30% only. A wider inset overshoots the silhouette under perspective
-                    // on board-edge tiles and lands on the backdrop, which then reads as a
-                    // palette violation that is really a sampling error - measured at
-                    // rgb(208,153,4), the background, before this was tightened.
+                    // Sample across the tile face. The inset is relative to THE TILE, not to the
+                    // frame, so reframing does not move the sample points off their subject.
                     var world = new Vector3(
                         Mathf.Lerp(b.min.x, b.max.x, 0.35f + 0.075f * sx),
                         b.max.y,
@@ -313,11 +312,20 @@ namespace HapisHavoc.Tests
                     var sp = cam.WorldToScreenPoint(world);
                     if (sp.z <= 0) continue;
 
+                    // VERIFY THE SAMPLE IS ACTUALLY ON THIS TILE before judging its colour.
+                    // Projecting a bounding box overshoots the silhouette under perspective, so
+                    // edge tiles used to sample the backdrop and report it as a palette
+                    // violation - measured at rgb(208,153,4), the background. A raycast asks the
+                    // geometry rather than trusting the projection.
+                    if (!Physics.Raycast(cam.ScreenPointToRay(sp), out var hit, 500f)) continue;
+                    if (hit.transform != tile.transform && !hit.transform.IsChildOf(tile.transform))
+                        continue;
+
                     int px = Mathf.RoundToInt(sp.x * img.Width / cam.pixelWidth);
                     int py = Mathf.RoundToInt(sp.y * img.Height / cam.pixelHeight);
                     if (px < 0 || py < 0 || px >= img.Width || py >= img.Height) continue;
 
-                    var c = img.Pixels[(img.Height - 1 - py) * img.Width + px];
+                    var c = img.Pixels[py * img.Width + px];   // bottom-left origin, no flip
                     float r = BestPaletteResidual(c, palette);
                     residuals.Add(r);
                     if (outliers != null && r > MaxPaletteResidual)

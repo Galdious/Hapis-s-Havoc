@@ -44,7 +44,7 @@ namespace HapisHavoc.Tests
             var goal = new Cat { name = "goal marker" };
             var boat = new Cat { name = "boat" };
 
-            foreach (var t in Object.FindObjectsByType<TileInstance>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            foreach (var t in Object.FindObjectsByType<BoardTile>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
                 foreach (var r in t.GetComponentsInChildren<Renderer>(false)) tiles.Add(r);
 
             // Banks split by which side of the tile block they sit on.

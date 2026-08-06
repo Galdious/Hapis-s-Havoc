@@ -89,12 +89,12 @@ public static class BoardFraming
             foreach (var r in c.GetComponentsInChildren<Renderer>(false)) Add(r);
         }
 
-        var excluded = NonBoardTileRoots();
-
-        // Tiles - board ones only.
-        foreach (var t in Object.FindObjectsByType<TileInstance>(FindObjectsInactive.Exclude,
-                                                                FindObjectsSortMode.None))
-            if (!IsUnderAny(t.transform, excluded)) AddUnder(t);
+        // Tiles - BoardTile, so inventory is excluded STRUCTURALLY rather than by a filter
+        // this sweep had to remember. Hand and palette tiles carry TileInstance but never
+        // BoardTile. See BoardTile for why the default is inverted.
+        foreach (var t in Object.FindObjectsByType<BoardTile>(FindObjectsInactive.Exclude,
+                                                             FindObjectsSortMode.None))
+            AddUnder(t);
 
         // Banks - the boat embarks from them, so they are part of the playfield.
         foreach (var b in Object.FindObjectsByType<RiverBankManager>(FindObjectsInactive.Exclude,
@@ -193,31 +193,6 @@ public static class BoardFraming
                 if (rightOpen) rightReach = Mathf.Max(rightReach, reach);
             }
         }
-    }
-
-    /// <summary>
-    /// Containers whose TileInstances are INVENTORY, not board: the editor's tile palette and
-    /// both hand palettes. Ancestry, deliberately - see the class note.
-    /// </summary>
-    static List<Transform> NonBoardTileRoots()
-    {
-        var roots = new List<Transform>();
-        var lem = Object.FindFirstObjectByType<LevelEditorManager>();
-        if (lem != null)
-        {
-            if (lem.paletteContainer != null) roots.Add(lem.paletteContainer);
-            if (lem.editorHandContainer != null) roots.Add(lem.editorHandContainer);
-            if (lem.playerHandContainer != null) roots.Add(lem.playerHandContainer);
-        }
-        return roots;
-    }
-
-    static bool IsUnderAny(Transform t, List<Transform> roots)
-    {
-        for (var c = t; c != null; c = c.parent)
-            for (int i = 0; i < roots.Count; i++)
-                if (c == roots[i]) return true;
-        return false;
     }
 
     // ---------------------------------------------------------------- fit
