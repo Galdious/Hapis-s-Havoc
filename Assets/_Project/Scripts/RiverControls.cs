@@ -49,6 +49,18 @@ public class RiverControls : MonoBehaviour
     private PointerArrowButton[,] leftArrows;   // [row, side] 0=blue, 1=red
     private PointerArrowButton[,] rightArrows;  // [row, side] 0=blue, 1=red
     private RowLockState[] rowLockStates; // <<< ADD
+
+    /// <summary>
+    /// Read-only lock state for a row. Framing needs it to reserve affordance width per SIDE and
+    /// per level: a fully locked row has no drop zones at all, so reserving space for them makes
+    /// the board needlessly small. Returns BothLocked when unknown, which reserves nothing.
+    /// </summary>
+    public RowLockState GetRowLockState(int row)
+    {
+        if (rowLockStates == null || row < 0 || row >= rowLockStates.Length)
+            return RowLockState.BothLocked;
+        return rowLockStates[row];
+    }
     private Dictionary<Renderer, Material> originalArrowMaterials = new Dictionary<Renderer, Material>(); // <<< ADD
     private GameManager gameManager;
     private Canvas dropZoneCanvas;

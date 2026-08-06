@@ -117,20 +117,28 @@ public static class BoardFraming
                 if (t.name.StartsWith("Arrow_") || t.name.StartsWith("Lock_"))
                     foreach (var r in t.GetComponents<Renderer>()) Add(r);
 
-        // Drop zones are TRANSIENT - created during a drag and destroyed after. Including them
-        // when they happen to exist would make the camera lurch mid-interaction, which is worse
-        // than framing slightly wide. So their extent is RESERVED statically from the same
-        // geometry RiverControls uses to place them, whether or not any exist right now.
+        // AFFORDANCE RESERVATION - static, but honest per level and per side.
+        //
+        // Drop zones are transient (created during a drag), so including them only when they
+        // happen to exist would lurch the camera mid-interaction. Their extent is therefore
+        // RESERVED. But the reservation must not be blanket:
+        //   - push arrows and row locks are EDITOR-ONLY (RiverControls gates CreateArrowsForRow
+        //     on currentMode == Editor), so Playing/Endless must not reserve arrow width at all;
+        //   - drop zones exist only on UNLOCKED sides, so a fully locked level - 01_01, 01_02
+        //     and 01_03 all have lockedRows [3,3,3] - reserves nothing;
+        //   - locks sit furthest out and only on the right, so the two sides differ.
+        // lockedRows is fixed at load, so this is still static and still cannot thrash.
         if (any && grid != null)
         {
-            float reach = AffordanceReachX(grid);
-            if (reach > 0f)
-            {
-                var c = acc.center; var e = acc.extents;
-                float half = Mathf.Max(e.x, reach);
-                acc.SetMinMax(new Vector3(c.x - half, acc.min.y, acc.min.z),
-                              new Vector3(c.x + half, acc.max.y, acc.max.z));
-            }
+            AffordanceReserveX(grid, out float leftReach, out float rightReach);
+            float centreX = grid.cols > 0 && grid.rows > 0
+                ? (grid.GetWorldPosition(0, 0).x + grid.GetWorldPosition(grid.cols - 1, 0).x) * 0.5f
+                : acc.center.x;
+
+            float minX = Mathf.Min(acc.min.x, centreX - leftReach);
+            float maxX = Mathf.Max(acc.max.x, centreX + rightReach);
+            acc.SetMinMax(new Vector3(minX, acc.min.y, acc.min.z),
+                          new Vector3(maxX, acc.max.y, acc.max.z));
         }
 
         bounds = acc;
@@ -139,20 +147,52 @@ public static class BoardFraming
     }
 
     /// <summary>
-    /// Half-width the side affordances need, measured from the grid centre, reproducing
+    /// How far the side affordances reach from the grid centre, per side, reproducing
     /// RiverControls' own placement maths so it holds whether or not the objects exist yet.
+    /// Set HAPI_NO_AFFORDANCE_RESERVE=1 to measure the ceiling with affordances contributing
+    /// nothing - that is ITEM 3(a), a measurement hook, not a shipping option.
     /// </summary>
-    static float AffordanceReachX(GridManager grid)
+    static void AffordanceReserveX(GridManager grid, out float leftReach, out float rightReach)
     {
+        leftReach = 0f;
+        rightReach = 0f;
+
+        if (System.Environment.GetEnvironmentVariable("HAPI_NO_AFFORDANCE_RESERVE") == "1") return;
+
         var rc = Object.FindFirstObjectByType<RiverControls>();
-        if (rc == null) return 0f;
+        if (rc == null) return;
+
+        bool editorMode = GameManager.Instance == null
+                       || GameManager.Instance.currentMode == OperatingMode.Editor;
 
         float gridWidth = grid.cols * grid.tileWidth;
-        // RiverControls.GetDynamicArrowDistance: max(arrowDistance, gridWidth*0.5 + 1).
-        float dynamicDistance = Mathf.Max(rc.arrowDistance, gridWidth * 0.5f + 1f);
-        // The lock sits furthest out, at arrowSpacing * 1.5 beyond the arrow base, and the
-        // arrow/lock meshes have their own half-width on top of that.
-        return dynamicDistance + rc.arrowSpacing * 1.5f + rc.arrowScale * 2f;
+        float gridHalfWidth = (gridWidth + (grid.cols - 1) * grid.gapX) * 0.5f;
+
+        for (int row = 0; row < grid.rows; row++)
+        {
+            var state = rc.GetRowLockState(row);
+            bool leftOpen = state != RowLockState.LeftLocked && state != RowLockState.BothLocked;
+            bool rightOpen = state != RowLockState.RightLocked && state != RowLockState.BothLocked;
+
+            if (editorMode)
+            {
+                // Arrows exist on both sides in the Editor regardless of lock state, because the
+                // lock toggle is how you change that state - it must stay reachable.
+                float dyn = Mathf.Max(rc.arrowDistance, gridWidth * 0.5f + 1f);
+                leftReach = Mathf.Max(leftReach, dyn + rc.arrowSpacing * 0.5f + rc.arrowScale * 2f);
+                // The lock sits beyond the red arrow, on the right only.
+                rightReach = Mathf.Max(rightReach, dyn + rc.arrowSpacing * 1.5f + rc.arrowScale * 2f);
+            }
+            else
+            {
+                // Drop zone outer edge: centre - gridHalfWidth - zoneWidth/2 + 2, minus another
+                // zoneWidth/2 for its own half-extent.
+                float zoneWidth = grid.tileWidth * 1.5f;
+                float reach = gridHalfWidth + zoneWidth - 2f;
+                if (leftOpen) leftReach = Mathf.Max(leftReach, reach);
+                if (rightOpen) rightReach = Mathf.Max(rightReach, reach);
+            }
+        }
     }
 
     /// <summary>
