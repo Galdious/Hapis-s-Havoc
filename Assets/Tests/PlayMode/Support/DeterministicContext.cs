@@ -205,7 +205,21 @@ namespace HapisHavoc.Tests
         static BoardLayout LoadDefaultLayout()
         {
             var asset = Resources.Load<BoardLayout>("BoardLayout_Default");
-            return asset != null ? asset : ScriptableObject.CreateInstance<BoardLayout>();
+            var layout = asset != null ? asset : ScriptableObject.CreateInstance<BoardLayout>();
+
+            // HAPI_REFRAME_PADDING deliberately reframes the board, to prove that assertions
+            // claiming to be subject-relative actually are. "Invariant by construction" is
+            // reasoning; moving the camera a long way and watching them stay green is the
+            // measurement. Never set in a normal run.
+            var over = System.Environment.GetEnvironmentVariable("HAPI_REFRAME_PADDING");
+            if (!string.IsNullOrEmpty(over) && float.TryParse(over, out float pad))
+            {
+                layout = UnityEngine.Object.Instantiate(layout);   // never mutate the shipped asset
+                layout.portrait.padding = pad;
+                layout.landscape.padding = pad;
+                Debug.Log($"[DeterministicContext] REFRAME CHECK: padding overridden to {pad}");
+            }
+            return layout;
         }
 
         void DisableAll<T>() where T : Behaviour
