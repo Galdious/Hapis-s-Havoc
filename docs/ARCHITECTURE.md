@@ -859,6 +859,19 @@ SRP-Batcher-compatible and cannot be static-batched. So each of the ~127 line re
 draw call. The 36 tile meshes share one material and are SRP-Batcher eligible, so they cost far
 less. Rough total for the board: **~170 draw calls, of which ~127 are path lines.**
 
+> **MEASURED 2026-08-05** (Unity 6000.3.21f1, harness test `L6`, seeded random 6×6):
+> **138–140 `LineRenderer`s** on a full 36-tile board — the ~127 estimate above was about
+> 8–10% low, so it holds up. The count varies run to run because `CreateGridFromEditor`
+> draws random tile types carrying 3–4 connections each. Also measured: 55 `MeshRenderer`s.
+>
+> **The total draw-call figure remains UNCONFIRMED.** `UnityEditor.UnityStats.drawCalls` is
+> not usable from a batchmode PlayMode test: hiding all 36 tiles changed it by exactly zero
+> (1028 → 1028, setPass 70 → 70, batches 266 → 266), proving it reports editor overhead
+> rather than the pinned game camera. An earlier note claiming the estimate was "6× low"
+> was based on that invalid counter and has been retracted. Confirming the total needs a
+> Frame Debugger capture in the Editor. The `LineRenderer` count is the reliable number and
+> carries the procedural-path-mesh argument on its own.
+
 Worse cases:
 - A **reversed** tile is initialised by `GridManager.InitializeTile` with **six** connections
   (`0-2, 2-0, 1-3, 3-1, 4-5, 5-4`) — three logical paths written twice. That creates **6**
@@ -1024,6 +1037,17 @@ travelling across reversed tiles). `GridManager.GetOppositeSnapPoint` (`:1572`) 
 `0↔3, 1↔2, 4↔5` (diagonal mirror, used to correct a boat's snap point when the landing tile's
 rotation differs). Both are correct for their own use; the shared name is the hazard.
 
+> **Confirmed for the ejection re-landing path.** That call in `PushRowInternal` is unqualified
+> and therefore binds to `GridManager`'s mirror mapping — which is the **right** one: `0↔3, 1↔2,
+> 4↔5` *is* the permutation a 180° yaw induces (yaw maps local `(x,z) → (−x,−z)`, so top-left →
+> bottom-right). The method choice was never the bug.
+>
+> The **condition guarding it** was. It compared raw `eulerAngles.y` between the ejected tile and
+> the landing tile — the readback trap of gotcha 3 — so two tiles with the *same* authored yaw,
+> one flipped and one not, read back `180` and `0` and were treated as differing, mirroring the
+> boat's snap point when it should have been left alone. That decides **where a boat lands**, a
+> gameplay outcome. Replaced with `TileOrientation.IsYawFlipped`; guarded by `L9` and `X9`.
+
 **G. The snap-point offset switch, three times in `BoatController`.** The identical
 `switch (snapPoint) { case 0: case 1: … }` block computing a boat position from a snap point
 appears at `:383`, `:1457` and `:1693`. `BoatManager.SpawnBoatAtLevelStart` (`:150`) computes the
@@ -1076,19 +1100,44 @@ work it blocks. **Nothing in this section has been fixed.**
 
 ---
 
-**R1 — Three divergent copies of `PushRowCoroutine`** · Severity: **Critical**
+**R1 — Three divergent copies of `PushRowCoroutine`** · Severity: **Critical** · **RESOLVED** in `d66dc80`
 
-*Why it's risky.* ~600 lines of near-identical code across three overloads that are already out of
-sync in at least seven observable ways (§6.2 A), including a real rotation bug (Z-flip vs X-flip)
-that mirrors hand-pushed reversed tiles in Puzzle mode. Every push-related fix has to be made three
-times, and history shows it usually is not. Row push is also the single most bug-prone interaction
-in the game — it moves tiles, re-parents boats, triggers physics, mutates the grid array and saves
-history all at once.
+*Why it was risky.* ~880 lines of near-identical code across three overloads, found to be out of
+sync in **nine** observable ways (§6.2 A), including a real rotation bug in Puzzle mode. Every
+push-related fix had to be made three times, and history shows it usually was not. Row push is also
+the single most bug-prone interaction in the game — it moves tiles, re-parents boats, triggers
+physics, mutates the grid array and saves history all at once.
 
-*Smallest fix.* Extract the shared body into one private coroutine
-`PushRowInternal(int row, bool fromLeft, TileInstance newTile)` and reduce the three public
-overloads to tile-acquisition wrappers that construct the new tile and delegate. That alone removes
-the divergence without changing any public signature or scene wiring.
+*What was done.* The shared body is now one private coroutine
+`PushRowInternal(int row, bool fromLeft, TileInstance newTile)`, with the three public overloads
+reduced to tile-acquisition wrappers (`CreateIncomingTile` / `PrepareIncomingTile`). No public
+signature and no scene wiring changed. `GridManager.cs` went 1892 → 1368 lines (**−28%**). One
+consequence found only by merging them: the ejected boat's `FadeOutForEjection` was running
+**twice** in all three copies, once blocking and once concurrent. It now runs once.
+
+> **The rotation bug was NOT a mirror, and this correction matters.** The hand-tile path built
+> `Quaternion.Euler(0, rotationY, isFlipped ? 180 : 0)` where the loader builds
+> `Euler(180, rotationY, 0)`. Unity's Euler order is **ZXY**, so
+> `Euler(0, y, 180) = Ry(y)·Rz(180) = Ry(y)·Rx(180)·Ry(180) = Euler(180, y, 0)·Ry(180)` — the
+> **correct face plus an extra 180° yaw**, not a reflection.
+>
+> That yaw permutes the snap-point labels `0↔3`, `1↔2`, `4↔5`. Measured on a pushed tile, the six
+> snap points land on the *same six world positions*, merely relabelled. Because a reversed tile is
+> forced straight along `{0-2, 1-3, 4-5}` — a set that permutation maps **onto itself** — the bug
+> was **completely invisible while the tile stayed reversed**: identical geometry, pixel-identical
+> drawn paths, no gameplay difference. It only bit when the labels were next read.
+>
+> That is why it survived so long, and why a purely visual test would never have caught it. The
+> only pixel signature is the tile mesh/vortex decal not being 180°-yaw symmetric: **0.5364 % of
+> the frame for one tile, 1.6414 % for three** — which is why golden `push/post-push_01_06_row2_flipped.png`
+> fills the row rather than pushing a single tile.
+>
+> **It was load-bearing, not cosmetic.** The fault existed at three sites, not one:
+> `GridManager`'s hand-tile overload, `EndlessModeManager:801` (which recovered `isFlipped` from
+> `eulerAngles.x`, the readback trap of gotcha 3), and **`LevelEditorManager:766`**. The last looks
+> like it only styles the hand palette, but `PlayableHandTile` passes **that very GameObject** to
+> the dragged-tile overload — so the wrong orientation reached the board on every drag-to-drop-zone
+> push in Playing mode. Guarded now by `L1` (overload parity) and `M1` (all three operating modes).
 
 ---
 

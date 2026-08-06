@@ -104,11 +104,37 @@ FIX ---` comments throughout record the same handful of failures over and over:
    `BoatController.HighlightTile`, `HighlightBankForDocking`, `LevelEditorManager.HighlightPaletteTile`
    / `ClearPaletteHighlight` / `ClearHandHighlight` still does this. See House rule 2.
 
-2. **Boat internal state desyncing from its transform.** After a row push the boat is
-   re-parented and slid, but `currentTile`/`currentSnapPoint` are not updated. The band-aid is
-   `BoatController.ResynchronizeStateWithTransform()`, called at the top of `SelectBoat()`,
-   which reverse-looks-up the boat's position and logs "Boat Desync Detected!". Any new code
-   that moves the boat must update state or the desync check will silently re-home it.
+2. **A FALSE boat desync after a row push.** The obvious diagnosis is wrong, and the wrong one
+   sat in this file for months: the push does **not** fail to update `currentTile` /
+   `currentSnapPoint`. Measured through a push, with the boat riding a sliding tile:
+
+   | stage | boat position | distance to its own snap point | reverse lookup |
+   |---|---|---|---|
+   | before the push | `(0.500, -0.250, 0.750)` | `0.1500` | agrees |
+   | immediately after | `(2.600, -0.250, 0.750)` | `0.1500` | agrees |
+   | after settling to rest | `(2.600, `**`+0.250`**`, 0.750)` | `0.5220` | **disagrees** |
+
+   The push tracks the boat correctly — `currentTile` follows the sliding tile and the offset is
+   preserved to the digit. The failure appeared only once the boat settled, and the only thing
+   that changed was Y.
+
+   The real cause was `GridManager.FindTileAndSnapPointAtWorldPos` comparing in **3D** against a
+   `0.5` threshold while a resting boat sits `0.5` **above** the snap plane. The Y offset alone
+   exhausted the entire budget, so any in-tile XZ offset tipped it over; the lookup then fell
+   through to a coincident snap point on the neighbouring tile across a shared edge, and
+   `ResynchronizeStateWithTransform` "corrected" the boat onto the wrong tile.
+
+   **Fixed:** the lookup compares in the **horizontal plane only**. Every snap point lies on the
+   same flat Y, while the boat's Y swings with resting height, selection lift and idle bob —
+   none of which says anything about *which* snap point it is on. The small inward `boatOffset`
+   is what distinguishes the two coincident snap points at a shared edge, and dropping Y is
+   precisely what lets it do that job: the boat now resolves to its own tile at `0.115` instead
+   of the neighbour.
+
+   `ResynchronizeStateWithTransform()` is **retained as a safety net and should now never fire.**
+   If `Boat Desync Detected!` appears again, something genuinely moved the boat without updating
+   its state — diagnose that, do not widen the threshold. `L2` (the warning must not fire after a
+   push) and `X8` (a boat shoved a full tile sideways must still be caught) guard both directions.
 
 3. **Rotation / snap-point mirroring.** A 180° Y rotation swaps the left and right snap sets,
    and several places re-derive that independently. There are **two different**

@@ -763,7 +763,13 @@ public class LevelEditorManager : MonoBehaviour
                 ? new Vector3(0, 0, startPos - (index * spacing)) // Vertical layout
                 : new Vector3(startPos - (index * spacing), 0, 0); // Horizontal layout
 
-            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos, Quaternion.Euler(0, representativeTile.rotationY, representativeTile.isFlipped ? 180f : 0f));
+            // R1: the flip is on X, matching the loader and GridManager.CreateIncomingTile.
+            // Euler(0, y, 180) is Euler(180, y, 0) plus an extra 180 yaw (ZXY order), which
+            // permuted the snap-point labels. This tile is not just the palette display - it is
+            // the GameObject PlayableHandTile hands to PushRowCoroutine's dragged-tile overload,
+            // so the wrong orientation reached the board.
+            GameObject tileGO = Instantiate(gridManager.tilePrefab, spawnPos,
+                Quaternion.Euler(representativeTile.isFlipped ? 180f : 0f, representativeTile.rotationY, 0f));
             tileGO.transform.SetParent(targetContainer, false);
             tileGO.name = "HandPalette_" + type.displayName;
 
@@ -1242,11 +1248,11 @@ public class LevelEditorManager : MonoBehaviour
         // We use sharedMaterial for reading to avoid creating material instances unintentionally.
         if (!originalPaletteMaterial.ContainsKey(renderer))
         {
-            originalPaletteMaterial[renderer] = renderer.sharedMaterial;
+            originalPaletteMaterial[renderer] = renderer.sharedMaterial;   // key only
         }
 
-        // Change the color. Accessing .material creates a new instance if one doesn't exist.
-        renderer.material.color = paletteSelectionColor;
+        // R2: MaterialPropertyBlock, so no per-renderer material instance is created or leaked.
+        HighlightService.Apply(renderer, paletteSelectionColor);
 
         // Lift the tile.
         StartCoroutine(LiftTileSmooth(tileGO.transform, true));
@@ -1264,8 +1270,7 @@ public class LevelEditorManager : MonoBehaviour
         var renderer = currentlyHighlightedPaletteTile.GetComponentInChildren<MeshRenderer>();
         if (renderer != null && originalPaletteMaterial.ContainsKey(renderer))
         {
-            // Restore the original material.
-            renderer.sharedMaterial = originalPaletteMaterial[renderer];
+            HighlightService.Clear(renderer);
 
             // Lower the tile.
             StartCoroutine(LiftTileSmooth(currentlyHighlightedPaletteTile.transform, false));
@@ -1439,8 +1444,10 @@ public class LevelEditorManager : MonoBehaviour
 
     public IEnumerator HandleArrowPush(int row, bool fromLeft, bool isForObstacleSide)
     {
-        HistoryManager.Instance.SaveState();
-
+        // NO SaveState here, for the same reason as HandleDropZonePush: the push already saves
+        // once at the end of PushRowInternal. Saving here too gave one player action two
+        // snapshots and made undo need two presses, and because it ran before the "no tile
+        // selected" early-out below, a REJECTED push also left an entry on the stack.
         // Step 1: Are we in Puzzle Mode?
         if (gridManager.isPuzzleMode)
         {
@@ -1488,8 +1495,11 @@ public class LevelEditorManager : MonoBehaviour
 
     public IEnumerator HandleDropZonePush(int row, bool fromLeft, TileType tileType, GameObject droppedTileGO)
     {
-        HistoryManager.Instance.SaveState();
-
+        // NO SaveState here. The push saves once, at the end of PushRowInternal, exactly as the
+        // arrow path does. Saving here as well made one drag produce TWO snapshots (measured:
+        // stack 1 -> 2 -> 3), so undo needed two presses to get back - and because it ran before
+        // the hand-tile validity check below, even a REJECTED drop left an entry on the stack.
+        // Guarded by L5b, with X10 as its control.
         GameObject newTileGO = droppedTileGO;
 
         // --- FIX #4: Seamless Animation Handoff ---
@@ -1570,8 +1580,7 @@ public class LevelEditorManager : MonoBehaviour
         var renderer = currentlyHighlightedHandTile.GetComponentInChildren<MeshRenderer>();
         if (renderer != null && originalPaletteMaterial.ContainsKey(renderer))
         {
-            // Restore the original material.
-            renderer.sharedMaterial = originalPaletteMaterial[renderer];
+            HighlightService.Clear(renderer);
 
             // Lower the tile.
             StartCoroutine(LiftTileSmooth(currentlyHighlightedHandTile.transform, false));

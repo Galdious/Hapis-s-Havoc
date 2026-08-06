@@ -877,19 +877,22 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
             var renderer = bankGO.GetComponentInChildren<MeshRenderer>();
             if (renderer != null)
             {
-                // Correctly save the original shared material before changing the color.
                 if (!originalBankMaterials.ContainsKey(renderer))
                 {
-                    originalBankMaterials[renderer] = renderer.sharedMaterial;
+                    originalBankMaterials[renderer] = renderer.sharedMaterial;   // key only
                 }
-                renderer.material.color = bankHighlightColor;
+                HighlightService.Apply(renderer, bankHighlightColor);   // R2: no material instance
 
                 highlightedBanks.Add(bankGO);
-            }
 
-            var clicker = renderer.gameObject.AddComponent<BankClickHandler>();
-            clicker.targetBoat = this;
-            clicker.bankSide = side;
+                // Handler lives on the renderer's GameObject because that is where the bank's
+                // COLLIDER is - CreateBankVisual builds the visual (and its BoxCollider) as a
+                // child of the bank parent. ClearHighlights now removes it from the same object.
+                // Moved inside this block so it cannot NRE when renderer is null.
+                var clicker = renderer.gameObject.AddComponent<BankClickHandler>();
+                clicker.targetBoat = this;
+                clicker.bankSide = side;
+            }
         }
     }
 
@@ -913,22 +916,17 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         }
 
 
-        // Restore tile materials
+        // Restore tile materials. Clearing the property block reverts to the shared material,
+        // so there is no orphaned instance to leak and nothing to reassign.
         foreach (var pair in originalMaterials)
         {
-            if (pair.Key != null)
-            {
-                pair.Key.sharedMaterial = pair.Value;
-            }
+            HighlightService.Clear(pair.Key);
         }
 
-        // Restore bank materials
+        // Restore bank materials.
         foreach (var pair in originalBankMaterials)
         {
-            if (pair.Key != null)
-            {
-                pair.Key.sharedMaterial = pair.Value;
-            }
+            HighlightService.Clear(pair.Key);
         }
 
         // --- Clean Up GameObjects in ONE PASS ---
@@ -961,8 +959,11 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
         {
             if (bankGO != null)
             {
-                var clicker = bankGO.GetComponent<BankClickHandler>();
-                if (clicker != null) Destroy(clicker);
+                // Added to the renderer's GameObject (the CHILD visual, where the collider is),
+                // so it must be removed from there. GetComponent on the parent found nothing and
+                // the handlers accumulated 1 -> 2 -> 3 ... on every selection.
+                foreach (var clicker in bankGO.GetComponentsInChildren<BankClickHandler>(true))
+                    if (clicker != null) Destroy(clicker);
             }
         }
 
@@ -1413,7 +1414,7 @@ public void OnTileClicked(TileInstance clickedTile, PointerEventData eventData)
         {
             if (pair.Key != null)
             {
-                pair.Key.sharedMaterial = pair.Value;
+                HighlightService.Clear(pair.Key);
                 originalMaterials.Remove(pair.Key);
 
                 var tile = pair.Key.GetComponentInParent<TileInstance>();
@@ -1778,8 +1779,8 @@ public void PlaceOnTile(TileInstance tile, int snapPointIndex)
         var renderer = tile.GetComponentInChildren<MeshRenderer>();
         if (renderer == null || originalMaterials.ContainsKey(renderer)) return;
 
-        originalMaterials[renderer] = renderer.sharedMaterial;
-        renderer.material.color = selectedColor;
+        originalMaterials[renderer] = renderer.sharedMaterial;   // key only; kept for bookkeeping
+        HighlightService.Apply(renderer, selectedColor);          // R2: MaterialPropertyBlock, no instance
 
         if (!highlightedTiles.Contains(tile.gameObject))
         {

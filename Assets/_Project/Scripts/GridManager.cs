@@ -414,75 +414,164 @@ public class GridManager : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // 8.  Push implementation - First Coroutine (for Sandbox Mode)
+    // 8.  Push implementation
+    //
+    // This was three near-identical coroutines of ~880 lines total that had drifted apart in
+    // nine separate ways - the copy-paste hazard of CLAUDE.md gotcha 7, where a fix applied to
+    // one overload historically never reached the other two.
+    //
+    // They now differ ONLY in how the incoming tile is obtained. Everything from the boat
+    // parenting onwards is PushRowInternal, so a fix lands in one place. The three public
+    // signatures are unchanged - RiverControls, LevelEditorManager and EndlessModeManager all
+    // still call them by their existing shapes, and no scene wiring moves.
     // ------------------------------------------------------------
 
+    /// <summary>
+    /// Sandbox / Editor bag push. The only variant that draws from the bag, and the only one
+    /// that may randomise its own yaw.
+    /// </summary>
     public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, bool showObstacleSide)
     {
-        isPushingInProgress = true;
-
-        // Determine the exit column immediately.
-        int exitCol = fromLeft ? cols - 1 : 0;
-        // Instantly tell the GameManager to check if these coordinates are the goal.
-
-
-        // vvv THIS IS THE CORRECTED LOGIC vvv
-
-        // STEP 1: Find the selected boat and store it, if it exists.
-        BoatController previouslySelectedBoat = null;
-        if (boatManager != null)
-        {
-            // GetSelectedBoat() is a cleaner way to do this.
-            previouslySelectedBoat = boatManager.GetSelectedBoat();
-        }
-
-        // STEP 2: If a boat was selected, call the correct DeselectBoat() method.
-        if (previouslySelectedBoat != null)
-        {
-            previouslySelectedBoat.DeselectBoat();
-            // Wait a moment for the boat's deselection animation (lowering) to play.
-            yield return new WaitForSeconds(0.3f);
-        }
-
-
-
-        // Disable arrow colliders during push to prevent interference
-        RiverControls riverControls = FindFirstObjectByType<RiverControls>();
-        if (riverControls != null)
-        {
-            riverControls.SetArrowCollidersEnabled(false);
-        }
-
-        // Get new tile from bag
-        TileType newTileTemplate = bagManager.DrawRandomTile();
-
+        TileType template = bagManager.DrawRandomTile();
         OnTileConsumed?.Invoke();
 
-
-        if (newTileTemplate == null)
+        if (template == null)
         {
             Debug.LogError("[GridManager] No tiles left in bag!");
-            isPushingInProgress = false;
-            if (riverControls != null) riverControls.SetArrowCollidersEnabled(true);
             yield break;
         }
 
-        // Determine positions
-        int insertCol = fromLeft ? 0 : cols - 1;
-        // int exitCol = fromLeft ? cols - 1 : 0;
-        Vector3 spawnPos = GetSpawnPosition(rowIndex, fromLeft);
+        float randomYaw = (template.canRotate180 && Random.value > 0.5f) ? 180f : 0f;
 
-        // Store the tile that will be ejected
+        yield return PushRowInternal(rowIndex, fromLeft,
+            CreateIncomingTile(rowIndex, fromLeft, template, randomYaw, showObstacleSide));
+    }
+
+    /// <summary>
+    /// Editor hand-arrow pushes and every Endless storm push: an explicit hand tile whose
+    /// GameObject this method creates.
+    /// </summary>
+    public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile handTile)
+    {
+        OnTileConsumed?.Invoke();
+
+        if (handTile == null || handTile.tileType == null)
+        {
+            Debug.LogError("[GridManager] Push failed: Invalid hand tile provided!");
+            yield break;
+        }
+
+        yield return PushRowInternal(rowIndex, fromLeft,
+            CreateIncomingTile(rowIndex, fromLeft, handTile.tileType,
+                               handTile.rotationY, handTile.isFlipped));
+    }
+
+    /// <summary>
+    /// Playing drag-to-drop-zone and the Endless player drag. The caller has already built the
+    /// tile GameObject and animated it to the spawn position, so adopt it rather than creating
+    /// a second one - and leave its transform alone, because it carries the orientation the
+    /// player chose while dragging.
+    /// </summary>
+    public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile handTile, GameObject newTileGO)
+    {
+        OnTileConsumed?.Invoke();
+
+        if (handTile == null || handTile.tileType == null || newTileGO == null)
+        {
+            Debug.LogError("[GridManager] Push failed: Invalid dragged hand tile provided!");
+            yield break;
+        }
+
+        newTileGO.name = $"NewTile ({(fromLeft ? 0 : cols - 1)},{rowIndex})";
+
+        yield return PushRowInternal(rowIndex, fromLeft,
+            PrepareIncomingTile(newTileGO, handTile.tileType, handTile.isFlipped));
+    }
+
+    /// <summary>
+    /// Builds the GameObject for a tile about to be pushed in, at the off-grid spawn position
+    /// for that row and side.
+    ///
+    /// CANONICAL ORIENTATION: the flip is on X, matching the level loader, CreateNewEndlessRow
+    /// and LevelEditorManager.FlipTile. The hand-tile overload used to build
+    /// Quaternion.Euler(0, rotationY, isFlipped ? 180 : 0) instead. Unity's Euler order is ZXY,
+    /// so that equals Euler(180, rotationY, 0) post-multiplied by Ry(180): the correct face,
+    /// plus an extra 180 degree yaw that silently permuted the snap-point labels 0-3, 1-2, 4-5.
+    /// That was risk R1. Never reconstruct this by reading eulerAngles back - see CLAUDE.md
+    /// gotcha 3 - use TileOrientation.
+    /// </summary>
+    private TileInstance CreateIncomingTile(int rowIndex, bool fromLeft, TileType template,
+                                            float rotationY, bool isFlipped)
+    {
+        GameObject go = Instantiate(tilePrefab,
+                                    GetSpawnPosition(rowIndex, fromLeft),
+                                    Quaternion.Euler(isFlipped ? 180f : 0f, rotationY, 0f),
+                                    gridParent);
+        go.name = $"NewTile ({(fromLeft ? 0 : cols - 1)},{rowIndex})";
+
+        return PrepareIncomingTile(go, template, isFlipped);
+    }
+
+    /// <summary>
+    /// Shared final setup for the incoming tile, whichever wrapper produced its GameObject.
+    /// </summary>
+    private TileInstance PrepareIncomingTile(GameObject go, TileType template, bool isFlipped)
+    {
+        Rigidbody rb = go.GetComponent<Rigidbody>();
+        if (rb == null) rb = go.AddComponent<Rigidbody>();
+        rb.isKinematic = true;      // driven by SlideTileToPosition; EjectTileToAbyss releases it
+        rb.mass = 1f;
+
+        TileInstance tile = go.GetComponent<TileInstance>();
+        InitializeTile(tile, template, isFlipped);
+        UpdateTileGameplayVisuals(tile);
+
+        // The dragged-tile path may already carry one; do not add a second.
+        if (levelEditorManager != null && go.GetComponent<EditorGridTile>() == null)
+        {
+            var editorTile = go.AddComponent<EditorGridTile>();
+            editorTile.editorManager = levelEditorManager;
+            editorTile.tileInstance = tile;
+        }
+
+        return tile;
+    }
+
+    /// <summary>
+    /// The one push. <paramref name="newTile"/> is already built, oriented, and sitting at the
+    /// off-grid spawn position for this row and side.
+    /// </summary>
+    private IEnumerator PushRowInternal(int rowIndex, bool fromLeft, TileInstance newTile)
+    {
+        isPushingInProgress = true;
+
+        int insertCol = fromLeft ? 0 : cols - 1;
+        int exitCol   = fromLeft ? cols - 1 : 0;
+
+        // Deselect first so the boat's lift and highlights do not survive into the push.
+        BoatController previouslySelectedBoat =
+            (boatManager != null) ? boatManager.GetSelectedBoat() : null;
+        if (previouslySelectedBoat != null)
+        {
+            previouslySelectedBoat.DeselectBoat();
+            yield return new WaitForSeconds(0.3f);   // let the lowering animation play
+        }
+
+        RiverControls riverControls = FindFirstObjectByType<RiverControls>();
+        if (riverControls != null) riverControls.SetArrowCollidersEnabled(false);
+
         TileInstance ejectingTile = grid[exitCol, rowIndex];
 
-
-
-        //This part finds any boats that need to be saved or parented befroe the tiles move
-        float ejectedTileRotation = 0f;
-        if (ejectingTile != null)
-        {
-            ejectedTileRotation = ejectingTile.transform.eulerAngles.y;
-        }
+        // Captured before the tile is ejected, because the boat's landing snap point depends on
+        // whether the destination tile's yaw differs from this one's.
+        //
+        // Read through TileOrientation, never eulerAngles. This compared raw eulerAngles.y and
+        // was wrong in a way that decided WHERE BOATS LAND: two tiles authored at the same yaw,
+        // one flipped and one not, read back 180 and 0 (CLAUDE.md gotcha 3), so the comparison
+        // saw a 180 degree difference that did not exist and mirrored the snap point through
+        // GetOppositeSnapPoint - putting the boat on the opposite edge. See tests L9 and X9.
+        bool ejectedTileYawFlipped = (ejectingTile != null)
+            && TileOrientation.IsYawFlipped(ejectingTile.transform);
 
         BoatController ejectedBoat = null;
         int originalSnapPoint = -1;
@@ -492,92 +581,46 @@ public class GridManager : MonoBehaviour
         {
             foreach (var boat in boatManager.GetPlayerBoats())
             {
-                if (boat != null)
+                if (boat == null) continue;
+
+                TileInstance boatTile = boat.GetCurrentTile();
+                if (boatTile == ejectingTile)
                 {
-                    TileInstance boatTile = boat.GetCurrentTile();
-                    if (boatTile == ejectingTile)
+                    // Riding the tile that is about to fall off - un-parent it now.
+                    ejectedBoat = boat;
+                    originalSnapPoint = boat.GetCurrentSnapPoint();
+                    boat.transform.SetParent(null, true);
+                }
+                else
+                {
+                    // Riding a tile that merely slides - parent it so it slides along.
+                    for (int x = 0; x < cols; x++)
                     {
-                        // This boat is on the tile that will fall off. Save it.
-                        ejectedBoat = boat;
-                        originalSnapPoint = boat.GetCurrentSnapPoint();
-                        boat.transform.SetParent(null, true); // Un-parent from the falling tile now!
-                    }
-                    else
-                    {
-                        // Check if this boat is on a tile that is just sliding.
-                        for (int x = 0; x < cols; x++)
+                        if (grid[x, rowIndex] == boatTile)
                         {
-                            if (grid[x, rowIndex] == boatTile)
-                            {
-                                boatsToParent.Add(boat);
-                                boat.transform.SetParent(boat.GetCurrentTile().transform, true);
-                                break;
-                            }
+                            boatsToParent.Add(boat);
+                            boat.transform.SetParent(boatTile.transform, true);
+                            break;
                         }
                     }
                 }
             }
         }
 
-
-        if (ejectedBoat != null)
-        {
-            yield return StartCoroutine(ejectedBoat.FadeOutForEjection());
-        }
-
-
-
-        // Create new tile at spawn position (outside grid)
-        GameObject newTileGO = Instantiate(tilePrefab, spawnPos, Quaternion.identity, gridParent);
-        newTileGO.name = $"NewTile ({insertCol},{rowIndex})";
-
-        // Setup physics for new tile
-        Rigidbody newRb = newTileGO.GetComponent<Rigidbody>();
-        if (newRb == null)
-        {
-            newRb = newTileGO.AddComponent<Rigidbody>();
-        }
-        newRb.isKinematic = true; // Controlled during sliding
-        newRb.mass = 1f;
-
-
-        float yRotation = (newTileTemplate.canRotate180 && Random.value > 0.5f) ? 180f : 0f;
-        float xRotation = showObstacleSide ? 180f : 0f;
-        newTileGO.transform.rotation = Quaternion.Euler(xRotation, yRotation, 0f);
-
-
-
-        TileInstance newTile = newTileGO.GetComponent<TileInstance>();
-        InitializeTile(newTile, newTileTemplate, showObstacleSide);
-
-        UpdateTileGameplayVisuals(newTile);
-
-        if (levelEditorManager != null)
-        {
-            var editorTile = newTileGO.AddComponent<EditorGridTile>();
-            editorTile.editorManager = levelEditorManager;
-            editorTile.tileInstance = newTile;
-        }
-
-
-
-
-
-
-        // Animate all critical movements concurrently.
+        // Animate the critical movements concurrently.
+        //
+        // The ejected boat's fade used to run TWICE in all three copies: once blocking, before
+        // the tile was created, and then again inside this list. It now runs once, concurrent
+        // with the slides, so ejection is visibly quicker and no longer re-fades an already
+        // faded boat.
         List<Coroutine> essentialAnimations = new List<Coroutine>();
 
-        // If a boat is being ejected, add its fade-out animation to the list of animations we must wait for.
         if (ejectedBoat != null)
-        {
             essentialAnimations.Add(StartCoroutine(ejectedBoat.FadeOutForEjection()));
-        }
 
-        // Add the new tile sliding into the grid.
         essentialAnimations.Add(StartCoroutine(SlideTileToPosition(
             newTile.transform, GetWorldPosition(insertCol, rowIndex))));
 
-        // Add all existing tiles sliding within the grid.
         if (fromLeft)
         {
             for (int x = cols - 1; x >= 1; x--)
@@ -605,64 +648,49 @@ public class GridManager : MonoBehaviour
             grid[cols - 1, rowIndex] = newTile;
         }
 
-        // Start the non-essential "fire-and-forget" animation for the falling tile.
-        // We do NOT add this to the list, so we don't wait for it.
+        // Fire-and-forget: we do not wait for the ejected tile to finish falling.
         if (ejectingTile != null)
-        {
             StartCoroutine(EjectTileToAbyss(ejectingTile, !fromLeft));
-        }
 
-        // Now, wait for all essential animations (boat fade + tile slides) to complete.
         foreach (var anim in essentialAnimations)
-        {
             yield return anim;
-        }
 
-
-
-
-
-        // BOAT STICKING LOGIC (Part 2: Un-parent)
         foreach (var boat in boatsToParent)
         {
-            if (boat != null) // Safety check in case the boat was on the ejected tile
+            if (boat != null)
             {
-                boat.transform.SetParent(null, true); // Un-parent from tile
-                                                      // The 'if (showDebugInfo)' has been removed from the next line
+                boat.transform.SetParent(null, true);
                 Debug.Log($"[GridManager] Un-parenting {boat.name}.");
             }
         }
 
-        //This logic places the saved boat back onto the grid or bank
-        // --- START OF BLOCK TO ADD (Part 2) ---
+        // Put the ejected boat back on the board, or on a bank.
         if (ejectedBoat != null)
         {
-            // 1. Prepare the boat and determine its initial target row.
             ejectedBoat.ResetStateAfterEjection();
             int targetRow = rowIndex + (ejectedBoat.starsCollected > 0 ? 1 : -1);
 
-
-            // 2. Handle immediate bank placement if the target is off the board.
             if (targetRow < 0)
             {
-                // We now WAIT for this animation to finish.
-                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom));
+                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(
+                    RiverBankManager.BankSide.Bottom));
                 ejectedBoat.enabled = true;
             }
             else if (targetRow >= rows)
             {
-                // We now WAIT for this animation to finish.
-                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top));
+                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(
+                    RiverBankManager.BankSide.Top));
                 ejectedBoat.enabled = true;
             }
-            // 3. If the target is on the board, perform the search.
             else
             {
                 int landingCol = fromLeft ? cols - 1 : 0;
                 int searchDirection = (ejectedBoat.starsCollected > 0) ? 1 : -1;
                 int currentRow = targetRow;
-                RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
+                RiverBankManager.BankSide destinationBank = (searchDirection == 1)
+                    ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
 
+                // See through a run of reversed tiles to the first normal one.
                 List<TileInstance> crossedReversedTiles = new List<TileInstance>();
                 TileInstance finalLandingTile = null;
 
@@ -682,42 +710,42 @@ public class GridManager : MonoBehaviour
                 }
 
                 if (crossedReversedTiles.Count > 0)
-                {
                     ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
-                }
 
                 if (finalLandingTile != null)
                 {
+                    // Only mirror when the landing tile's yaw genuinely differs from the tile
+                    // the boat left. GetOppositeSnapPoint here is GridManager's mirror mapping
+                    // (0-3, 1-2, 4-5), which IS the permutation a 180 degree yaw induces - the
+                    // right one of the two same-named methods. See ARCHITECTURE.md section 6.2 F.
                     int targetSnapPoint = originalSnapPoint;
-                    float newTileRotation = finalLandingTile.transform.eulerAngles.y;
 
-                    if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
-                    {
+                    if (TileOrientation.IsYawFlipped(finalLandingTile.transform) != ejectedTileYawFlipped)
                         targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
-                    }
 
-                    // We now WAIT for this animation to finish.
-                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint));
+                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(
+                        finalLandingTile, targetSnapPoint));
                     ejectedBoat.enabled = true;
                     ejectedBoat.CheckForCollectibleOnCurrentTile();
                 }
                 else
                 {
-                    // We now WAIT for this animation to finish.
-                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
+                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(
+                        destinationBank));
                     ejectedBoat.enabled = true;
                 }
+
+                // Endless follows the boat with its camera proxy. The sandbox overload never
+                // did this - one of the nine divergences.
+                EndlessModeManager endlessManager = FindFirstObjectByType<EndlessModeManager>();
+                if (endlessManager != null)
+                    endlessManager.UpdateCameraTargetToBoatPosition();
             }
-
-
         }
 
-
-        // Return ejected tile to bag (extract its template data)
+        // Return the ejected tile to the bag. Puzzle mode has a finite hand, so it must not.
         if (ejectingTile != null && ejectingTile.originalTemplate != null)
         {
-            // --- THIS IS THE CHANGE ---
-            // Only return the tile if we are NOT in puzzle mode.
             if (!isPuzzleMode)
             {
                 bagManager.ReturnTile(ejectingTile.originalTemplate);
@@ -733,595 +761,21 @@ public class GridManager : MonoBehaviour
             Debug.LogWarning("[GridManager] Ejected tile had no originalTemplate - cannot return to bag!");
         }
 
-        // Re-enable arrow colliders after push is complete
-        if (riverControls != null)
-        {
-            riverControls.SetArrowCollidersEnabled(true);
-        }
+        if (riverControls != null) riverControls.SetArrowCollidersEnabled(true);
 
-
-
-        // STEP 3: If we had a boat selected at the start, re-select it now.
-        if (previouslySelectedBoat != null)
-        {
-            // This will lift it and find its new valid moves automatically.
-            previouslySelectedBoat.SelectBoat();
-        }
-
+        // Re-select, which lifts the boat and recomputes its valid moves.
+        if (previouslySelectedBoat != null) previouslySelectedBoat.SelectBoat();
 
         HistoryManager.Instance.SaveState();
 
         isPushingInProgress = false;
 
-        string sideText = showObstacleSide ? "Red (Obstacle)" : "Blue (River)";
-        string directionText = fromLeft ? "Left" : "Right";
-        Debug.Log($"[GridManager] Row {rowIndex} pushed from {directionText} with {sideText} tile");
+        string tileName = (newTile.originalTemplate != null)
+            ? newTile.originalTemplate.displayName : "<unknown>";
+        Debug.Log($"[GridManager] Row {rowIndex} pushed from {(fromLeft ? "Left" : "Right")} " +
+                  $"with '{tileName}' ({(newTile.IsReversed ? "Red (Obstacle)" : "Blue (River)")})");
     }
 
-    // ------------------------------------------------------------
-    // NEW OVERLOAD - Second Coroutine (for Puzzle Mode pushes)
-    // ------------------------------------------------------------
-
-
-    public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile handTile)
-
-    {
-        isPushingInProgress = true;
-
-
-        // Determine the exit column immediately.
-        int exitCol = fromLeft ? cols - 1 : 0;
-        // Instantly tell the GameManager to check if these coordinates are the goal.
-
-
-        // STEP 1: Find the selected boat and store it, if it exists.
-        BoatController previouslySelectedBoat = null;
-        if (boatManager != null)
-        {
-            // GetSelectedBoat() is a cleaner way to do this.
-            previouslySelectedBoat = boatManager.GetSelectedBoat();
-        }
-
-        // STEP 2: If a boat was selected, call the correct DeselectBoat() method.
-        if (previouslySelectedBoat != null)
-        {
-            previouslySelectedBoat.DeselectBoat();
-            // Wait a moment for the boat's deselection animation (lowering) to play.
-            yield return new WaitForSeconds(0.3f);
-        }
-
-
-
-
-        RiverControls riverControls = FindFirstObjectByType<RiverControls>();
-        if (riverControls != null)
-        {
-            riverControls.SetArrowCollidersEnabled(false);
-        }
-
-        // === Section 2: Get the New Tile (This is the first key difference) ===
-        // We DO NOT draw from the bag. We use the tile provided by the editor.
-        TileType newTileTemplate = handTile.tileType;
-
-        OnTileConsumed?.Invoke();
-
-        // Check if the provided tile is valid.
-        if (newTileTemplate == null)
-        {
-            Debug.LogError("[GridManager] Push failed: Invalid hand tile provided!");
-            isPushingInProgress = false;
-            if (riverControls != null) riverControls.SetArrowCollidersEnabled(true);
-            yield break;
-        }
-
-        // === Section 3: Ejected Tile & Boat Logic (Part 1 - Identical to original) ===
-        int insertCol = fromLeft ? 0 : cols - 1;
-        // int exitCol = fromLeft ? cols - 1 : 0;
-        Vector3 spawnPos = GetSpawnPosition(rowIndex, fromLeft);
-        TileInstance ejectingTile = grid[exitCol, rowIndex];
-
-
-
-        //This part finds any boats that need to be saved or parented befroe the tiles move
-        float ejectedTileRotation = 0f;
-        if (ejectingTile != null)
-        {
-            ejectedTileRotation = ejectingTile.transform.eulerAngles.y;
-        }
-
-        BoatController ejectedBoat = null;
-        int originalSnapPoint = -1;
-        List<BoatController> boatsToParent = new List<BoatController>();
-
-        if (boatManager != null)
-        {
-            foreach (var boat in boatManager.GetPlayerBoats())
-            {
-                if (boat != null)
-                {
-                    TileInstance boatTile = boat.GetCurrentTile();
-                    if (boatTile == ejectingTile)
-                    {
-                        ejectedBoat = boat;
-                        originalSnapPoint = boat.GetCurrentSnapPoint();
-                        boat.transform.SetParent(null, true);
-                    }
-                    else
-                    {
-                        for (int x = 0; x < cols; x++)
-                        {
-                            if (grid[x, rowIndex] == boatTile)
-                            {
-                                boatsToParent.Add(boat);
-                                boat.transform.SetParent(boat.GetCurrentTile().transform, true);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-
-        if (ejectedBoat != null)
-        {
-            yield return StartCoroutine(ejectedBoat.FadeOutForEjection());
-        }
-
-
-
-
-        // Create new tile at spawn position (outside grid)
-        GameObject newTileGO = Instantiate(tilePrefab, spawnPos, Quaternion.identity, gridParent);
-        newTileGO.name = $"NewTile ({insertCol},{rowIndex})";
-
-        // Setup physics for new tile
-        Rigidbody newRb = newTileGO.GetComponent<Rigidbody>();
-        if (newRb == null)
-        {
-            newRb = newTileGO.AddComponent<Rigidbody>();
-        }
-        newRb.isKinematic = true; // Controlled during sliding
-        newRb.mass = 1f;
-
-        // APPLY THE SAVED STATE: Set rotation and flip state from the hand tile data object.
-        // No random rotation here.
-        newTileGO.transform.rotation = Quaternion.Euler(0, handTile.rotationY, handTile.isFlipped ? 180f : 0f);
-
-        TileInstance newTile = newTileGO.GetComponent<TileInstance>();
-        // Initialize the tile with the correct paths based on its flipped state.
-        InitializeTile(newTile, newTileTemplate, handTile.isFlipped);
-
-        UpdateTileGameplayVisuals(newTile);
-
-        if (levelEditorManager != null)
-        {
-            var editorTile = newTileGO.AddComponent<EditorGridTile>();
-            editorTile.editorManager = levelEditorManager;
-            editorTile.tileInstance = newTile;
-        }
-
-        // === Section 5: Animation (Identical to original) ===
-        List<Coroutine> essentialAnimations = new List<Coroutine>();
-        if (ejectedBoat != null)
-        {
-            essentialAnimations.Add(StartCoroutine(ejectedBoat.FadeOutForEjection()));
-        }
-        essentialAnimations.Add(StartCoroutine(SlideTileToPosition(newTile.transform, GetWorldPosition(insertCol, rowIndex))));
-
-        // Add all existing tiles sliding within the grid.
-        if (fromLeft)
-        {
-            for (int x = cols - 1; x >= 1; x--)
-            {
-                if (grid[x - 1, rowIndex] != null)
-                {
-                    grid[x, rowIndex] = grid[x - 1, rowIndex];
-                    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
-                }
-            }
-            grid[0, rowIndex] = newTile;
-        }
-        else // from right
-        {
-            for (int x = 0; x < cols - 1; x++)
-            {
-                if (grid[x + 1, rowIndex] != null)
-                {
-                    grid[x, rowIndex] = grid[x + 1, rowIndex];
-                    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
-                }
-            }
-            grid[cols - 1, rowIndex] = newTile;
-        }
-
-        // Start the non-essential "fire-and-forget" animation for the falling tile.
-        // We do NOT add this to the list, so we don't wait for it.
-        if (ejectingTile != null)
-        {
-            StartCoroutine(EjectTileToAbyss(ejectingTile, !fromLeft));
-        }
-
-        foreach (var anim in essentialAnimations)
-        {
-            yield return anim;
-        }
-
-        // === Section 6: Post-Animation Boat Logic (Identical to original) ===
-        foreach (var boat in boatsToParent)
-        {
-            if (boat != null)
-            {
-                boat.transform.SetParent(null, true);
-                Debug.Log($"[GridManager] Un-parenting {boat.name}.");
-            }
-        }
-
-        //This logic places the saved boat back onto the grid or bank
-        // --- START OF BLOCK TO ADD (Part 2) ---
-        if (ejectedBoat != null)
-        {
-            // 1. Prepare the boat and determine its initial target row.
-            ejectedBoat.ResetStateAfterEjection();
-            int targetRow = rowIndex + (ejectedBoat.starsCollected > 0 ? 1 : -1);
-
-            // 2. Handle immediate bank placement if the target is off the board.
-            if (targetRow < 0)
-            {
-                // We now WAIT for this animation to finish.
-                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom));
-                ejectedBoat.enabled = true;
-            }
-            else if (targetRow >= rows)
-            {
-                // We now WAIT for this animation to finish.
-                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top));
-                ejectedBoat.enabled = true;
-            }
-            // 3. If the target is on the board, perform the search.
-            else
-            {
-                int landingCol = fromLeft ? cols - 1 : 0;
-                int searchDirection = (ejectedBoat.starsCollected > 0) ? 1 : -1;
-                int currentRow = targetRow;
-                RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
-
-                List<TileInstance> crossedReversedTiles = new List<TileInstance>();
-                TileInstance finalLandingTile = null;
-
-                while (currentRow >= 0 && currentRow < rows)
-                {
-                    TileInstance tileToCheck = GetTileAt(landingCol, currentRow);
-                    if (tileToCheck != null && tileToCheck.IsReversed)
-                    {
-                        crossedReversedTiles.Add(tileToCheck);
-                        currentRow += searchDirection;
-                    }
-                    else
-                    {
-                        finalLandingTile = tileToCheck;
-                        break;
-                    }
-                }
-
-                if (crossedReversedTiles.Count > 0)
-                {
-                    ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
-                }
-
-                if (finalLandingTile != null)
-                {
-                    int targetSnapPoint = originalSnapPoint;
-                    float newTileRotation = finalLandingTile.transform.eulerAngles.y;
-
-                    if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
-                    {
-                        targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
-                    }
-
-                    // We now WAIT for this animation to finish.
-                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint));
-                    ejectedBoat.enabled = true;
-                    ejectedBoat.CheckForCollectibleOnCurrentTile();
-                }
-                else
-                {
-                    // We now WAIT for this animation to finish.
-                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
-                    ejectedBoat.enabled = true;
-                }
-
-                EndlessModeManager endlessManager = FindFirstObjectByType<EndlessModeManager>();
-                if (endlessManager != null)
-                {
-                    endlessManager.UpdateCameraTargetToBoatPosition();
-                }
-
-
-
-            }
-
-
-        }
-
-
-        // Return ejected tile to bag (extract its template data)
-        if (ejectingTile != null && ejectingTile.originalTemplate != null)
-        {
-            // --- THIS IS THE CHANGE ---
-            // Only return the tile if we are NOT in puzzle mode.
-            if (!isPuzzleMode)
-            {
-                bagManager.ReturnTile(ejectingTile.originalTemplate);
-                Debug.Log($"[GridManager] Returned {ejectingTile.originalTemplate.displayName} to bag");
-            }
-            else
-            {
-                Debug.Log($"[GridManager] Puzzle Mode: Did NOT return {ejectingTile.originalTemplate.displayName} to bag.");
-            }
-        }
-        else if (ejectingTile != null)
-        {
-            Debug.LogWarning("[GridManager] Ejected tile had no originalTemplate - cannot return to bag!");
-        }
-
-        // Re-enable arrow colliders after push is complete
-        if (riverControls != null)
-        {
-            riverControls.SetArrowCollidersEnabled(true);
-        }
-
-
-        // STEP 3: If we had a boat selected at the start, re-select it now.
-        if (previouslySelectedBoat != null)
-        {
-            // This will lift it and find its new valid moves automatically.
-            previouslySelectedBoat.SelectBoat();
-        }
-        // ^^^ END OF FINAL STEP ^^^
-
-
-        HistoryManager.Instance.SaveState();
-
-        isPushingInProgress = false;
-
-        string sideText = handTile.isFlipped ? "Red (Obstacle)" : "Blue (River)";
-        string directionText = fromLeft ? "Left" : "Right";
-        Debug.Log($"[GridManager] Row {rowIndex} pushed from {directionText} with hand tile '{handTile.tileType.displayName}' ({sideText})");
-    }
-
-
-    // ------------------------------------------------------------
-    // END OF NEW OVERLOAD
-    // ------------------------------------------------------------
-
-    // ------------------------------------------------------------
-    // START OF SECOND OVERLOAD - Third Coroutine (for Endless Mode / Drag-and-Drop)
-    // ------------------------------------------------------------
-
-    public IEnumerator PushRowCoroutine(int rowIndex, bool fromLeft, PuzzleHandTile handTile, GameObject newTileGO)
-    {
-        isPushingInProgress = true;
-
-        BoatController previouslySelectedBoat = null;
-        if (boatManager != null)
-        {
-            previouslySelectedBoat = boatManager.GetSelectedBoat();
-        }
-        if (previouslySelectedBoat != null)
-        {
-            previouslySelectedBoat.DeselectBoat();
-            yield return new WaitForSeconds(0.3f);
-        }
-
-        RiverControls riverControls = FindFirstObjectByType<RiverControls>();
-        if (riverControls != null)
-        {
-            riverControls.SetArrowCollidersEnabled(false);
-        }
-
-        int insertCol = fromLeft ? 0 : cols - 1;
-        int exitCol = fromLeft ? cols - 1 : 0;
-        TileInstance ejectingTile = grid[exitCol, rowIndex];
-
-        // --- Boat Parenting and Ejection Logic ---
-        float ejectedTileRotation = 0f;
-        if (ejectingTile != null)
-        {
-            ejectedTileRotation = ejectingTile.transform.eulerAngles.y;
-        }
-
-        BoatController ejectedBoat = null;
-        int originalSnapPoint = -1;
-        List<BoatController> boatsToParent = new List<BoatController>();
-
-        if (boatManager != null)
-        {
-            foreach (var boat in boatManager.GetPlayerBoats())
-            {
-                if (boat != null)
-                {
-                    TileInstance boatTile = boat.GetCurrentTile();
-                    if (boatTile == ejectingTile)
-                    {
-                        ejectedBoat = boat;
-                        originalSnapPoint = boat.GetCurrentSnapPoint();
-                        boat.transform.SetParent(null, true);
-                    }
-                    else
-                    {
-                        for (int x = 0; x < cols; x++)
-                        {
-                            if (grid[x, rowIndex] == boatTile)
-                            {
-                                boatsToParent.Add(boat);
-                                boat.transform.SetParent(boat.GetCurrentTile().transform, true);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (ejectedBoat != null)
-        {
-            yield return StartCoroutine(ejectedBoat.FadeOutForEjection());
-        }
-
-        // --- Core Change: We use the provided newTileGO ---
-        TileInstance newTile = newTileGO.GetComponent<TileInstance>();
-
-        // 1. Set the tile's internal data (paths, isReversed state)
-        InitializeTile(newTile, handTile.tileType, handTile.isFlipped); 
-        // 2. Now update its visuals (the vortex) based on that new data
-        UpdateTileGameplayVisuals(newTile);
-
-
-        // --- Animation Logic ---
-        List<Coroutine> essentialAnimations = new List<Coroutine>();
-        if (ejectedBoat != null)
-        {
-            essentialAnimations.Add(StartCoroutine(ejectedBoat.FadeOutForEjection()));
-        }
-        essentialAnimations.Add(StartCoroutine(SlideTileToPosition(newTile.transform, GetWorldPosition(insertCol, rowIndex))));
-
-        if (fromLeft)
-        {
-            for (int x = cols - 1; x >= 1; x--)
-            {
-                if (grid[x - 1, rowIndex] != null)
-                {
-                    grid[x, rowIndex] = grid[x - 1, rowIndex];
-                    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
-                }
-            }
-            grid[0, rowIndex] = newTile;
-        }
-        else // from right
-        {
-            for (int x = 0; x < cols - 1; x++)
-            {
-                if (grid[x + 1, rowIndex] != null)
-                {
-                    grid[x, rowIndex] = grid[x + 1, rowIndex];
-                    essentialAnimations.Add(StartCoroutine(SlideTileToPosition(grid[x, rowIndex].transform, GetWorldPosition(x, rowIndex))));
-                }
-            }
-            grid[cols - 1, rowIndex] = newTile;
-        }
-
-        if (ejectingTile != null)
-        {
-            StartCoroutine(EjectTileToAbyss(ejectingTile, !fromLeft));
-        }
-
-        foreach (var anim in essentialAnimations)
-        {
-            yield return anim;
-        }
-
-        // --- Post-Animation Logic ---
-        foreach (var boat in boatsToParent)
-        {
-            if (boat != null)
-            {
-                boat.transform.SetParent(null, true);
-            }
-        }
-
-        if (ejectedBoat != null)
-        {
-            ejectedBoat.ResetStateAfterEjection();
-            int targetRow = rowIndex + (ejectedBoat.starsCollected > 0 ? 1 : -1);
-
-            if (targetRow < 0)
-            {
-                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Bottom));
-                ejectedBoat.enabled = true;
-            }
-            else if (targetRow >= rows)
-            {
-                yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(RiverBankManager.BankSide.Top));
-                ejectedBoat.enabled = true;
-            }
-            else
-            {
-                int landingCol = fromLeft ? cols - 1 : 0;
-                int searchDirection = (ejectedBoat.starsCollected > 0) ? 1 : -1;
-                int currentRow = targetRow;
-                RiverBankManager.BankSide destinationBank = (searchDirection == 1) ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
-                List<TileInstance> crossedReversedTiles = new List<TileInstance>();
-                TileInstance finalLandingTile = null;
-
-                while (currentRow >= 0 && currentRow < rows)
-                {
-                    TileInstance tileToCheck = GetTileAt(landingCol, currentRow);
-                    if (tileToCheck != null && tileToCheck.IsReversed)
-                    {
-                        crossedReversedTiles.Add(tileToCheck);
-                        currentRow += searchDirection;
-                    }
-                    else
-                    {
-                        finalLandingTile = tileToCheck;
-                        break;
-                    }
-                }
-
-                if (crossedReversedTiles.Count > 0)
-                {
-                    ejectedBoat.ApplyPenaltiesForForcedMove(crossedReversedTiles);
-                }
-
-                if (finalLandingTile != null)
-                {
-                    int targetSnapPoint = originalSnapPoint;
-                    float newTileRotation = finalLandingTile.transform.eulerAngles.y;
-                    if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
-                    {
-                        targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
-                    }
-                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(finalLandingTile, targetSnapPoint));
-                    ejectedBoat.enabled = true;
-                    ejectedBoat.CheckForCollectibleOnCurrentTile();
-                }
-                else
-                {
-                    yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(destinationBank));
-                    ejectedBoat.enabled = true;
-                }
-
-                EndlessModeManager endlessManager = FindFirstObjectByType<EndlessModeManager>();
-                if (endlessManager != null)
-                {
-                    endlessManager.UpdateCameraTargetToBoatPosition();
-                }
-
-            }
-        }
-
-        if (ejectingTile != null && ejectingTile.originalTemplate != null && !isPuzzleMode)
-        {
-            bagManager.ReturnTile(ejectingTile.originalTemplate);
-        }
-
-        if (riverControls != null)
-        {
-            riverControls.SetArrowCollidersEnabled(true);
-        }
-        if (previouslySelectedBoat != null)
-        {
-            previouslySelectedBoat.SelectBoat();
-        }
-
-        HistoryManager.Instance.SaveState();
-        isPushingInProgress = false;
-    }
-
-
-    // ------------------------------------------------------------
-    // END OF SECOND OVERLOAD
-    // ------------------------------------------------------------
 
 
 
@@ -1516,14 +970,17 @@ public class GridManager : MonoBehaviour
             // Flip tile to show obstacle (red) side
             // tileInstance.transform.Rotate(180f, 0f, 0f);
 
+            // Connections are BIDIRECTIONAL (CLAUDE.md domain conventions), so each straight
+            // path is listed ONCE. This previously listed all three twice (0-2 and 2-0, etc).
+            // PathVisualizer creates a LineRenderer GameObject per connection but registers them
+            // under a canonical (min,max) key only when absent, so the three duplicates were
+            // orphaned beyond CleanUpPaths' reach - +3 leaked GameObjects per reversed init.
+            // LevelEditorManager.FlipTile already used this three-entry form; the two now agree.
             var straightPaths = new List<TileInstance.Connection>
         {
             new TileInstance.Connection { from = 0, to = 2 },
-            new TileInstance.Connection { from = 2, to = 0 },
             new TileInstance.Connection { from = 1, to = 3 },
-            new TileInstance.Connection { from = 3, to = 1 },
-            new TileInstance.Connection { from = 4, to = 5 },
-            new TileInstance.Connection { from = 5, to = 4 }
+            new TileInstance.Connection { from = 4, to = 5 }
         };
 
             // PASS THE TEMPLATE to the tile
@@ -1841,11 +1298,34 @@ public class GridManager : MonoBehaviour
     }
 
 
+    /// <summary>
+    /// Reverse lookup: which tile and snap point is this world position sitting on?
+    ///
+    /// COMPARED IN THE HORIZONTAL PLANE ONLY. Every snap point on the board lies on the same
+    /// flat Y, while the boat's Y swings with its resting height, the lift on selection and the
+    /// idle bob - none of which says anything about WHICH snap point it is on. Including Y added
+    /// a near-constant ~0.5 error that consumed the 0.5 threshold on its own, so a correctly
+    /// placed resting boat reverse-looked-up onto a NEIGHBOURING tile across a shared edge and
+    /// ResynchronizeStateWithTransform reported "Boat Desync Detected!" for a desync that had
+    /// not happened. Measured on a row push: the boat's distance to its own snap point was
+    /// 0.1500 before the push and 0.1500 after it - the push tracks the boat correctly - and
+    /// only rose to 0.5220 once the boat settled to resting height. See test L2.
+    ///
+    /// The small inward boatOffset is what distinguishes the two coincident snap points at a
+    /// shared tile edge, so dropping Y is precisely what lets it do its job.
+    /// </summary>
     public (TileInstance, int) FindTileAndSnapPointAtWorldPos(Vector3 worldPosition)
     {
         TileInstance closestTile = null;
         int closestSnapPoint = -1;
         float minDistance = float.MaxValue;
+
+        // How far inside the tile a boat sits from the snap point itself. This used to read
+        // tile.GetComponent<BoatController>()?.snapOffset - a lookup on the TILE, which never
+        // carries a BoatController, so it always fell through to this literal anyway.
+        const float boatOffset = 0.15f;
+
+        Vector3 flatTarget = new Vector3(worldPosition.x, 0f, worldPosition.z);
 
         // Search every tile in the grid
         for (int y = 0; y < this.rows; y++)
@@ -1860,13 +1340,12 @@ public class GridManager : MonoBehaviour
                     {
                         if (tile.snapPoints[i] != null)
                         {
-                            // We use the boat's offset in our calculation for accuracy
-                            float boatOffset = tile.GetComponent<BoatController>()?.snapOffset ?? 0.15f;
                             Vector3 tileCenter = tile.transform.position;
                             Vector3 direction = (tile.snapPoints[i].position - tileCenter).normalized;
                             Vector3 boatPositionOnSnap = tile.snapPoints[i].position - direction * boatOffset;
+                            boatPositionOnSnap.y = 0f;
 
-                            float distance = Vector3.Distance(worldPosition, boatPositionOnSnap);
+                            float distance = Vector3.Distance(flatTarget, boatPositionOnSnap);
 
                             if (distance < minDistance)
                             {
