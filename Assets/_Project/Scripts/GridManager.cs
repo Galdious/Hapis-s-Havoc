@@ -1291,11 +1291,34 @@ public class GridManager : MonoBehaviour
     }
 
 
+    /// <summary>
+    /// Reverse lookup: which tile and snap point is this world position sitting on?
+    ///
+    /// COMPARED IN THE HORIZONTAL PLANE ONLY. Every snap point on the board lies on the same
+    /// flat Y, while the boat's Y swings with its resting height, the lift on selection and the
+    /// idle bob - none of which says anything about WHICH snap point it is on. Including Y added
+    /// a near-constant ~0.5 error that consumed the 0.5 threshold on its own, so a correctly
+    /// placed resting boat reverse-looked-up onto a NEIGHBOURING tile across a shared edge and
+    /// ResynchronizeStateWithTransform reported "Boat Desync Detected!" for a desync that had
+    /// not happened. Measured on a row push: the boat's distance to its own snap point was
+    /// 0.1500 before the push and 0.1500 after it - the push tracks the boat correctly - and
+    /// only rose to 0.5220 once the boat settled to resting height. See test L2.
+    ///
+    /// The small inward boatOffset is what distinguishes the two coincident snap points at a
+    /// shared tile edge, so dropping Y is precisely what lets it do its job.
+    /// </summary>
     public (TileInstance, int) FindTileAndSnapPointAtWorldPos(Vector3 worldPosition)
     {
         TileInstance closestTile = null;
         int closestSnapPoint = -1;
         float minDistance = float.MaxValue;
+
+        // How far inside the tile a boat sits from the snap point itself. This used to read
+        // tile.GetComponent<BoatController>()?.snapOffset - a lookup on the TILE, which never
+        // carries a BoatController, so it always fell through to this literal anyway.
+        const float boatOffset = 0.15f;
+
+        Vector3 flatTarget = new Vector3(worldPosition.x, 0f, worldPosition.z);
 
         // Search every tile in the grid
         for (int y = 0; y < this.rows; y++)
@@ -1310,13 +1333,12 @@ public class GridManager : MonoBehaviour
                     {
                         if (tile.snapPoints[i] != null)
                         {
-                            // We use the boat's offset in our calculation for accuracy
-                            float boatOffset = tile.GetComponent<BoatController>()?.snapOffset ?? 0.15f;
                             Vector3 tileCenter = tile.transform.position;
                             Vector3 direction = (tile.snapPoints[i].position - tileCenter).normalized;
                             Vector3 boatPositionOnSnap = tile.snapPoints[i].position - direction * boatOffset;
+                            boatPositionOnSnap.y = 0f;
 
-                            float distance = Vector3.Distance(worldPosition, boatPositionOnSnap);
+                            float distance = Vector3.Distance(flatTarget, boatPositionOnSnap);
 
                             if (distance < minDistance)
                             {

@@ -167,7 +167,9 @@ namespace HapisHavoc.Tests
         /// paths are pixel-identical and R1 contributes nothing through them. The only signature
         /// is the tile mesh/vortex decal not being 180-yaw symmetric, measured at 0.5364% for a
         /// single tile - a 0.036 point margin over the 0.5% threshold, too thin to trust. Three
-        /// tiles measure 1.6414%, a 3.3x margin. (Measured by R1VisualDiagnostic.)
+        /// tiles measure 1.6414%, a 3.3x margin. (Both figures measured by a throwaway
+        /// diagnostic that applied the missing yaw post-hoc and diffed the captures; the numbers
+        /// are recorded in Golden/README.md.)
         ///
         /// This golden EXISTS so R1's fix has visible proof. It is expected to change when R1 is
         /// fixed - see Golden/README.md.
