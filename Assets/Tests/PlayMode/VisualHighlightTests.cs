@@ -180,6 +180,77 @@ namespace HapisHavoc.Tests
         }
 
         /// <summary>
+        /// V1c. V1b's scenario only ever made the BOTTOM bank a dock, so the top-bank restore
+        /// path went untested. The S3b diagnostic showed the top bank IS reachable as a dock on
+        /// all seven levels, so this walks the boat onto the top row until the top bank lights,
+        /// then asserts it lights AND restores.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator V1c_TopBankHighlightClearsCompletely()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return SceneFixture.Load(FixtureMode.Playing, "Levels/01_06_TestLevel");
+
+            var boat = SceneFixture.Boat;
+            var grid = SceneFixture.Grid;
+            var rbm = Object.FindFirstObjectByType<RiverBankManager>();
+            Assert.IsNotNull(boat, "no boat");
+            var topGo = rbm.GetBankGameObject(RiverBankManager.BankSide.Top);
+            Assert.IsNotNull(topGo, "no top bank");
+
+            // Find a placement that actually makes the top bank a dock.
+            bool found = false;
+            int topRow = grid.rows - 1;
+            for (int x = 0; x < grid.cols && !found; x++)
+            {
+                var t = grid.GetTileAt(x, topRow);
+                if (t == null || t.IsHardBlocker) continue;
+                for (int snap = 0; snap < 6 && !found; snap++)
+                {
+                    boat.DeselectBoat();
+                    yield return new WaitForSecondsRealtime(0.4f);
+                    boat.PlaceOnTile(t, snap);
+                    boat.SelectBoat();
+                    yield return new WaitForSecondsRealtime(0.6f);
+                    if (topGo.GetComponentsInChildren<BankClickHandler>(true).Length > 0) found = true;
+                    else { boat.DeselectBoat(); yield return new WaitForSecondsRealtime(0.3f); }
+                }
+            }
+            Assert.IsTrue(found, "V1c: could not reach a state where the top bank is a dock, so the " +
+                                 "top-bank restore path cannot be exercised.");
+
+            RectInt topBand;
+            using (var ctx = new DeterministicContext()) topBand = ScreenRectOf(ctx.Cam, topGo);
+
+            string lit, after;
+            using (var ctx = new DeterministicContext())
+                lit = CaptureRig.Capture(ctx, Suite, "topbank-01-highlighted");
+
+            boat.DeselectBoat();
+            yield return new WaitForSecondsRealtime(Settle);
+            using (var ctx = new DeterministicContext())
+                after = CaptureRig.Capture(ctx, Suite, "topbank-02-cleared");
+
+            var iLit = PixelUtil.Load(lit);
+            var iAfter = PixelUtil.Load(after);
+            Color32 litC = PixelUtil.AverageInRect(iLit, topBand);
+            Color32 afterC = PixelUtil.AverageInRect(iAfter, topBand);
+
+            Debug.Log($"[V1c] top bank rect={topBand} lit={litC} cleared={afterC} " +
+                      $"restoreDelta={PixelUtil.ChannelDelta(litC, afterC)}");
+
+            // STEP 0 precondition: prove the region holds bank, not background, before asserting
+            // anything about change. Background here is orange (~R141 G111 B27); the bank is navy.
+            Assert.Less(litC.r, 120,
+                $"V1c: the derived top-bank region averages {litC}, which looks like background " +
+                "rather than the navy bank - the assertion below would be measuring nothing.");
+
+            Assert.Greater(PixelUtil.ChannelDelta(litC, afterC), 20,
+                $"V1c: the top bank did not visibly change between highlighted and cleared " +
+                $"(delta {PixelUtil.ChannelDelta(litC, afterC)}), so its restore is untested.");
+        }
+
+        /// <summary>
         /// Screen-space rect of a renderer's world bounds, in the RenderTexture's pixel space
         /// (origin bottom-left, matching PixelUtil's indexing). Shrunk 15% toward the centre so
         /// we sample the bank's face rather than its silhouette edge against the background.

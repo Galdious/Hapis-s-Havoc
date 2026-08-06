@@ -61,6 +61,37 @@ namespace HapisHavoc.Tests
 #endif
             }
 
+            // The raw reading counts everything the editor rendered that frame, not just the game
+            // camera - which is why it came out ~6x the ARCHITECTURE.md estimate while the project
+            // runs above 200fps in normal play. Isolate the BOARD's contribution by re-reading
+            // with every tile hidden and subtracting.
+            var hidden = new List<GameObject>();
+            for (int y = 0; y < grid.rows; y++)
+                for (int x = 0; x < grid.cols; x++)
+                {
+                    var t = grid.GetTileAt(x, y);
+                    if (t != null && t.gameObject.activeSelf) { t.gameObject.SetActive(false); hidden.Add(t.gameObject); }
+                }
+            yield return new WaitForEndOfFrame();
+            yield return new WaitForEndOfFrame();
+
+            int emptyDrawCalls = -1, emptySetPass = -1, emptyBatches = -1;
+#if UNITY_EDITOR
+            emptyDrawCalls = UnityEditor.UnityStats.drawCalls;
+            emptySetPass = UnityEditor.UnityStats.setPassCalls;
+            emptyBatches = UnityEditor.UnityStats.batches;
+#endif
+            foreach (var go in hidden) if (go != null) go.SetActive(true);
+            yield return new WaitForEndOfFrame();
+
+            int boardDrawCalls = drawCalls - emptyDrawCalls;
+            int boardSetPass = setPass - emptySetPass;
+            int boardBatches = batches - emptyBatches;
+            Debug.Log($"[L6] harness/editor baseline with all {hidden.Count} tiles hidden: " +
+                      $"drawCalls={emptyDrawCalls} setPassCalls={emptySetPass} batches={emptyBatches}\n" +
+                      $"     BOARD CONTRIBUTION = {boardDrawCalls} drawCalls, {boardSetPass} setPassCalls, " +
+                      $"{boardBatches} batches");
+
             Debug.Log($"[L6] 6x6 board MEASURED: tiles={tiles} lineRenderers={lineRenderers} " +
                       $"meshRenderers={meshRenderers} drawCalls={drawCalls} setPassCalls={setPass} batches={batches}\n" +
                       $"     ARCHITECTURE.md 5.3 estimated ~127 line renderers and ~170 draw calls.");
@@ -75,25 +106,21 @@ namespace HapisHavoc.Tests
                 "Each is its own draw call - dynamic batching is off in both RP assets and LineRenderer " +
                 "is not SRP-Batcher compatible.");
 
-            if (drawCalls > 0)
-            {
-                const int DrawCallCeiling = 1150;      // measured 1040 on 2026-08-05
-                Assert.LessOrEqual(drawCalls, DrawCallCeiling,
-                    $"L6: 6x6 board drew {drawCalls} calls, over the {DrawCallCeiling} ceiling. " +
-                    "Baseline was 1040 with 140 LineRenderers. If this rose from new content, " +
-                    "re-baseline deliberately; if from path rendering, the procedural mesh work is due.");
-            }
-            else
-            {
-                // Stated plainly rather than silently passing on an unavailable stat.
-                Debug.LogWarning("[L6] UnityStats.drawCalls read 0 in batchmode - the profiler counters " +
-                                 "are not populated without a Game View frame. The LineRenderer and " +
-                                 "MeshRenderer counts above ARE real and are asserted; the draw-call " +
-                                 "total needs a Frame Debugger capture in the Editor to confirm.");
-                Assert.Inconclusive($"L6: renderer counts measured (lineRenderers={lineRenderers}, " +
-                                    $"meshRenderers={meshRenderers}) but UnityStats.drawCalls is " +
-                                    "unavailable in batchmode. See warning above.");
-            }
+            // DELIBERATELY NOT ASSERTING ON UnityStats.drawCalls.
+            //
+            // Hiding all 36 tiles changed it by exactly ZERO (1028 -> 1028, setPass 70 -> 70,
+            // batches 266 -> 266). A counter that does not move when the entire board is removed
+            // is not measuring the board. UnityStats in a batchmode PlayMode test reports editor
+            // overhead, not the pinned game camera, so any ceiling built on it would be a number
+            // that cannot regress and cannot inform.
+            //
+            // This also RETRACTS the earlier claim that ARCHITECTURE.md's ~170 estimate was "6x
+            // low". That conclusion came from this same invalid counter. The estimate is not
+            // refuted; it is simply unconfirmed headlessly and needs a Frame Debugger capture.
+            Assert.AreEqual(0, boardDrawCalls,
+                $"L6: hiding the whole board changed UnityStats.drawCalls by {boardDrawCalls}. If this " +
+                "ever becomes non-zero the counter has started tracking the game camera and a real " +
+                "draw-call ceiling becomes possible - revisit this test.");
         }
     }
 }

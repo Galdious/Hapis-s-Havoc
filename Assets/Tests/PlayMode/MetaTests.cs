@@ -17,9 +17,8 @@ namespace HapisHavoc.Tests
     ///   X2 (V5 must fail)  - [Ignore], blocked on ThemeDefinition, alongside V5/V6.
     ///   X3 (V1 must fail)  - implemented below.
     ///   X4 (V8 must fail)  - not yet written; V8 is not implemented in this pass.
-    ///   X5 (L1 must fail)  - NOT synthesised. L1 already fails against the real R1 bug, which is
-    ///                        stronger evidence than a control: the assertion is demonstrably red
-    ///                        on genuine breakage today. A synthetic control would add nothing.
+    ///   X5 (L1 must fail)  - implemented below, against a SYNTHETIC control rather than the live
+    ///                        R1 bug, so it keeps proving L1 can fail after R1 is fixed.
     ///   X6 (L7 must fail)  - implemented below.
     /// </summary>
     [TestFixture]
@@ -107,6 +106,59 @@ namespace HapisHavoc.Tests
                 $"X6 META-FAILURE: the boat was displaced to the tile it had left, but the sampled " +
                 $"distance from its true position is only {distFromBank:F3} - under L7's 1.0 threshold. " +
                 "L7 would pass on a wrong departure, which means L7 is broken. Fix L7, not this control.");
+        }
+
+
+        /// <summary>
+        /// X5 -> L1 must fail. Built against a SYNTHETIC control, deliberately NOT against the
+        /// live overload-2 bug: the next job fixes R1, and the moment it does an R1-based control
+        /// would stop failing and X5 would silently stop proving anything. This exercises the
+        /// exact comparison L1 uses - TileOrientation.SameOrientation - against two tiles that
+        /// differ only in yaw, so it stays red no matter what happens to the push overloads.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator X5_L1_ComparisonCatchesAWrongRotation()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return SceneFixture.Load(FixtureMode.Playing, "Levels/01_06_TestLevel");
+
+            var grid = SceneFixture.Grid;
+            Assert.IsNotNull(grid, "no GridManager");
+            Assert.IsNotNull(grid.tilePrefab, "no tile prefab");
+
+            // Two tiles built the loader's way (X flip), identical except one is yawed 180.
+            var reference = Object.Instantiate(grid.tilePrefab, new Vector3(-50f, 0f, 0f),
+                                               Quaternion.Euler(180f, 0f, 0f));
+            var wrongRotation = Object.Instantiate(grid.tilePrefab, new Vector3(-60f, 0f, 0f),
+                                                   Quaternion.Euler(180f, 180f, 0f));   // THE BREAKAGE
+            var sameAsReference = Object.Instantiate(grid.tilePrefab, new Vector3(-70f, 0f, 0f),
+                                                     Quaternion.Euler(180f, 0f, 0f));
+            yield return null;
+
+            bool matchesIdentical = TileOrientation.SameOrientation(reference.transform,
+                                                                    sameAsReference.transform);
+            bool matchesWrong = TileOrientation.SameOrientation(reference.transform,
+                                                                wrongRotation.transform);
+
+            Debug.Log($"[X5] reference={TileOrientation.Describe(reference.transform)}\n" +
+                      $"     wrongRotation={TileOrientation.Describe(wrongRotation.transform)}\n" +
+                      $"     identical-pair reported same? {matchesIdentical}   " +
+                      $"wrong-pair reported same? {matchesWrong}");
+
+            Object.DestroyImmediate(reference);
+            Object.DestroyImmediate(wrongRotation);
+            Object.DestroyImmediate(sameAsReference);
+
+            // Guard against a comparison that is trivially always-false, which would "catch"
+            // everything and prove nothing.
+            Assert.IsTrue(matchesIdentical,
+                "X5 META-FAILURE: two identically-built tiles were reported as DIFFERENT. L1's " +
+                "comparison is trivially always-false, so its failures carry no information.");
+
+            Assert.IsFalse(matchesWrong,
+                "X5 META-FAILURE: a tile yawed 180 relative to the reference was reported as the " +
+                "SAME orientation. L1's rotation comparison cannot detect a wrong rotation, so L1 " +
+                "would pass on a genuine parity break. Fix L1, not this control.");
         }
 
         [Test]

@@ -859,6 +859,19 @@ SRP-Batcher-compatible and cannot be static-batched. So each of the ~127 line re
 draw call. The 36 tile meshes share one material and are SRP-Batcher eligible, so they cost far
 less. Rough total for the board: **~170 draw calls, of which ~127 are path lines.**
 
+> **MEASURED 2026-08-05** (Unity 6000.3.21f1, harness test `L6`, seeded random 6×6):
+> **138–140 `LineRenderer`s** on a full 36-tile board — the ~127 estimate above was about
+> 8–10% low, so it holds up. The count varies run to run because `CreateGridFromEditor`
+> draws random tile types carrying 3–4 connections each. Also measured: 55 `MeshRenderer`s.
+>
+> **The total draw-call figure remains UNCONFIRMED.** `UnityEditor.UnityStats.drawCalls` is
+> not usable from a batchmode PlayMode test: hiding all 36 tiles changed it by exactly zero
+> (1028 → 1028, setPass 70 → 70, batches 266 → 266), proving it reports editor overhead
+> rather than the pinned game camera. An earlier note claiming the estimate was "6× low"
+> was based on that invalid counter and has been retracted. Confirming the total needs a
+> Frame Debugger capture in the Editor. The `LineRenderer` count is the reliable number and
+> carries the procedural-path-mesh argument on its own.
+
 Worse cases:
 - A **reversed** tile is initialised by `GridManager.InitializeTile` with **six** connections
   (`0-2, 2-0, 1-3, 3-1, 4-5, 5-4`) — three logical paths written twice. That creates **6**
