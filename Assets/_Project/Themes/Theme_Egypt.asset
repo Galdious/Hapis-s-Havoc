@@ -1,0 +1,74 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f2f14fafa7afe45299809c7a501e7bdf, type: 3}
+  m_Name: Theme_Egypt
+  m_EditorClassIdentifier: HapisHavoc.Runtime::ThemeDefinition
+  id: egypt
+  displayName: Egypt
+  tileBase: {r: 0.5568628, g: 0.7921569, b: 0.9019608, a: 1}
+  tileEdge: {r: 0.5568628, g: 0.7921569, b: 0.9019608, a: 1}
+  pathShallow: {r: 0.3537736, g: 1, b: 0.3537736, a: 1}
+  pathDeep: {r: 0.3537736, g: 1, b: 0.3537736, a: 1}
+  pathHighlight: {r: 1, g: 0, b: 0.009498596, a: 1}
+  blocker: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  vortex: {r: 1, g: 1, b: 1, a: 1}
+  goal: {r: 1, g: 0, b: 0, a: 1}
+  bankTop: {r: 0.007843138, g: 0.18823525, b: 0.27843136, a: 1}
+  bankBottom: {r: 0.007843138, g: 0.18823525, b: 0.27843136, a: 1}
+  uiAccent: {r: 1, g: 1, b: 1, a: 1}
+  backgroundTop: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  backgroundBottom: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  tileMat: {fileID: 2100000, guid: 9773294126de04f9cbf327759605d3e7, type: 2}
+  pathMat: {fileID: 2100000, guid: ce7f9c3a696354dfda372b862e6329f9, type: 2}
+  blockerMat: {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  vortexMat: {fileID: 2100000, guid: a7d7de524a268440583f4748890b6115, type: 2}
+  bankMat: {fileID: 2100000, guid: fa541c8e8941a421e8681e04e18ef044, type: 2}
+  boatMat: {fileID: 2100000, guid: 9af61865a61f142fe955ffa19a04129e, type: 2}
+  bankPrefab: {fileID: 0}
+  boatPrefab: {fileID: 5652206283578590841, guid: 11d1a4cf1711e4b6d8bde2e5a6c48aad, type: 3}
+  blockerPrefab: {fileID: 3578985545442099175, guid: b9cccfe652e0c4c988de0352c12b4191, type: 3}
+  vortexPrefab: {fileID: 3181402151518565514, guid: 06c1fea0e57fb418a89509dd7cbf7821, type: 3}
+  goalMarkerPrefab: {fileID: 3065368649120530297, guid: 1f57610918aca4e1ca64185258e4647f, type: 3}
+  decorativeProps: []
+  backgroundGradient:
+    serializedVersion: 2
+    key0: {r: 1, g: 1, b: 1, a: 1}
+    key1: {r: 1, g: 1, b: 1, a: 1}
+    key2: {r: 0, g: 0, b: 0, a: 0}
+    key3: {r: 0, g: 0, b: 0, a: 0}
+    key4: {r: 0, g: 0, b: 0, a: 0}
+    key5: {r: 0, g: 0, b: 0, a: 0}
+    key6: {r: 0, g: 0, b: 0, a: 0}
+    key7: {r: 0, g: 0, b: 0, a: 0}
+    ctime0: 0
+    ctime1: 65535
+    ctime2: 0
+    ctime3: 0
+    ctime4: 0
+    ctime5: 0
+    ctime6: 0
+    ctime7: 0
+    atime0: 0
+    atime1: 65535
+    atime2: 0
+    atime3: 0
+    atime4: 0
+    atime5: 0
+    atime6: 0
+    atime7: 0
+    m_Mode: 0
+    m_ColorSpace: -1
+    m_NumColorKeys: 2
+    m_NumAlphaKeys: 2
+  skyboxMaterial: {fileID: 0}
+  ambientLoop: {fileID: 0}
+  stingers: []

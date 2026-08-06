@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 #
-# Hapi's Havoc - PlayMode test harness runner.
+# Hapi's Havoc - test harness runner.
 #
-#   ./tools/run-tests.sh                    # whole suite
+#   ./tools/run-tests.sh                    # whole PlayMode suite
 #   ./tools/run-tests.sh DeterminismGate    # NUnit filter substring
+#   HAPI_TEST_PLATFORM=EditMode ./tools/run-tests.sh ThemeAuthoring
+#
+# PlayMode is the default and is what "the suite" means. EditMode exists for the handful of
+# things that need AssetDatabase - asset authoring - which cannot run in PlayMode and must not
+# be done by opening the Editor, since the harness requires it closed.
 #
 # -batchmode WITHOUT -nographics is deliberate and load-bearing. -nographics kills the
 # render loop and every capture comes back black, which makes image comparisons pass
@@ -16,6 +21,7 @@ UNITY_VERSION="$(sed -n 's/^m_EditorVersion: //p' "$REPO/ProjectSettings/Project
 UNITY="/Applications/Unity/Hub/Editor/${UNITY_VERSION}/Unity.app/Contents/MacOS/Unity"
 OUT="$REPO/TestOutput"
 FILTER="${1:-}"
+PLATFORM="${HAPI_TEST_PLATFORM:-PlayMode}"
 
 red()   { printf '\033[31m%s\033[0m\n' "$*"; }
 green() { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -59,13 +65,13 @@ RESULTS="$OUT/results.xml"
 LOG="$OUT/unity.log"
 rm -f "$RESULTS" "$LOG"
 
-ARGS=(-batchmode -runTests -testPlatform PlayMode
+ARGS=(-batchmode -runTests -testPlatform "$PLATFORM"
       -projectPath "$REPO"
       -testResults "$RESULTS"
       -logFile "$LOG")
 [[ -n "$FILTER" ]] && ARGS+=(-testFilter "$FILTER")
 
-bold "Unity $UNITY_VERSION - PlayMode tests${FILTER:+ (filter: $FILTER)}"
+bold "Unity $UNITY_VERSION - $PLATFORM tests${FILTER:+ (filter: $FILTER)}"
 echo "  log:     $LOG"
 echo "  results: $RESULTS"
 echo

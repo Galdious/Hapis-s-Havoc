@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f58d157b3ebf141a0bdc96d3e1d75a67, type: 3}
+  m_Name: World_01_Egypt
+  m_EditorClassIdentifier: HapisHavoc.Runtime::WorldDefinition
+  worldIndex: 1
+  displayName: Egypt
+  theme: {fileID: 11400000, guid: d15ed1fd7340c4eb6b663b11292e995d, type: 2}
+  levelResourcePaths:
+  - Levels/01_01_BasicMoves
+  - Levels/01_02_BonusMove
+  - Levels/01_03_BasicSkip
+  - Levels/01_04_SimplePush
+  - Levels/01_05_SimpleFall
+  - Levels/01_06_TestLevel
+  - Levels/01_07_OneWayPush
+  unlockedMechanics: 0

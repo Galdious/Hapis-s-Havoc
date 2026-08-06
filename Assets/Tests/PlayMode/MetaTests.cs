@@ -14,7 +14,7 @@ namespace HapisHavoc.Tests
     ///
     /// Status of the six controls in the brief:
     ///   X1 (V3 must fail)  - not yet written; V3 is not implemented in this pass.
-    ///   X2 (V5 must fail)  - [Ignore], blocked on ThemeDefinition, alongside V5/V6.
+    ///   X2 (V5 must fail)  - now real, and lives in ThemeTests beside V5 itself.
     ///   X3 (V1 must fail)  - implemented below.
     ///   X4 (V8 must fail)  - not yet written; V8 is not implemented in this pass.
     ///   X5 (L1 must fail)  - implemented below, against a SYNTHETIC control rather than the live
@@ -210,14 +210,5 @@ namespace HapisHavoc.Tests
                 "that silently does nothing. Fix V1, not this control.");
         }
 
-        [Test]
-        [Ignore("Blocked on ThemeDefinition, alongside V5 and V6.")]
-        public void X2_V5_FailsOnNearIdenticalWaterAndStoneColours()
-        {
-            // Build a ThemeDefinition whose water and stone sit within a few units of each other,
-            // then assert V5's WCAG contrast check rejects it. PixelUtil.ContrastRatio already
-            // exists and is the comparison V5 will use; only the theme asset is missing.
-            Assert.Fail("unreachable while ignored");
-        }
     }
 }

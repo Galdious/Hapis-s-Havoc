@@ -1,0 +1,74 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f2f14fafa7afe45299809c7a501e7bdf, type: 3}
+  m_Name: Theme_Unreadable
+  m_EditorClassIdentifier: HapisHavoc.Runtime::ThemeDefinition
+  id: unreadable
+  displayName: Unreadable (broken control)
+  tileBase: {r: 0.52, g: 0.5, b: 0.48, a: 1}
+  tileEdge: {r: 0.52, g: 0.5, b: 0.48, a: 1}
+  pathShallow: {r: 0.55, g: 0.53, b: 0.51, a: 1}
+  pathDeep: {r: 0.55, g: 0.53, b: 0.51, a: 1}
+  pathHighlight: {r: 0.55, g: 0.53, b: 0.51, a: 1}
+  blocker: {r: 0.52, g: 0.5, b: 0.48, a: 1}
+  vortex: {r: 0.55, g: 0.53, b: 0.51, a: 1}
+  goal: {r: 0.52, g: 0.5, b: 0.48, a: 1}
+  bankTop: {r: 0.52, g: 0.5, b: 0.48, a: 1}
+  bankBottom: {r: 0.52, g: 0.5, b: 0.48, a: 1}
+  uiAccent: {r: 0.55, g: 0.53, b: 0.51, a: 1}
+  backgroundTop: {r: 0.52, g: 0.5, b: 0.48, a: 1}
+  backgroundBottom: {r: 0.52, g: 0.5, b: 0.48, a: 1}
+  tileMat: {fileID: 2100000, guid: 6b4da9312aaf746a8a023d6980877e12, type: 2}
+  pathMat: {fileID: 2100000, guid: ce7f9c3a696354dfda372b862e6329f9, type: 2}
+  blockerMat: {fileID: 2100000, guid: 6b4da9312aaf746a8a023d6980877e12, type: 2}
+  vortexMat: {fileID: 2100000, guid: 6b4da9312aaf746a8a023d6980877e12, type: 2}
+  bankMat: {fileID: 2100000, guid: 6b4da9312aaf746a8a023d6980877e12, type: 2}
+  boatMat: {fileID: 2100000, guid: 6b4da9312aaf746a8a023d6980877e12, type: 2}
+  bankPrefab: {fileID: 0}
+  boatPrefab: {fileID: 0}
+  blockerPrefab: {fileID: 0}
+  vortexPrefab: {fileID: 0}
+  goalMarkerPrefab: {fileID: 0}
+  decorativeProps: []
+  backgroundGradient:
+    serializedVersion: 2
+    key0: {r: 1, g: 1, b: 1, a: 1}
+    key1: {r: 1, g: 1, b: 1, a: 1}
+    key2: {r: 0, g: 0, b: 0, a: 0}
+    key3: {r: 0, g: 0, b: 0, a: 0}
+    key4: {r: 0, g: 0, b: 0, a: 0}
+    key5: {r: 0, g: 0, b: 0, a: 0}
+    key6: {r: 0, g: 0, b: 0, a: 0}
+    key7: {r: 0, g: 0, b: 0, a: 0}
+    ctime0: 0
+    ctime1: 65535
+    ctime2: 0
+    ctime3: 0
+    ctime4: 0
+    ctime5: 0
+    ctime6: 0
+    ctime7: 0
+    atime0: 0
+    atime1: 65535
+    atime2: 0
+    atime3: 0
+    atime4: 0
+    atime5: 0
+    atime6: 0
+    atime7: 0
+    m_Mode: 0
+    m_ColorSpace: -1
+    m_NumColorKeys: 2
+    m_NumAlphaKeys: 2
+  skyboxMaterial: {fileID: 0}
+  ambientLoop: {fileID: 0}
+  stingers: []
