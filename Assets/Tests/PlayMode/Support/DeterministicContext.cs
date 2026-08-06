@@ -40,21 +40,34 @@ namespace HapisHavoc.Tests
         float _prevOrthoSize;
         UnityEngine.Random.State _prevRandom;
 
-        // Framing is DERIVED from the grid bounds, not hardcoded. A fixed pose only frames one
-        // board size; the project has 3x3 puzzle levels, a 6x6 default and a 3-wide endless
-        // strip. A hardcoded pose also let the player hand palette bleed into frame, and the
-        // hand differs per level and per mode - which would inject false diffs into every
-        // golden comparison.
-        public const float BoardCameraPitch = 55f;
-        public const float BoardCameraFov = 40f;
-        // 0.78 keeps the board, BOTH banks and the side push affordances in frame. Zooming
-        // further to crop the hand palette also cropped the arrows, so the hand is suppressed
-        // explicitly in Quiesce() instead - see HideHandPalettes(). Fighting a wide, shallow
-        // board into a tall portrait frame by zoom alone does not work.
-        public const float BoardFillFraction = 0.78f;
+        // WHAT THIS PINS, AND WHY IT CHANGED
+        // ----------------------------------
+        // This used to pin the camera POSE - position, rotation and FOV - computed by its own
+        // private copy of the framing maths. That was fine while framing was fixed, but it made
+        // framing itself unmeasurable: every capture showed the harness's idea of the camera,
+        // never the game's, so a framing bug could not appear in a golden.
+        //
+        // It now pins the INPUTS to framing - layout config, orientation, projection, render
+        // target size, board shape - and lets the production BoardFraming compute the pose. The
+        // captures therefore show what the game will show, and a framing regression moves pixels.
+        public BoardLayout Layout { get; }
+        public BoardLayout.Orientation Orientation { get; }
+        public BoardFraming.Projection Projection { get; }
 
-        public DeterministicContext(int seed = DefaultSeed)
+        /// <summary>The pose BoardFraming computed, and the bounds it fitted. Recorded so tests
+        /// can assert against exactly what was rendered rather than recomputing it.</summary>
+        public BoardFraming.Pose FramedPose { get; private set; }
+        public Bounds FramedBounds { get; private set; }
+
+        public DeterministicContext(int seed = DefaultSeed,
+                                    BoardFraming.Projection projection = BoardFraming.Projection.PerspectiveTilted,
+                                    BoardLayout layout = null,
+                                    BoardLayout.Orientation? orientation = null)
         {
+            Layout = layout != null ? layout : LoadDefaultLayout();
+            Orientation = orientation ?? BoardLayout.OrientationFor(Width, Height);
+            Projection = projection;
+
             _prevRandom = UnityEngine.Random.state;
             UnityEngine.Random.InitState(seed);
 
@@ -122,6 +135,8 @@ namespace HapisHavoc.Tests
             $"quality={ResolvedQualityLevel} " +
             $"buildTarget={ActiveBuildTarget} " +
             $"rt={Width}x{Height} " +
+            $"orientation={Orientation} " +
+            $"projection={Projection} " +
             $"colorSpace={QualitySettings.activeColorSpace} " +
             $"renderPipeline={(QualitySettings.renderPipeline != null ? QualitySettings.renderPipeline.name : "default")}";
 
@@ -153,10 +168,8 @@ namespace HapisHavoc.Tests
             _prevOrthoSize = Cam.orthographicSize;
             _prevCamTarget = Cam.targetTexture;
 
-            Cam.orthographic = false;
-            Cam.fieldOfView = BoardCameraFov;
             Cam.targetTexture = Target;
-            FrameBoard();
+            FrameBoard();          // sets projection, FOV/ortho size and pose together
         }
 
         void SuppressDebugOverlays()
@@ -165,47 +178,34 @@ namespace HapisHavoc.Tests
         }
 
         /// <summary>
-        /// Points the camera at the centre of the actual grid and pulls back just far enough to
-        /// fit it. Recompute this whenever the board changes size (endless streams new rows).
+        /// Ask the PRODUCTION framing code for the pose and apply it. The harness supplies the
+        /// inputs and nothing else - if BoardFraming is wrong, the capture is wrong, which is
+        /// the entire point of the change.
         /// </summary>
         public void FrameBoard()
         {
-            var grid = UnityEngine.Object.FindFirstObjectByType<GridManager>();
-            if (grid == null || grid.cols <= 0 || grid.rows <= 0)
+            if (!BoardFraming.TryFit(Layout, Orientation, Width, Height, Projection,
+                                     out var pose, out var bounds))
             {
-                Cam.transform.SetPositionAndRotation(new Vector3(0f, 14f, -9f),
-                                                     Quaternion.Euler(BoardCameraPitch, 0f, 0f));
+                // Nothing renderable yet. Leave the camera alone rather than inventing a pose -
+                // a made-up fallback would silently produce a "successful" capture of nothing.
+                Debug.LogWarning("[DeterministicContext] No board bounds to frame.");
                 return;
             }
 
-            Vector3 min = grid.GetWorldPosition(0, 0);
-            Vector3 max = grid.GetWorldPosition(grid.cols - 1, grid.rows - 1);
-            Vector3 centre = (min + max) * 0.5f;
+            FramedPose = pose;
+            FramedBounds = bounds;
+            pose.ApplyTo(Cam);
+        }
 
-            float boardWidth = Mathf.Abs(max.x - min.x) + grid.tileWidth;
-            float boardDepth = Mathf.Abs(max.z - min.z) + grid.tileHeight;
-
-            // Extend depth so both banks stay in frame; they are part of the board's visual
-            // state and V1 asserts on bank highlight clearing.
-            var banks = UnityEngine.Object.FindFirstObjectByType<RiverBankManager>();
-            if (banks != null) boardDepth += 2f * (banks.bankDistance + banks.bankWidth * 0.5f);
-
-            float vFovRad = BoardCameraFov * Mathf.Deg2Rad;
-            float aspect = (float)Width / Height;                       // 0.5625 portrait
-            float hFovRad = 2f * Mathf.Atan(Mathf.Tan(vFovRad * 0.5f) * aspect);
-
-            // Distance needed for each axis; take the larger so nothing is cropped.
-            float distForWidth = (boardWidth * 0.5f) / Mathf.Tan(hFovRad * 0.5f);
-            // Depth is foreshortened by the pitch.
-            float pitchRad = BoardCameraPitch * Mathf.Deg2Rad;
-            float apparentDepth = boardDepth * Mathf.Cos(pitchRad);
-            float distForDepth = (apparentDepth * 0.5f) / Mathf.Tan(vFovRad * 0.5f);
-
-            float dist = Mathf.Max(distForWidth, distForDepth) / BoardFillFraction;
-
-            var rot = Quaternion.Euler(BoardCameraPitch, 0f, 0f);
-            Vector3 back = rot * Vector3.back;                          // camera-to-target inverse
-            Cam.transform.SetPositionAndRotation(centre + back * dist, rot);
+        /// <summary>
+        /// The shipped layout, or the class defaults if the asset is missing. Falling back keeps
+        /// the harness runnable on a fresh clone, and the defaults ARE the authored values.
+        /// </summary>
+        static BoardLayout LoadDefaultLayout()
+        {
+            var asset = Resources.Load<BoardLayout>("BoardLayout_Default");
+            return asset != null ? asset : ScriptableObject.CreateInstance<BoardLayout>();
         }
 
         void DisableAll<T>() where T : Behaviour
