@@ -18,13 +18,16 @@ namespace HapisHavoc.Tests
         // ---------------------------------------------------------------- L2
 
         /// <summary>
-        /// L2. After a row push the boat is re-parented and slid, but currentTile /
-        /// currentSnapPoint are not updated by the push itself (CLAUDE.md gotcha 2). The band-aid
-        /// is ResynchronizeStateWithTransform, which SelectBoat calls and which logs
-        /// "Boat Desync Detected!" when it has to correct something.
+        /// L2. The desync this guards is NOT what CLAUDE.md gotcha 2 used to claim. Measured, the
+        /// push tracks the boat correctly - its distance to its own snap point was 0.1500 both
+        /// before and after, and only rose to 0.5220 once the boat settled to resting height.
+        /// The cause was FindTileAndSnapPointAtWorldPos comparing in 3D against a 0.5 threshold
+        /// while a resting boat sits 0.5 ABOVE the snap plane, so Y alone exhausted the budget and
+        /// the lookup fell through to a coincident snap point on a neighbouring tile.
+        /// ResynchronizeStateWithTransform then "corrected" the boat onto the wrong tile.
         ///
         /// Asserts both halves: the reverse lookup agrees with the boat's own state, AND the
-        /// resync path emitted no desync warning.
+        /// resync path emitted no desync warning. X8 is the control.
         /// </summary>
         [UnityTest]
         public IEnumerator L2_BoatStateSyncAfterRowPush()
@@ -298,6 +301,113 @@ namespace HapisHavoc.Tests
 
             Assert.IsEmpty(diffs, "L5: state after undo does not match state before the push:\n  " +
                                   string.Join("\n  ", diffs));
+        }
+
+        // ---------------------------------------------------------------- L5b
+
+        /// <summary>
+        /// L5b. Undo after a DRAG push. L5 covers the arrow path, which saves history once, at
+        /// the end of the push. The drag path additionally saved at the start of
+        /// HandleDropZonePush, so one player action produced TWO snapshots and a single undo
+        /// press left the player half-way back. Measured before the fix: stack 1 -> 2 -> 3 for
+        /// one drag, and the pre-push state only returned after the SECOND press.
+        ///
+        /// The JSON dedupe in SaveState does not mask this - the two snapshots are genuinely
+        /// different states, so both are pushed.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator L5b_OneUndoRestoresStateAfterADragPush()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return SceneFixture.Load(FixtureMode.Playing, "Levels/01_06_TestLevel");
+
+            var grid = SceneFixture.Grid;
+            var lem = UnityEngine.Object.FindFirstObjectByType<LevelEditorManager>();
+            Assert.IsNotNull(lem, "no LevelEditorManager");
+            Assert.IsNotNull(HistoryManager.Instance, "no HistoryManager");
+
+            var before = lem.CreateCurrentStateSnapshot();
+            string beforeJson = JsonUtility.ToJson(before);
+
+            // TileTurn_01 is actually in 01_06's hand; HandleDropZonePush rejects anything else.
+            var type = SceneFixture.PlayableTileTypes().First(t => t.displayName == "TileTurn_01");
+            var dragged = UnityEngine.Object.Instantiate(
+                grid.tilePrefab, grid.GetSpawnPosition(2, true), Quaternion.identity);
+
+            int saves = 0;
+            Application.LogCallback onLog = (cond, stack, t) =>
+            {
+                if (cond != null && cond.Contains("[HistoryManager] State saved")) saves++;
+            };
+            Application.logMessageReceived += onLog;
+            yield return lem.HandleDropZonePush(2, true, type, dragged);
+            yield return new WaitForSecondsRealtime(0.8f);
+            Application.logMessageReceived -= onLog;
+
+            var afterPush = lem.CreateCurrentStateSnapshot();
+            Assert.AreNotEqual(beforeJson, JsonUtility.ToJson(afterPush),
+                "L5b setup: the drag push changed nothing, so undoing it would prove nothing.");
+
+            HistoryManager.Instance.Undo();
+            yield return new WaitForSecondsRealtime(4.0f);
+
+            var restored = lem.CreateCurrentStateSnapshot();
+            var diffs = CompareSnapshots(before, restored);
+
+            Debug.Log($"[L5b] snapshots saved by ONE drag push: {saves} (must be 1)\n" +
+                      $"      state after ONE undo differs from pre-push in {diffs.Count} way(s)");
+
+            Assert.AreEqual(1, saves,
+                $"L5b: one drag push saved {saves} history snapshots. A single player action must " +
+                "produce exactly one, or undo needs as many presses as there were saves. " +
+                "HandleDropZonePush saved at its start AND the push saved at its end.");
+
+            Assert.IsEmpty(diffs,
+                "L5b: ONE undo press after a drag push did not restore the pre-push state:\n  " +
+                string.Join("\n  ", diffs) +
+                "\n  This is the double-save: the player has to press undo twice.");
+        }
+
+        // ---------------------------------------------------------------- X10
+
+        /// <summary>
+        /// X10 -> L5b must fail. Deliberately saves a second snapshot mid-action, which is what
+        /// the drag path used to do, and requires ONE undo to then leave the state unrestored.
+        /// Built on a synthetic extra save rather than the live bug so it keeps proving L5b can
+        /// fail after the fix - the X5 lesson.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator X10_L5b_FailsWhenOneActionSavesTwice()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return SceneFixture.Load(FixtureMode.Playing, "Levels/01_06_TestLevel");
+
+            var grid = SceneFixture.Grid;
+            var lem = UnityEngine.Object.FindFirstObjectByType<LevelEditorManager>();
+
+            var before = lem.CreateCurrentStateSnapshot();
+            var type = SceneFixture.PlayableTileTypes().First(t => t.displayName == "TileCross");
+
+            // THE BREAKAGE: an extra snapshot part-way through what is one player action.
+            yield return grid.PushRowCoroutine(2, true, new PuzzleHandTile(type) { isFlipped = false });
+            yield return new WaitForSecondsRealtime(0.4f);
+            HistoryManager.Instance.SaveState();
+            yield return grid.PushRowCoroutine(2, true, new PuzzleHandTile(type) { isFlipped = true });
+            yield return new WaitForSecondsRealtime(0.8f);
+
+            HistoryManager.Instance.Undo();
+            yield return new WaitForSecondsRealtime(4.0f);
+
+            var restored = lem.CreateCurrentStateSnapshot();
+            var diffs = CompareSnapshots(before, restored);
+
+            Debug.Log($"[X10] after an extra mid-action save, ONE undo left {diffs.Count} " +
+                      "difference(s) from the starting state (L5b requires 0)");
+
+            Assert.IsNotEmpty(diffs,
+                "X10 META-FAILURE: two snapshots were saved across the action, yet ONE undo " +
+                "restored the original state exactly. L5b's comparison cannot detect a " +
+                "double-save, so it would pass on one. Fix L5b, not this control.");
         }
 
         static List<string> CompareSnapshots(GameStateSnapshot a, GameStateSnapshot b)

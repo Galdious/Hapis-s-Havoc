@@ -1444,8 +1444,10 @@ public class LevelEditorManager : MonoBehaviour
 
     public IEnumerator HandleArrowPush(int row, bool fromLeft, bool isForObstacleSide)
     {
-        HistoryManager.Instance.SaveState();
-
+        // NO SaveState here, for the same reason as HandleDropZonePush: the push already saves
+        // once at the end of PushRowInternal. Saving here too gave one player action two
+        // snapshots and made undo need two presses, and because it ran before the "no tile
+        // selected" early-out below, a REJECTED push also left an entry on the stack.
         // Step 1: Are we in Puzzle Mode?
         if (gridManager.isPuzzleMode)
         {
@@ -1493,8 +1495,11 @@ public class LevelEditorManager : MonoBehaviour
 
     public IEnumerator HandleDropZonePush(int row, bool fromLeft, TileType tileType, GameObject droppedTileGO)
     {
-        HistoryManager.Instance.SaveState();
-
+        // NO SaveState here. The push saves once, at the end of PushRowInternal, exactly as the
+        // arrow path does. Saving here as well made one drag produce TWO snapshots (measured:
+        // stack 1 -> 2 -> 3), so undo needed two presses to get back - and because it ran before
+        // the hand-tile validity check below, even a REJECTED drop left an entry on the stack.
+        // Guarded by L5b, with X10 as its control.
         GameObject newTileGO = droppedTileGO;
 
         // --- FIX #4: Seamless Animation Handoff ---

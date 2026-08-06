@@ -562,12 +562,16 @@ public class GridManager : MonoBehaviour
 
         TileInstance ejectingTile = grid[exitCol, rowIndex];
 
-        // Raw eulerAngles.y, kept deliberately. It is the readback trap of CLAUDE.md gotcha 3
-        // and gives the wrong answer for flipped tiles, but it decides which snap point an
-        // ejected boat re-lands on. Correcting it would change where boats land, which is a
-        // gameplay change and not part of this one.
-        float ejectedTileRotation = (ejectingTile != null)
-            ? ejectingTile.transform.eulerAngles.y : 0f;
+        // Captured before the tile is ejected, because the boat's landing snap point depends on
+        // whether the destination tile's yaw differs from this one's.
+        //
+        // Read through TileOrientation, never eulerAngles. This compared raw eulerAngles.y and
+        // was wrong in a way that decided WHERE BOATS LAND: two tiles authored at the same yaw,
+        // one flipped and one not, read back 180 and 0 (CLAUDE.md gotcha 3), so the comparison
+        // saw a 180 degree difference that did not exist and mirrored the snap point through
+        // GetOppositeSnapPoint - putting the boat on the opposite edge. See tests L9 and X9.
+        bool ejectedTileYawFlipped = (ejectingTile != null)
+            && TileOrientation.IsYawFlipped(ejectingTile.transform);
 
         BoatController ejectedBoat = null;
         int originalSnapPoint = -1;
@@ -710,10 +714,13 @@ public class GridManager : MonoBehaviour
 
                 if (finalLandingTile != null)
                 {
+                    // Only mirror when the landing tile's yaw genuinely differs from the tile
+                    // the boat left. GetOppositeSnapPoint here is GridManager's mirror mapping
+                    // (0-3, 1-2, 4-5), which IS the permutation a 180 degree yaw induces - the
+                    // right one of the two same-named methods. See ARCHITECTURE.md section 6.2 F.
                     int targetSnapPoint = originalSnapPoint;
-                    float newTileRotation = finalLandingTile.transform.eulerAngles.y;
 
-                    if (Mathf.Abs(ejectedTileRotation - newTileRotation) > 1f)
+                    if (TileOrientation.IsYawFlipped(finalLandingTile.transform) != ejectedTileYawFlipped)
                         targetSnapPoint = GetOppositeSnapPoint(originalSnapPoint);
 
                     yield return StartCoroutine(ejectedBoat.AnimateToNewPositionAfterEjection(
