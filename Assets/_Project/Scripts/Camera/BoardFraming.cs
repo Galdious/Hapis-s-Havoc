@@ -47,9 +47,23 @@ public static class BoardFraming
     // ---------------------------------------------------------------- bounds
 
     /// <summary>
-    /// The bounds everything must fit inside. Built from RENDERERS rather than from each
-    /// manager's serialised numbers, so it stays correct when a prefab changes size or a theme
-    /// swaps in a differently-shaped bank - and so nothing has to be kept in sync by hand.
+    /// The bounds everything must fit inside: the board, and everything the player must SEE or
+    /// TOUCH. Built from RENDERERS rather than serialised numbers, so it stays correct when a
+    /// prefab changes size or a theme swaps in a differently-shaped bank.
+    ///
+    /// TWO THINGS THIS GETS RIGHT THAT THE FIRST VERSION DID NOT, both measured, not guessed:
+    ///
+    /// 1. NON-BOARD TILES ARE EXCLUDED. Hand and palette tiles carry TileInstance, so a global
+    ///    sweep collects them as board geometry. In Editor that dragged the X span to 18.30
+    ///    against a ~7-unit grid and made WIDTH bind at 2.54x. It was invisible in every golden
+    ///    because the capture rig hides hand palettes in Quiesce(). Excluded by ANCESTRY, not by
+    ///    name - names drift, hierarchy does not. C5 is the permanent guard.
+    ///
+    /// 2. PUSH AFFORDANCES ARE INCLUDED. Arrows and row locks are parented to
+    ///    GridManager.gridParent, and drop zones live on a separate UI canvas - NOT under
+    ///    RiverControls, which is where this used to look. So they were never in the bounds and
+    ///    were framed by coincidence: measured, Lock_Row0 sat at viewport x=1.000..1.025, fully
+    ///    off-screen and untappable. C2 is the guard.
     /// </summary>
     public static bool TryCollectBoardBounds(out Bounds bounds, out int contributors)
     {
@@ -61,8 +75,8 @@ public static class BoardFraming
         void Add(Renderer r)
         {
             if (r == null || !r.enabled || !r.gameObject.activeInHierarchy) return;
-            // LineRenderers for paths sit inside tile bounds already, and a degenerate one
-            // reports an empty box at the origin that would drag the fit to (0,0,0).
+            // A degenerate renderer reports an empty box at the origin, which would drag the
+            // fit to (0,0,0).
             if (r.bounds.size.sqrMagnitude <= 0f) return;
             if (!any) { acc = r.bounds; any = true; }
             else acc.Encapsulate(r.bounds);
@@ -75,20 +89,17 @@ public static class BoardFraming
             foreach (var r in c.GetComponentsInChildren<Renderer>(false)) Add(r);
         }
 
-        // Tiles.
+        var excluded = NonBoardTileRoots();
+
+        // Tiles - board ones only.
         foreach (var t in Object.FindObjectsByType<TileInstance>(FindObjectsInactive.Exclude,
                                                                 FindObjectsSortMode.None))
-            AddUnder(t);
+            if (!IsUnderAny(t.transform, excluded)) AddUnder(t);
 
         // Banks - the boat embarks from them, so they are part of the playfield.
         foreach (var b in Object.FindObjectsByType<RiverBankManager>(FindObjectsInactive.Exclude,
                                                                     FindObjectsSortMode.None))
             AddUnder(b);
-
-        // Push arrows (Editor) and drop zones (Playing/Endless). THE ONES THAT GET FORGOTTEN.
-        foreach (var rc in Object.FindObjectsByType<RiverControls>(FindObjectsInactive.Exclude,
-                                                                  FindObjectsSortMode.None))
-            AddUnder(rc);
 
         // Boat and goal.
         foreach (var boat in Object.FindObjectsByType<BoatController>(FindObjectsInactive.Exclude,
@@ -98,9 +109,75 @@ public static class BoardFraming
                                                               FindObjectsSortMode.None))
             AddUnder(g);
 
+        var grid = Object.FindFirstObjectByType<GridManager>();
+
+        // Push arrows and row locks, which live under gridParent.
+        if (grid != null && grid.gridParent != null)
+            foreach (var t in grid.gridParent.GetComponentsInChildren<Transform>(false))
+                if (t.name.StartsWith("Arrow_") || t.name.StartsWith("Lock_"))
+                    foreach (var r in t.GetComponents<Renderer>()) Add(r);
+
+        // Drop zones are TRANSIENT - created during a drag and destroyed after. Including them
+        // when they happen to exist would make the camera lurch mid-interaction, which is worse
+        // than framing slightly wide. So their extent is RESERVED statically from the same
+        // geometry RiverControls uses to place them, whether or not any exist right now.
+        if (any && grid != null)
+        {
+            float reach = AffordanceReachX(grid);
+            if (reach > 0f)
+            {
+                var c = acc.center; var e = acc.extents;
+                float half = Mathf.Max(e.x, reach);
+                acc.SetMinMax(new Vector3(c.x - half, acc.min.y, acc.min.z),
+                              new Vector3(c.x + half, acc.max.y, acc.max.z));
+            }
+        }
+
         bounds = acc;
         contributors = count;
         return any;
+    }
+
+    /// <summary>
+    /// Half-width the side affordances need, measured from the grid centre, reproducing
+    /// RiverControls' own placement maths so it holds whether or not the objects exist yet.
+    /// </summary>
+    static float AffordanceReachX(GridManager grid)
+    {
+        var rc = Object.FindFirstObjectByType<RiverControls>();
+        if (rc == null) return 0f;
+
+        float gridWidth = grid.cols * grid.tileWidth;
+        // RiverControls.GetDynamicArrowDistance: max(arrowDistance, gridWidth*0.5 + 1).
+        float dynamicDistance = Mathf.Max(rc.arrowDistance, gridWidth * 0.5f + 1f);
+        // The lock sits furthest out, at arrowSpacing * 1.5 beyond the arrow base, and the
+        // arrow/lock meshes have their own half-width on top of that.
+        return dynamicDistance + rc.arrowSpacing * 1.5f + rc.arrowScale * 2f;
+    }
+
+    /// <summary>
+    /// Containers whose TileInstances are INVENTORY, not board: the editor's tile palette and
+    /// both hand palettes. Ancestry, deliberately - see the class note.
+    /// </summary>
+    static List<Transform> NonBoardTileRoots()
+    {
+        var roots = new List<Transform>();
+        var lem = Object.FindFirstObjectByType<LevelEditorManager>();
+        if (lem != null)
+        {
+            if (lem.paletteContainer != null) roots.Add(lem.paletteContainer);
+            if (lem.editorHandContainer != null) roots.Add(lem.editorHandContainer);
+            if (lem.playerHandContainer != null) roots.Add(lem.playerHandContainer);
+        }
+        return roots;
+    }
+
+    static bool IsUnderAny(Transform t, List<Transform> roots)
+    {
+        for (var c = t; c != null; c = c.parent)
+            for (int i = 0; i < roots.Count; i++)
+                if (c == roots[i]) return true;
+        return false;
     }
 
     // ---------------------------------------------------------------- fit
