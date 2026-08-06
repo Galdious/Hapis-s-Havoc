@@ -1516,14 +1516,17 @@ public class GridManager : MonoBehaviour
             // Flip tile to show obstacle (red) side
             // tileInstance.transform.Rotate(180f, 0f, 0f);
 
+            // Connections are BIDIRECTIONAL (CLAUDE.md domain conventions), so each straight
+            // path is listed ONCE. This previously listed all three twice (0-2 and 2-0, etc).
+            // PathVisualizer creates a LineRenderer GameObject per connection but registers them
+            // under a canonical (min,max) key only when absent, so the three duplicates were
+            // orphaned beyond CleanUpPaths' reach - +3 leaked GameObjects per reversed init.
+            // LevelEditorManager.FlipTile already used this three-entry form; the two now agree.
             var straightPaths = new List<TileInstance.Connection>
         {
             new TileInstance.Connection { from = 0, to = 2 },
-            new TileInstance.Connection { from = 2, to = 0 },
             new TileInstance.Connection { from = 1, to = 3 },
-            new TileInstance.Connection { from = 3, to = 1 },
-            new TileInstance.Connection { from = 4, to = 5 },
-            new TileInstance.Connection { from = 5, to = 4 }
+            new TileInstance.Connection { from = 4, to = 5 }
         };
 
             // PASS THE TEMPLATE to the tile
