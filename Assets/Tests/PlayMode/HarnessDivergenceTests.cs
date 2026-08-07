@@ -29,7 +29,7 @@ namespace HapisHavoc.Tests
         static readonly string[] Allowlist =
         {
             "CinemachineBrain", "UniversalCameraController", "EndlessModeManager",
-            "BoardFramingDriver", "FPSCounter", "QualityLevel:PC", "Time.captureDeltaTime",
+            "BoardFramingDriver", "FPSCounter", "QualityLevel:Mobile", "Time.captureDeltaTime",
             "Random.InitState", "Camera.targetTexture", "HandPalettes", "BoatCoroutines",
             "PathVisualizerCoroutines", "GridManagerCoroutines", "TileLocalScale",
             "ShaderGlobalTime",

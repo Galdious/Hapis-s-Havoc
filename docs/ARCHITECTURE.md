@@ -1037,6 +1037,22 @@ travelling across reversed tiles). `GridManager.GetOppositeSnapPoint` (`:1572`) 
 `0↔3, 1↔2, 4↔5` (diagonal mirror, used to correct a boat's snap point when the landing tile's
 rotation differs). Both are correct for their own use; the shared name is the hazard.
 
+> **THE SHAPE STUDY'S ORIGINAL NUMBERS WERE MEASURED AT THE WRONG RENDER SCALE.** Every capture
+> up to `c38b59f` ran with `QualitySettings` pinned to **PC** (renderScale 1.0) while the game
+> ships **Mobile** (renderScale 0.8). Fill % and tile pixel size are unaffected — they are
+> geometric — but **path line width is not**: re-measured at shipping quality every value drops
+> by roughly 1px (PC → Mobile: 8→7, 9→8, 6→5, 5→4). The study's own legibility floor was ~6px,
+> so this moved 6×6 portrait from 5px to **4px** and 3×8 landscape from 5px to **4px**, while
+> the three 3-wide portrait boards all hold at 7px. The recommendation (3×6) survives; the
+> margin under it is thinner than reported.
+>
+> **A GOLDEN NON-DETERMINISM, RECORDED NOT CHASED.** Re-running the golden comparison immediately
+> after regenerating gives `01_02` 0.0001 % differing with a max channel delta of **163**, and
+> `01_03` a max of 6; everything else is 0.0000 % / max 0. A single pixel swinging 163 between
+> two runs of the same build is a smell in the **level-load path**, not the capture rig —
+> `DeterminismGateTests` is byte-exact on its own repeated capture. Two pixels against a 0.5 %
+> tolerance cannot mask a real regression, so this is recorded so it is not rediscovered.
+
 > **THE AFFORDANCE RESERVATION WANTS A REWRITE, NOT A FIFTH PATCH.** `BoardFraming` reserves
 > screen space for push affordances by **reimplementing** `RiverControls`' placement maths. Two
 > copies of the same rule drift, and this one has now been corrected **four times**: arrows

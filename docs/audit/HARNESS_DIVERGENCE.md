@@ -51,3 +51,23 @@ and global. renderScale 0.8 versus 1.0 changes every pixel, and the thin-line le
 the shape study just spent a session on is exactly the kind of defect it would mask.
 
 Neither is chased here — this is an audit.
+
+---
+
+## RESOLVED: quality pinned to PC (divergence #4)
+
+Fixed. `DeterministicContext.PinnedQualityLevel` is now **`Mobile`**, the shipping level, whose
+`Mobile_RPAsset` carries `m_RenderScale: 0.8` against PC's 1.0.
+
+**The hardened pin did its job.** Switching the constant threw rather than falling through:
+
+```
+Quality level 'Mobile' is not available for build target 'StandaloneOSX'. Available: [PC]
+```
+
+Cause: `QualitySettings.asset` marked Mobile `excludedTargetPlatforms: [Standalone]`, and the
+Editor's active build target is StandaloneOSX. **ProjectSettings was edited** to clear that
+exclusion, so the shipping quality level is selectable in-Editor. This cannot affect a mobile
+build — `excludedTargetPlatforms` only controls per-platform availability.
+
+Every golden and every study capture before this rendered at renderScale 1.0.

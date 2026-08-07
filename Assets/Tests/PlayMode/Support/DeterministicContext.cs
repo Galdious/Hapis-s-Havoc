@@ -30,7 +30,11 @@ namespace HapisHavoc.Tests
         // Quality level is pinned by NAME, not index: index order is not stable across
         // platform switches, and Mobile uses renderScale 0.8 while PC uses 1.0 - which
         // silently changes every pixel.
-        public const string PinnedQualityLevel = "PC";
+        // SHIPPING QUALITY, not the convenient one. This was "PC" (renderScale 1.0) while the
+        // game ships Mobile (renderScale 0.8), so every golden and every study capture rendered
+        // at a resolution the player never sees - and the shape study judged 5-8px path widths
+        // against it, with its own legibility floor at ~6px.
+        public const string PinnedQualityLevel = "Mobile";
 
         /// <summary>
         /// EVERY suppression this context performs, declared rather than scattered.
@@ -52,7 +56,7 @@ namespace HapisHavoc.Tests
             "EndlessModeManager",        // CRITICAL - disables the mode being captured
             "BoardFramingDriver",        // would ease off the pinned pose
             "FPSCounter",                // debug overlay, genuinely unwanted
-            "QualityLevel:PC",           // CRITICAL - game ships Mobile at renderScale 0.8
+            "QualityLevel:Mobile",       // shipping quality, renderScale 0.8
             "Time.captureDeltaTime",
             "Random.InitState",
             "Camera.targetTexture",
