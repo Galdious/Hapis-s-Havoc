@@ -130,7 +130,10 @@ public class BoardFramingDriver : MonoBehaviour
     public void Apply(bool snap)
     {
         if (layout == null) return;
-        if (!BoardFraming.TryCollectBoardBounds(out var bounds, out _)) return;
+        BoardFraming.DebugBounds = snap;
+        bool got = BoardFraming.TryCollectBoardBounds(out var bounds, out _);
+        BoardFraming.DebugBounds = false;
+        if (!got) return;
 
         var vcam = ActiveVCam();
         if (vcam == null) return;
@@ -154,11 +157,16 @@ public class BoardFramingDriver : MonoBehaviour
         _lastFramed = bounds;
         _hasFramed = true;
 
+        var brain = Camera.main != null ? Camera.main.GetComponent<CinemachineBrain>() : null;
+        string brainCam = brain != null && brain.ActiveVirtualCamera != null
+            ? brain.ActiveVirtualCamera.Name : "<none>";
+
         int tilesSeen = FindObjectsByType<BoardTile>(FindObjectsInactive.Exclude,
                                                      FindObjectsSortMode.None).Length;
         int tilesExpected = _grid != null ? _grid.cols * _grid.rows : -1;
 
-        Debug.Log($"[FRAMEDBG] snap={snap} vcam={vcam.name} pitch={pitch:F1}\n" +
+        Debug.Log($"[FRAMEDBG] snap={snap} driverVCam={vcam.name} brainActiveVCam={brainCam} " +
+                  $"{(vcam.name == brainCam ? "AGREE" : "*** DISAGREE ***")} pitch={pitch:F1}\n" +
                   $"          tiles seen={tilesSeen} expected={tilesExpected}\n" +
                   $"          bounds min={bounds.min:F2} max={bounds.max:F2} size={bounds.size:F2}\n" +
                   $"          derived size={pose.orthographicSize:F2} pos={pose.position:F2}");

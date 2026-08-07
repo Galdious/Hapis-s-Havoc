@@ -80,6 +80,9 @@ public static class BoardFraming
     ///    were framed by coincidence: measured, Lock_Row0 sat at viewport x=1.000..1.025, fully
     ///    off-screen and untappable. C2 is the guard.
     /// </summary>
+    /// <summary>Set for one call to dump every contributor and the reservation step.</summary>
+    public static bool DebugBounds;
+
     public static bool TryCollectBoardBounds(out Bounds bounds, out int contributors)
     {
         // Locals, because C# forbids touching an `out` parameter from a local function.
@@ -96,6 +99,8 @@ public static class BoardFraming
             if (!any) { acc = r.bounds; any = true; }
             else acc.Encapsulate(r.bounds);
             count++;
+            if (DebugBounds && count <= 12)
+                Debug.Log($"[BOUNDSDBG] +{count} '{r.name}' rb={r.bounds.size:F2} -> acc={acc.size:F2}");
         }
 
         void AddUnder(Component c)
@@ -143,6 +148,10 @@ public static class BoardFraming
         //     and 01_03 all have lockedRows [3,3,3] - reserves nothing;
         //   - locks sit furthest out and only on the right, so the two sides differ.
         // lockedRows is fixed at load, so this is still static and still cannot thrash.
+        if (DebugBounds)
+            Debug.Log($"[BOUNDSDBG] BEFORE reservation: any={any} count={count} " +
+                      $"min={acc.min:F2} max={acc.max:F2} size={acc.size:F2}");
+
         if (any && grid != null)
         {
             AffordanceReserveX(grid, out float leftReach, out float rightReach);
@@ -165,6 +174,9 @@ public static class BoardFraming
             acc.SetMinMax(new Vector3(minX, acc.min.y, minZ),
                           new Vector3(maxX, acc.max.y, maxZ));
         }
+
+        if (DebugBounds)
+            Debug.Log($"[BOUNDSDBG] AFTER reservation: min={acc.min:F2} max={acc.max:F2} size={acc.size:F2}");
 
         bounds = acc;
         contributors = count;
