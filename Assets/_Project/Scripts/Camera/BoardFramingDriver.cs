@@ -1,4 +1,5 @@
 using System.Collections;
+using Unity.Cinemachine;
 using UnityEngine;
 
 /// <summary>
@@ -14,16 +15,14 @@ public class BoardFramingDriver : MonoBehaviour
 {
     [SerializeField] private BoardLayout layout;
 
-    [Tooltip("Seconds to ease into a new pose when the board grows. 0 snaps.")]
-    [SerializeField] private float smoothSeconds = 0.35f;
-
     [Tooltip("Ignore board growth smaller than this in world units, so a single row spawning " +
              "does not re-frame the camera on its own.")]
     [SerializeField] private float hysteresisWorldUnits = 0.75f;
 
     Camera _cam;
     GridManager _grid;
-    Coroutine _ease;
+    UniversalCameraController _ucc;
+    Transform _proxy;
     Bounds _lastFramed;
     bool _hasFramed;
 
@@ -49,6 +48,7 @@ public class BoardFramingDriver : MonoBehaviour
         // Cached once, never in Update - house rule 3.
         _cam = Camera.main;
         _grid = FindFirstObjectByType<GridManager>();
+        _ucc = FindFirstObjectByType<UniversalCameraController>();
         if (layout == null) layout = LayoutFor(CurrentMode);
     }
 
@@ -87,49 +87,110 @@ public class BoardFramingDriver : MonoBehaviour
     /// </summary>
     void OnTileSpawnedHandler(TileInstance tile) => Apply(snap: false);
 
+    IEnumerator LogNextFrame(CinemachineCamera vcam)
+    {
+        yield return null;
+        var cam = Camera.main;
+        Debug.Log($"[FRAMEDBG] next frame: vcam.Lens.OrthographicSize={vcam.Lens.OrthographicSize:F2} " +
+                  $"Camera.main.orthographicSize={(cam != null ? cam.orthographicSize : -1f):F2} " +
+                  $"Camera.main.pos={(cam != null ? cam.transform.position : Vector3.zero):F2}");
+    }
+
+    /// <summary>
+    /// The vCam this mode renders through, BY MODE rather than by Priority. The driver can run
+    /// before CameraManager.SwitchTo*View has assigned priorities, and picking the highest at
+    /// that moment sized the wrong vCam - measured as an orthographic size of 0.00 on screen.
+    /// </summary>
+    static CinemachineCamera ActiveVCam()
+    {
+        if (CameraManager.Instance != null)
+        {
+            var byMode = CameraManager.Instance.CameraFor(CurrentMode);
+            if (byMode != null) return byMode;
+        }
+        CinemachineCamera best = null;
+        foreach (var v in FindObjectsByType<CinemachineCamera>(FindObjectsInactive.Exclude,
+                                                              FindObjectsSortMode.None))
+            if (best == null || v.Priority.Value > best.Priority.Value) best = v;
+        return best;
+    }
+
+    /// <summary>
+    /// HOW THIS COMPOSES, and why the driver writes neither the camera nor the vCam transform:
+    ///
+    ///   driver  -> CameraProxy.position (the RESTING pose) and the vCam's lens
+    ///   UCC     -> pans the proxy from that resting position, and rubberbands back to it
+    ///   Follow  -> camera = proxy + FollowOffset, with ZERO PositionDamping, so it is rigid
+    ///   Brain   -> copies the vCam onto Main Camera
+    ///
+    /// Each owns exactly one thing. The driver owns the TARGET and the LENS; CinemachineFollow
+    /// owns the transform; UCC owns the offset from rest. Nothing overwrites anything else, which
+    /// is what made the previous attempt fail - it wrote Camera.main and the Brain restored it.
+    /// </summary>
     public void Apply(bool snap)
     {
-        if (_cam == null || layout == null) return;
+        if (layout == null) return;
         if (!BoardFraming.TryCollectBoardBounds(out var bounds, out _)) return;
+
+        var vcam = ActiveVCam();
+        if (vcam == null) return;
 
         if (!snap && _hasFramed)
         {
-            // Hysteresis on the BOUNDS, not the pose: it is the board growing that matters, and
-            // a small change should not move the camera at all.
             float delta = Mathf.Max(
                 Mathf.Abs(bounds.size.x - _lastFramed.size.x),
                 Mathf.Abs(bounds.size.z - _lastFramed.size.z));
             if (delta < hysteresisWorldUnits) return;
         }
 
+        // PITCH FROM THE CAMERA THAT WILL RENDER. Fitting at one angle and rendering at another
+        // is wrong - extU scales with cos(pitch).
+        float pitch = BoardFraming.PitchOf(vcam.transform);
+
         var pose = BoardFraming.Fit(bounds, layout,
             OrientationFor(CurrentMode, Screen.width, Screen.height),
-            Screen.width, Screen.height, BoardFraming.Projection.OrthographicTilted);
+            Screen.width, Screen.height, BoardFraming.Projection.OrthographicTilted, pitch);
 
         _lastFramed = bounds;
         _hasFramed = true;
 
-        if (_ease != null) StopCoroutine(_ease);
-        if (snap || smoothSeconds <= 0f) pose.ApplyTo(_cam);
-        else _ease = StartCoroutine(EaseTo(pose));
-    }
+        int tilesSeen = FindObjectsByType<BoardTile>(FindObjectsInactive.Exclude,
+                                                     FindObjectsSortMode.None).Length;
+        int tilesExpected = _grid != null ? _grid.cols * _grid.rows : -1;
 
-    IEnumerator EaseTo(BoardFraming.Pose target)
-    {
-        Vector3 p0 = _cam.transform.position;
-        float s0 = _cam.orthographicSize;
-        _cam.orthographic = target.orthographic;
+        Debug.Log($"[FRAMEDBG] snap={snap} vcam={vcam.name} pitch={pitch:F1}\n" +
+                  $"          tiles seen={tilesSeen} expected={tilesExpected}\n" +
+                  $"          bounds min={bounds.min:F2} max={bounds.max:F2} size={bounds.size:F2}\n" +
+                  $"          derived size={pose.orthographicSize:F2} pos={pose.position:F2}");
 
-        float t = 0f;
-        while (t < smoothSeconds)
+        // The lens is the vCam's, not the Camera's - the Brain overwrites the Camera every frame.
+        var lens = vcam.Lens;
+        lens.OrthographicSize = pose.orthographicSize;
+        vcam.Lens = lens;
+
+        Debug.Log($"[FRAMEDBG] immediately after write: vcam.Lens.OrthographicSize={vcam.Lens.OrthographicSize:F2}");
+        StartCoroutine(LogNextFrame(vcam));
+
+        // Endless drives its own vCam transform directly (EndlessModeManager:183), so the driver
+        // must not also move the proxy there or the two would fight. Lens only in that mode.
+        if (CurrentMode == OperatingMode.Endless) return;
+
+        var follow = vcam.GetComponent<CinemachineFollow>();
+        Vector3 offset = follow != null ? follow.FollowOffset : Vector3.zero;
+
+        // camera = proxy + offset (PositionDamping is zero), so solve for the proxy.
+        Vector3 resting = pose.position - offset;
+
+        if (_proxy == null) _proxy = vcam.Follow != null ? vcam.Follow : vcam.transform;
+        if (_proxy != null)
         {
-            t += Time.deltaTime;
-            float k = Mathf.SmoothStep(0f, 1f, t / smoothSeconds);
-            _cam.transform.SetPositionAndRotation(Vector3.Lerp(p0, target.position, k), target.rotation);
-            _cam.orthographicSize = Mathf.Lerp(s0, target.orthographicSize, k);
-            yield return null;
+            // Identity rotation, deliberately: it makes BindingMode's world-vs-local ambiguity
+            // irrelevant rather than requiring it to be solved.
+            _proxy.rotation = Quaternion.identity;
+            _proxy.position = resting;
         }
-        target.ApplyTo(_cam);
-        _ease = null;
+
+        if (_ucc != null) _ucc.SetFramedRestingPosition(resting);
     }
+
 }

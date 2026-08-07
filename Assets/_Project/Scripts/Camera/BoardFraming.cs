@@ -35,7 +35,12 @@ public static class BoardFraming
         }
     }
 
-    public const float DefaultPitch = 55f;
+    /// <summary>
+    /// Fallback only. The shipping vCams author their own angle and BoardFramingDriver reads it
+    /// with <see cref="PitchOf"/>; this is what the harness uses when no camera is supplied.
+    /// 70 to match the authored VCam_Player, chosen from the Z2 comparison.
+    /// </summary>
+    public const float DefaultPitch = 70f;
     public const float ShallowPitch = 38f;
     public const float DefaultFov = 40f;
 

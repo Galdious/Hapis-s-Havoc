@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -24,8 +25,16 @@ namespace HapisHavoc.Tests
                 mode == FixtureMode.Editor ? OperatingMode.Editor : OperatingMode.Playing,
                 Screen.width, Screen.height);
 
+            // Pitch from the camera that renders, exactly as the driver does.
+            var vcam = CameraManager.Instance != null
+                ? CameraManager.Instance.CameraFor(mode == FixtureMode.Editor
+                    ? OperatingMode.Editor : OperatingMode.Playing)
+                : null;
+            float pitch = vcam != null ? BoardFraming.PitchOf(vcam.transform)
+                                       : BoardFraming.DefaultPitch;
+
             return BoardFraming.TryFit(layout, orientation, Screen.width, Screen.height,
-                                       BoardFraming.Projection.OrthographicTilted,
+                                       BoardFraming.Projection.OrthographicTilted, pitch,
                                        out pose, out _);
         }
 
@@ -42,7 +51,9 @@ namespace HapisHavoc.Tests
                 yield return SceneFixture.Load(FixtureMode.Playing, lvl);
                 var boat = SceneFixture.Boat;
                 if (boat != null) boat.DeselectBoat();
-                yield return new WaitForSecondsRealtime(1.4f);
+                // Past the Brain's DefaultBlend (EaseInOut, Time: 2) - sampling mid-blend reads
+                // a lerp between vCams, not the framed pose. Wall clock, never frame counts.
+                yield return new WaitForSecondsRealtime(3.5f);
 
                 var cam = Camera.main;
                 Assert.IsNotNull(cam, "no main camera");

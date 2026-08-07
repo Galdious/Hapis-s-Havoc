@@ -24,6 +24,22 @@ public class CameraManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// The vCam a mode renders through. Exposed because BoardFramingDriver must set the LENS on
+    /// the camera that will actually render, and picking by Priority is unreliable: the driver
+    /// can run before SwitchTo*View has assigned priorities, and would then size the wrong vCam.
+    /// Selecting by mode is order-independent.
+    /// </summary>
+    public CinemachineCamera CameraFor(OperatingMode mode)
+    {
+        switch (mode)
+        {
+            case OperatingMode.Endless: return endlessCamera;
+            case OperatingMode.Playing: return playerCamera;
+            default:                    return editorCamera;
+        }
+    }
+
     public void SwitchToEditorView()
     {
         if (editorCamera == null || playerCamera == null) return;

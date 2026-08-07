@@ -76,6 +76,27 @@ public class UniversalCameraController : MonoBehaviour
     
     // Mode-specific state
     private Vector3 playModeStartPosition;
+
+    /// <summary>
+    /// The proxy position that frames the board, supplied by BoardFramingDriver. Null until
+    /// framing has run.
+    ///
+    /// SwitchMode used to zero the proxy and THEN capture playModeStartPosition from it, so Play
+    /// mode's rubberband returned to WORLD ORIGIN instead of the framed pose. Holding the value
+    /// here rather than pushing it into SwitchMode makes the ORDER irrelevant: whenever
+    /// SwitchMode runs, it uses the latest framed value if one exists.
+    ///
+    /// returnToOrigin / returnDelay / friction are untouched - only the TARGET changes.
+    /// </summary>
+    private Vector3? framedRestingPosition;
+
+    /// <summary>Called by BoardFramingDriver once the board is framed.</summary>
+    public void SetFramedRestingPosition(Vector3 restingProxyPosition)
+    {
+        framedRestingPosition = restingProxyPosition;
+        playModeStartPosition = restingProxyPosition;
+        if (cameraProxy != null) cameraProxy.position = restingProxyPosition;
+    }
     private Vector3 endlessBaseTarget;
     private float lastPlayerInputTime;
     
@@ -438,7 +459,8 @@ public class UniversalCameraController : MonoBehaviour
         // Reset camera proxy to origin when switching to Editor or Play mode
         if (mode != OperatingMode.Endless && cameraProxy != null)
         {
-            cameraProxy.position = Vector3.zero;
+            // The FRAMED resting position, not the world origin - see framedRestingPosition.
+            cameraProxy.position = framedRestingPosition ?? Vector3.zero;
         }
 
         if (mode == OperatingMode.Playing)
