@@ -17,8 +17,14 @@ namespace HapisHavoc.Tests
     /// </summary>
     public sealed class DeterministicContext : IDisposable
     {
+        // Portrait is the shipping target and the default for every existing golden. Landscape
+        // is opt-in per context, for the board-shape study - a fixed const could not express it.
         public const int Width = 1080;
         public const int Height = 1920;
+
+        /// <summary>Render target size actually in use. Defaults to the portrait constants.</summary>
+        public int RtWidth { get; }
+        public int RtHeight { get; }
         public const int DefaultSeed = 12345;
 
         // Quality level is pinned by NAME, not index: index order is not stable across
@@ -62,10 +68,13 @@ namespace HapisHavoc.Tests
         public DeterministicContext(int seed = DefaultSeed,
                                     BoardFraming.Projection projection = BoardFraming.Projection.PerspectiveTilted,
                                     BoardLayout layout = null,
-                                    BoardLayout.Orientation? orientation = null)
+                                    BoardLayout.Orientation? orientation = null,
+                                    int width = Width, int height = Height)
         {
+            RtWidth = width;
+            RtHeight = height;
             Layout = layout != null ? layout : LoadDefaultLayout();
-            Orientation = orientation ?? BoardLayout.OrientationFor(Width, Height);
+            Orientation = orientation ?? BoardLayout.OrientationFor(RtWidth, RtHeight);
             Projection = projection;
 
             _prevRandom = UnityEngine.Random.state;
@@ -76,7 +85,7 @@ namespace HapisHavoc.Tests
             _prevCaptureDelta = Time.captureDeltaTime;
             Time.captureDeltaTime = 1f / 60f;
 
-            Target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32,
+            Target = new RenderTexture(RtWidth, RtHeight, 24, RenderTextureFormat.ARGB32,
                                        RenderTextureReadWrite.sRGB)
             {
                 name = "HapiDeterministicRT",
@@ -134,7 +143,7 @@ namespace HapisHavoc.Tests
             $"editor={Application.unityVersion} " +
             $"quality={ResolvedQualityLevel} " +
             $"buildTarget={ActiveBuildTarget} " +
-            $"rt={Width}x{Height} " +
+            $"rt={RtWidth}x{RtHeight} " +
             $"orientation={Orientation} " +
             $"projection={Projection} " +
             $"colorSpace={QualitySettings.activeColorSpace} " +
@@ -184,7 +193,7 @@ namespace HapisHavoc.Tests
         /// </summary>
         public void FrameBoard()
         {
-            if (!BoardFraming.TryFit(Layout, Orientation, Width, Height, Projection,
+            if (!BoardFraming.TryFit(Layout, Orientation, RtWidth, RtHeight, Projection,
                                      out var pose, out var bounds))
             {
                 // Nothing renderable yet. Leave the camera alone rather than inventing a pose -
