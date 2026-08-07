@@ -60,7 +60,7 @@
       "isHardBlocker": false
     },
     {
-      "tileTypeName": "TileCross",
+      "tileTypeName": "TileTurn_03",
       "gridX": 1,
       "gridY": 0,
       "rotationY": 0.0,
@@ -68,7 +68,7 @@
       "isHardBlocker": false
     },
     {
-      "tileTypeName": "TileCross",
+      "tileTypeName": "TileTurn_01",
       "gridX": 1,
       "gridY": 1,
       "rotationY": 0.0,
@@ -76,23 +76,23 @@
       "isHardBlocker": false
     },
     {
-      "tileTypeName": "TileCross",
+      "tileTypeName": "TileTurn_02",
       "gridX": 1,
       "gridY": 2,
-      "rotationY": 0.0,
+      "rotationY": 180.0,
       "isFlipped": false,
       "isHardBlocker": false
     },
     {
-      "tileTypeName": "TileCross",
+      "tileTypeName": "TileSimple_02",
       "gridX": 1,
       "gridY": 3,
       "rotationY": 0.0,
-      "isFlipped": false,
+      "isFlipped": true,
       "isHardBlocker": false
     },
     {
-      "tileTypeName": "TileCross",
+      "tileTypeName": "TileChange",
       "gridX": 1,
       "gridY": 4,
       "rotationY": 0.0,
@@ -103,12 +103,12 @@
       "tileTypeName": "TileCross",
       "gridX": 1,
       "gridY": 5,
-      "rotationY": 0.0,
+      "rotationY": 180.0,
       "isFlipped": false,
       "isHardBlocker": false
     },
     {
-      "tileTypeName": "TileCross",
+      "tileTypeName": "TileSimple_01",
       "gridX": 2,
       "gridY": 0,
       "rotationY": 0.0,
@@ -124,7 +124,7 @@
       "isHardBlocker": true
     },
     {
-      "tileTypeName": "TileCross",
+      "tileTypeName": "TileTurn_01",
       "gridX": 2,
       "gridY": 2,
       "rotationY": 0.0,
@@ -132,7 +132,7 @@
       "isHardBlocker": false
     },
     {
-      "tileTypeName": "TileCross",
+      "tileTypeName": "TileTurn_02",
       "gridX": 2,
       "gridY": 3,
       "rotationY": 0.0,
@@ -140,15 +140,15 @@
       "isHardBlocker": false
     },
     {
-      "tileTypeName": "TileCross",
+      "tileTypeName": "TileSimple_02",
       "gridX": 2,
       "gridY": 4,
-      "rotationY": 0.0,
+      "rotationY": 180.0,
       "isFlipped": false,
       "isHardBlocker": false
     },
     {
-      "tileTypeName": "TileCross",
+      "tileTypeName": "TileChange",
       "gridX": 2,
       "gridY": 5,
       "rotationY": 0.0,

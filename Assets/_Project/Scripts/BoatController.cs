@@ -108,7 +108,9 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     private Dictionary<TileInstance, int> tileToSnapPoint = new Dictionary<TileInstance, int>();
 
     // ------------------------------------------------------------------------------------
-    // READ-ONLY VIEWS OF THE PATHFINDING RESULT. No behaviour, no setters.
+    // READ-ONLY VIEWS OF THE PATHFINDING RESULT. INTERNAL, no behaviour, no setters.
+    // Internal rather than public so BoatController's public surface does not grow for a
+    // test; the test assembly reaches them via [InternalsVisibleTo] in AssemblyInfo.cs.
     //
     // L10 asserts a level's goal is reachable from its start, and must do so through THE REAL
     // traversal rules - reversed tiles forcing straight, seeing through runs of them, blockers,
@@ -118,13 +120,13 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     // ------------------------------------------------------------------------------------
 
     /// <summary>Tiles reachable in one move from the current state, as of the last SelectBoat.</summary>
-    public IReadOnlyList<TileInstance> ValidMoves => validMoves;
+    internal IReadOnlyList<TileInstance> ValidMoves => validMoves;
 
     /// <summary>Snap point the boat would land on for each tile in <see cref="ValidMoves"/>.</summary>
-    public IReadOnlyDictionary<TileInstance, int> ValidMoveEntrySnaps => tileToSnapPoint;
+    internal IReadOnlyDictionary<TileInstance, int> ValidMoveEntrySnaps => tileToSnapPoint;
 
     /// <summary>Bank objects the boat could dock at from the current state.</summary>
-    public IReadOnlyList<GameObject> DockableBanks => highlightedBanks;
+    internal IReadOnlyList<GameObject> DockableBanks => highlightedBanks;
     private Dictionary<TileInstance, int> tileToReverseSnapPoint = new Dictionary<TileInstance, int>();
 
 

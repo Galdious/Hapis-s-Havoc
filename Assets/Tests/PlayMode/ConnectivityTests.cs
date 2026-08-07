@@ -33,16 +33,40 @@ namespace HapisHavoc.Tests
         /// Breadth-first over reachable (tile, snap) states, asking the boat itself for the
         /// successors of each. Returns whether the goal was reached, plus a trace.
         /// </summary>
-        static bool GoalReachable(GridManager grid, BoatController boat, out string trace)
+        static bool GoalReachable(GridManager grid, BoatController boat, LevelData data,
+                                  out string trace)
         {
-            var goalMarker = Object.FindFirstObjectByType<GoalMarker>();
-            // Bank goals are the common case. Resolve the goal bank GEOMETRICALLY - the bank
-            // further along +Z is the far one - rather than trusting an enum ordering.
+            // GOAL FROM THE AUTHORED DATA, not from geometry. endPosition says exactly what the
+            // goal is; geometry is used ONLY to tell which bank GameObject is the Top one, which
+            // is classifying the enum rather than guessing the goal.
+            bool bankGoal = data.endPosition != null && data.endPosition.isBankGoal;
+            var goalSide = bankGoal ? (RiverBankManager.BankSide)data.endPosition.bankSide
+                                    : RiverBankManager.BankSide.Top;
+            TileInstance goalTile = null;
+            int goalSnap = -1;
+            if (!bankGoal && data.endPosition != null)
+            {
+                goalTile = grid.GetTileAt(data.endPosition.tileX, data.endPosition.tileY);
+                goalSnap = data.endPosition.snapPointIndex;      // -1 means any snap on that tile
+            }
+
             float boardZ = 0f; int counted = 0;
             for (int y = 0; y < grid.rows; y++)
                 for (int x = 0; x < grid.cols; x++)
                     if (grid.GetTileAt(x, y) != null) { boardZ += grid.GetWorldPosition(x, y).z; counted++; }
             if (counted > 0) boardZ /= counted;
+
+            bool IsGoalBank(GameObject bankGo)
+            {
+                if (bankGo == null) return false;
+                var side = bankGo.transform.position.z > boardZ
+                    ? RiverBankManager.BankSide.Top : RiverBankManager.BankSide.Bottom;
+                return side == goalSide;
+            }
+
+            bool AtGoalTile(State st) =>
+                goalTile != null && ReferenceEquals(st.Tile, goalTile) &&
+                (goalSnap < 0 || st.Snap == goalSnap);
 
             var seen = new HashSet<State>();
             var queue = new Queue<State>();
@@ -56,8 +80,7 @@ namespace HapisHavoc.Tests
             boat.StopAllCoroutines();
             boat.SelectBoat();
 
-            foreach (var bankGo in boat.DockableBanks)
-                if (bankGo != null && bankGo.transform.position.z > boardZ) reached = true;
+            if (bankGoal) foreach (var bankGo in boat.DockableBanks) if (IsGoalBank(bankGo)) reached = true;
 
             foreach (var next in boat.ValidMoves.ToList())
             {
@@ -67,7 +90,7 @@ namespace HapisHavoc.Tests
                 if (seen.Add(ns)) queue.Enqueue(ns);
             }
 
-            if (reached) { trace = "docked at the far bank directly from the start"; return true; }
+            if (reached) { trace = $"docked at the {goalSide} bank directly from the start"; return true; }
             if (queue.Count == 0) { trace = "no moves at all from the start"; return false; }
 
             int expanded = 0;
@@ -81,16 +104,13 @@ namespace HapisHavoc.Tests
                 boat.SelectBoat();                 // populates ValidMoves synchronously
 
                 // Docking at a bank beyond the board's far edge is reaching a bank goal.
-                foreach (var bankGo in boat.DockableBanks)
-                {
-                    if (bankGo == null) continue;
-                    if (bankGo.transform.position.z > boardZ) { reached = true; break; }
-                }
-                if (reached) { log.Add($"docked at the far bank from {Where(grid, s.Tile)}:{s.Snap}"); break; }
+                if (bankGoal)
+                    foreach (var bankGo in boat.DockableBanks)
+                        if (IsGoalBank(bankGo)) { reached = true; break; }
+                if (reached) { log.Add($"docked at the {goalSide} bank from {Where(grid, s.Tile)}:{s.Snap}"); break; }
 
-                // A tile goal: the marker's tile is reachable.
-                if (goalMarker != null && goalMarker.GetComponentInParent<TileInstance>() == s.Tile)
-                { reached = true; log.Add($"reached the goal tile {Where(grid, s.Tile)}"); break; }
+                if (AtGoalTile(s))
+                { reached = true; log.Add($"reached the goal tile {Where(grid, s.Tile)} snap {s.Snap}"); break; }
 
                 foreach (var next in boat.ValidMoves.ToList())
                 {
@@ -139,10 +159,26 @@ namespace HapisHavoc.Tests
                 boat.DeselectBoat();
                 yield return new WaitForSecondsRealtime(1.0f);
 
-                bool ok = GoalReachable(grid, boat, out string trace);
+                var data = JsonUtility.FromJson<LevelData>(
+                    Resources.Load<TextAsset>(lvl).text);
+
+                // A fully locked level cannot be pushed, so the goal MUST already be reachable -
+                // that is assertable. If ANY row is pushable the level may legitimately require a
+                // push to open the route, and L10 ignores pushes by design, so it only reports.
+                bool anyPushable = data.lockedRows != null &&
+                                   data.lockedRows.Any(l => l != (int)RowLockState.BothLocked);
+
+                // Study fixtures ALWAYS assert regardless of lock state. They exist only to be
+                // read at different board sizes, so a severed river would silently corrupt the
+                // study's conclusion rather than merely being an unsolved puzzle.
+                if (lvl.Contains("study_")) anyPushable = false;
+
+                bool ok = GoalReachable(grid, boat, data, out string trace);
                 string name = lvl.Replace("Levels/", "");
-                rows.Add($"  {(ok ? "REACHABLE  " : "UNREACHABLE")}  {name,-20} {trace}");
-                if (!ok) (name.StartsWith("study_") ? studyFailures : shippedFailures).Add(name);
+                rows.Add($"  {(ok ? "REACHABLE  " : "UNREACHABLE")}  {(anyPushable ? "report" : "ASSERT")}  " +
+                         $"{name,-20} {trace}");
+                if (!ok && !anyPushable)
+                    (name.StartsWith("study_") ? studyFailures : shippedFailures).Add(name);
 
                 yield return new WaitForSecondsRealtime(0.2f);
             }
@@ -173,7 +209,8 @@ namespace HapisHavoc.Tests
             boat.DeselectBoat();
             yield return new WaitForSecondsRealtime(1.0f);
 
-            Assert.IsTrue(GoalReachable(grid, boat, out string before),
+            var d3x6 = JsonUtility.FromJson<LevelData>(Resources.Load<TextAsset>("Levels/study_3x6").text);
+            Assert.IsTrue(GoalReachable(grid, boat, d3x6, out string before),
                 "X15 setup: study_3x6 was already unreachable, so severing it proves nothing.");
 
             // Reload, so the second search starts from the level's START rather than wherever
@@ -192,7 +229,7 @@ namespace HapisHavoc.Tests
             boat.DeselectBoat();
             yield return new WaitForSecondsRealtime(0.5f);
 
-            bool afterOk = GoalReachable(grid, boat, out string after);
+            bool afterOk = GoalReachable(grid, boat, d3x6, out string after);
             Debug.Log($"[X15] before severing: {before}\n      after severing (0,3): {after}");
 
             Assert.IsFalse(afterOk,
