@@ -1,1 +1,1 @@
-editor=6000.3.21f1 quality=PC buildTarget=StandaloneOSX rt=1080x1920 colorSpace=Linear renderPipeline=PC_RPAsset
+editor=6000.3.21f1 quality=PC buildTarget=StandaloneOSX rt=1080x1920 orientation=Portrait projection=OrthographicTilted colorSpace=Linear renderPipeline=PC_RPAsset

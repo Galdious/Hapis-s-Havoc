@@ -110,6 +110,18 @@ that should never fire.
 
 ## Regeneration policy
 
+> **A golden may also be replaced for an INTENTIONAL VISUAL CHANGE**, under exactly the same
+> conditions as a defect fix: a human compares before and after, approves, and the commit names
+> what changed and why the new image is right. Blind regeneration stays forbidden — the whole
+> value of a golden is that a human looked.
+>
+> **Baselined for the orthographic adoption** (`c89dcd6`). All 8 moved 23.4–28.7 %: the board is
+> no longer a perspective trapezoid, every tile reads at the same size, and path width is uniform
+> across the board. Approved as the PRE-SHADER baseline so the channel-geometry work starts from
+> a clean suite.
+
+
+
 > **These goldens are a BEFORE baseline. Fixing R1, R2, R3 or the `BankClickHandler` leak is
 > EXPECTED to change them. When that happens it is a fix, not a regression.**
 >
