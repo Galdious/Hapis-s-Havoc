@@ -1,0 +1,241 @@
+{
+  "gridWidth": 3,
+  "gridHeight": 8,
+  "maxMoves": 10,
+  "lockedRows": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "tiles": [
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 0,
+      "gridY": 0,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 0,
+      "gridY": 1,
+      "rotationY": 0.0,
+      "isFlipped": true,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileSimple_01",
+      "gridX": 0,
+      "gridY": 2,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 0,
+      "gridY": 3,
+      "rotationY": 0.0,
+      "isFlipped": true,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 0,
+      "gridY": 4,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileSimple_02",
+      "gridX": 0,
+      "gridY": 5,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 0,
+      "gridY": 6,
+      "rotationY": 0.0,
+      "isFlipped": true,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 0,
+      "gridY": 7,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 1,
+      "gridY": 0,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 1,
+      "gridY": 1,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 1,
+      "gridY": 2,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 1,
+      "gridY": 3,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 1,
+      "gridY": 4,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 1,
+      "gridY": 5,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 1,
+      "gridY": 6,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 1,
+      "gridY": 7,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 2,
+      "gridY": 0,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 2,
+      "gridY": 1,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": true
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 2,
+      "gridY": 2,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 2,
+      "gridY": 3,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 2,
+      "gridY": 4,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 2,
+      "gridY": 5,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 2,
+      "gridY": 6,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    },
+    {
+      "tileTypeName": "TileCross",
+      "gridX": 2,
+      "gridY": 7,
+      "rotationY": 0.0,
+      "isFlipped": false,
+      "isHardBlocker": false
+    }
+  ],
+  "collectibles": [],
+  "playerHand": [
+    {
+      "tileTypeName": "TileCross",
+      "rotationY": 0.0,
+      "isFlipped": false
+    },
+    {
+      "tileTypeName": "TileTurn_01",
+      "rotationY": 0.0,
+      "isFlipped": false
+    },
+    {
+      "tileTypeName": "TileSimple_01",
+      "rotationY": 0.0,
+      "isFlipped": false
+    }
+  ],
+  "startPosition": {
+    "isBankGoal": false,
+    "tileX": 0,
+    "tileY": 0,
+    "snapPointIndex": 2,
+    "bankSide": 0
+  },
+  "endPosition": {
+    "isBankGoal": true,
+    "tileX": -1,
+    "tileY": -1,
+    "snapPointIndex": -1,
+    "bankSide": 0
+  }
+}

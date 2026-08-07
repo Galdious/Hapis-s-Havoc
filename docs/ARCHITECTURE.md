@@ -1037,6 +1037,21 @@ travelling across reversed tiles). `GridManager.GetOppositeSnapPoint` (`:1572`) 
 `0↔3, 1↔2, 4↔5` (diagonal mirror, used to correct a boat's snap point when the landing tile's
 rotation differs). Both are correct for their own use; the shared name is the hazard.
 
+> **THE AFFORDANCE RESERVATION WANTS A REWRITE, NOT A FIFTH PATCH.** `BoardFraming` reserves
+> screen space for push affordances by **reimplementing** `RiverControls`' placement maths. Two
+> copies of the same rule drift, and this one has now been corrected **four times**: arrows
+> reserved in modes that have none; both sides reserved on levels pushable from one; X-only while
+> zones are also offset in Z; and the per-row lock state ignored. Each fix was correct and each
+> revealed the next.
+>
+> This is the R1 pattern again — the same logic living in more than one place, diverging quietly.
+> The fix is one source of truth: `RiverControls` exposes `GetReservedBounds(lockState)` computed
+> by **the same code path that actually places the affordances**, and `BoardFraming` asks instead
+> of re-deriving. Still static, still thrash-free, and a fifth special case becomes impossible by
+> construction rather than by vigilance.
+>
+> Do this **before** the affordances move to screen-space UI, or that move becomes the fifth patch.
+
 > **Confirmed for the ejection re-landing path.** That call in `PushRowInternal` is unqualified
 > and therefore binds to `GridManager`'s mirror mapping — which is the **right** one: `0↔3, 1↔2,
 > 4↔5` *is* the permutation a 180° yaw induces (yaw maps local `(x,z) → (−x,−z)`, so top-left →

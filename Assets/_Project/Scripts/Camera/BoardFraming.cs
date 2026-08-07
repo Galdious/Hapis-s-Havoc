@@ -137,8 +137,18 @@ public static class BoardFraming
 
             float minX = Mathf.Min(acc.min.x, centreX - leftReach);
             float maxX = Mathf.Max(acc.max.x, centreX + rightReach);
-            acc.SetMinMax(new Vector3(minX, acc.min.y, acc.min.z),
-                          new Vector3(maxX, acc.max.y, acc.max.z));
+
+            // Z TOO. Drop zones are not only offset sideways: RiverControls places them at
+            // rowCenter.z - 0.25 with height tileHeight + gapZ*0.5, so the outermost rows' zones
+            // reach BEYOND the tile block in Z. Reserving X alone left that unframed - the
+            // reframe check at padding 0.20 caught DropZone_Row7 overflowing by ~0.001 of
+            // viewport height in Endless. Same static per-level basis as X, so still no thrash.
+            AffordanceReserveZ(grid, out float reservedMinZ, out float reservedMaxZ, out bool anyZ);
+            float minZ = anyZ ? Mathf.Min(acc.min.z, reservedMinZ) : acc.min.z;
+            float maxZ = anyZ ? Mathf.Max(acc.max.z, reservedMaxZ) : acc.max.z;
+
+            acc.SetMinMax(new Vector3(minX, acc.min.y, minZ),
+                          new Vector3(maxX, acc.max.y, maxZ));
         }
 
         bounds = acc;
@@ -192,6 +202,38 @@ public static class BoardFraming
                 if (leftOpen) leftReach = Mathf.Max(leftReach, reach);
                 if (rightOpen) rightReach = Mathf.Max(rightReach, reach);
             }
+        }
+    }
+
+    /// <summary>
+    /// Z extent the drop zones need. Editor reserves NOTHING here: it has arrows rather than
+    /// zones, and arrows carry no Z offset. Zones exist only on sides that are unlocked, so a
+    /// fully locked level reserves nothing either.
+    /// </summary>
+    static void AffordanceReserveZ(GridManager grid, out float minZ, out float maxZ, out bool any)
+    {
+        minZ = 0f; maxZ = 0f; any = false;
+
+        if (System.Environment.GetEnvironmentVariable("HAPI_NO_AFFORDANCE_RESERVE") == "1") return;
+
+        var rc = Object.FindFirstObjectByType<RiverControls>();
+        if (rc == null || grid == null || grid.rows <= 0) return;
+
+        bool editorMode = GameManager.Instance == null
+                       || GameManager.Instance.currentMode == OperatingMode.Editor;
+        if (editorMode) return;
+
+        float halfHeight = (grid.tileHeight + grid.gapZ * 0.5f) * 0.5f;
+        const float zoneZOffset = 0.25f;      // RiverControls: rowCenter.z - 0.25
+
+        for (int row = 0; row < grid.rows; row++)
+        {
+            if (rc.GetRowLockState(row) == RowLockState.BothLocked) continue;
+
+            float rowZ = grid.GetWorldPosition(0, row).z - zoneZOffset;
+            float lo = rowZ - halfHeight, hi = rowZ + halfHeight;
+            if (!any) { minZ = lo; maxZ = hi; any = true; }
+            else { minZ = Mathf.Min(minZ, lo); maxZ = Mathf.Max(maxZ, hi); }
         }
     }
 
