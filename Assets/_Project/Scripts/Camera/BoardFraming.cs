@@ -39,8 +39,18 @@ public static class BoardFraming
     public const float ShallowPitch = 38f;
     public const float DefaultFov = 40f;
 
+    /// <summary>Default pitch for a projection, used only when no camera pitch is supplied.</summary>
     public static float PitchFor(Projection p) =>
         p == Projection.OrthographicShallow ? ShallowPitch : DefaultPitch;
+
+    /// <summary>
+    /// The downward pitch of a transform, in degrees, from its FORWARD BASIS VECTOR rather than
+    /// eulerAngles - representation-independent, per CLAUDE.md gotcha 3. For a rotation about X
+    /// by p, forward is (0, -sin p, cos p), so p = asin(-forward.y).
+    /// </summary>
+    public static float PitchOf(Transform t) =>
+        t == null ? DefaultPitch
+                  : Mathf.Asin(Mathf.Clamp(-t.forward.y, -1f, 1f)) * Mathf.Rad2Deg;
 
     public static bool IsOrthographic(Projection p) => p != Projection.PerspectiveTilted;
 
@@ -248,10 +258,22 @@ public static class BoardFraming
     /// </summary>
     public static Pose Fit(Bounds bounds, BoardLayout layout, BoardLayout.Orientation orientation,
                            int targetWidth, int targetHeight, Projection projection)
+        => Fit(bounds, layout, orientation, targetWidth, targetHeight, projection,
+               PitchFor(projection));
+
+    /// <summary>
+    /// PITCH IS AN INPUT, not a constant. The fit derives orthographic size from it - extU scales
+    /// with cos(pitch) - so fitting at 55 and rendering at the authored 70 is wrong, and not
+    /// subtly. Framing fits THE CAMERA THAT EXISTS; it does not impose an angle. Use
+    /// <see cref="PitchOf"/> to read it from the camera that will render.
+    /// </summary>
+    public static Pose Fit(Bounds bounds, BoardLayout layout, BoardLayout.Orientation orientation,
+                           int targetWidth, int targetHeight, Projection projection,
+                           float pitchDegrees)
     {
         var cfg = layout.For(orientation);
         float aspect = (float)targetWidth / targetHeight;
-        float pitch = PitchFor(projection);
+        float pitch = pitchDegrees;
         var rotation = Quaternion.Euler(pitch, 0f, 0f);
 
         // Camera basis.
@@ -330,10 +352,16 @@ public static class BoardFraming
     public static bool TryFit(BoardLayout layout, BoardLayout.Orientation orientation,
                               int targetWidth, int targetHeight, Projection projection,
                               out Pose pose, out Bounds bounds)
+        => TryFit(layout, orientation, targetWidth, targetHeight, projection,
+                  PitchFor(projection), out pose, out bounds);
+
+    public static bool TryFit(BoardLayout layout, BoardLayout.Orientation orientation,
+                              int targetWidth, int targetHeight, Projection projection,
+                              float pitchDegrees, out Pose pose, out Bounds bounds)
     {
         pose = default;
         if (!TryCollectBoardBounds(out bounds, out _)) return false;
-        pose = Fit(bounds, layout, orientation, targetWidth, targetHeight, projection);
+        pose = Fit(bounds, layout, orientation, targetWidth, targetHeight, projection, pitchDegrees);
         return true;
     }
 

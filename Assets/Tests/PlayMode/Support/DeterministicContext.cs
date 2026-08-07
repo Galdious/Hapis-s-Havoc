@@ -96,6 +96,10 @@ namespace HapisHavoc.Tests
         public BoardLayout.Orientation Orientation { get; }
         public BoardFraming.Projection Projection { get; }
 
+        /// <summary>Pitch the board is FITTED FOR. Framing fits the camera that exists, so this
+        /// must match whatever angle actually renders.</summary>
+        public float PitchDegrees { get; private set; }
+
         /// <summary>The pose BoardFraming computed, and the bounds it fitted. Recorded so tests
         /// can assert against exactly what was rendered rather than recomputing it.</summary>
         public BoardFraming.Pose FramedPose { get; private set; }
@@ -107,8 +111,10 @@ namespace HapisHavoc.Tests
                                     BoardFraming.Projection projection = BoardFraming.Projection.OrthographicTilted,
                                     BoardLayout layout = null,
                                     BoardLayout.Orientation? orientation = null,
-                                    int width = Width, int height = Height)
+                                    int width = Width, int height = Height,
+                                    float? pitchDegrees = null)
         {
+            PitchDegrees = pitchDegrees ?? BoardFraming.PitchFor(projection);
             RtWidth = width;
             RtHeight = height;
             Layout = layout != null ? layout : LoadDefaultLayout();
@@ -184,6 +190,7 @@ namespace HapisHavoc.Tests
             $"rt={RtWidth}x{RtHeight} " +
             $"orientation={Orientation} " +
             $"projection={Projection} " +
+            $"pitch={PitchDegrees:F1} " +
             $"colorSpace={QualitySettings.activeColorSpace} " +
             $"renderPipeline={(QualitySettings.renderPipeline != null ? QualitySettings.renderPipeline.name : "default")}";
 
@@ -233,7 +240,7 @@ namespace HapisHavoc.Tests
         public void FrameBoard()
         {
             if (!BoardFraming.TryFit(Layout, Orientation, RtWidth, RtHeight, Projection,
-                                     out var pose, out var bounds))
+                                     PitchDegrees, out var pose, out var bounds))
             {
                 // Nothing renderable yet. Leave the camera alone rather than inventing a pose -
                 // a made-up fallback would silently produce a "successful" capture of nothing.

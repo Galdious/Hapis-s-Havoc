@@ -46,6 +46,55 @@ namespace HapisHavoc.Tests
             return runs[runs.Count / 2];
         }
 
+        /// <summary>
+        /// Z2. The same levels framed CORRECTLY at two pitches, so the choice is made from
+        /// images rather than arguments. 70 is the authored VCam_Player angle; 55 is what the
+        /// shape study was measured at. Each is fitted for its own angle - a fit computed at one
+        /// pitch and rendered at another is simply wrong, since extU scales with cos(pitch).
+        ///
+        /// Captures and measures only. Nothing here changes the authored pitch.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Z2_PitchComparison()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            var rows = new List<string>();
+
+            foreach (var lvl in new[] { "Levels/study_3x3", "Levels/study_3x6" })
+            foreach (float pitch in new[] { 70f, 55f })
+            {
+                yield return SceneFixture.Load(FixtureMode.Playing, lvl);
+                var grid = SceneFixture.Grid;
+                var boat = SceneFixture.Boat;
+                if (boat != null) boat.DeselectBoat();
+                yield return new WaitForSecondsRealtime(1.4f);
+
+                string name = lvl.Replace("Levels/", "");
+                string shot; float fill; Vector2 tilePx;
+
+                using (var ctx = new DeterministicContext(
+                    projection: BoardFraming.Projection.OrthographicTilted, pitchDegrees: pitch))
+                {
+                    ctx.Quiesce();
+                    ctx.FrameBoard();
+                    fill = BoardFraming.FillFraction(ctx.FramedBounds, ctx.Cam);
+                    var mid = grid.GetTileAt(grid.cols / 2, grid.rows / 2);
+                    var rend = mid != null ? mid.GetComponentInChildren<MeshRenderer>() : null;
+                    var r = rend != null ? BoardFraming.ViewportRectOf(rend.bounds, ctx.Cam) : new Rect();
+                    tilePx = new Vector2(r.width * ctx.RtWidth, r.height * ctx.RtHeight);
+                    shot = CaptureRig.Capture(ctx, "pitch", $"{name}_pitch{pitch:F0}");
+                }
+
+                float pathPx = MedianPathRunPx(PixelUtil.Load(shot));
+                rows.Add($"  {name,-11} pitch={pitch,4:F0}  fill={fill,7:P2}  " +
+                         $"tile={tilePx.x,6:F1}x{tilePx.y,5:F1}px  path={pathPx,4:F1}px");
+                Assert.IsTrue(CaptureRig.LooksRendered(shot), $"{name}@{pitch}: capture is black");
+                yield return new WaitForSecondsRealtime(0.2f);
+            }
+
+            Debug.Log("[Z2] pitch comparison, each fitted for its own angle\n" + string.Join("\n", rows));
+        }
+
         [UnityTest]
         public IEnumerator Z1_CaptureShapeStudy()
         {
