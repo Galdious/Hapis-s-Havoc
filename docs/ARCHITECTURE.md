@@ -1037,6 +1037,14 @@ travelling across reversed tiles). `GridManager.GetOppositeSnapPoint` (`:1572`) 
 `0↔3, 1↔2, 4↔5` (diagonal mirror, used to correct a boat's snap point when the landing tile's
 rotation differs). Both are correct for their own use; the shared name is the hazard.
 
+> **CORRECTION — the board vCams are NOT static poses.** An earlier audit recorded "three static
+> poses, no targets". That was wrong. All three carry `TrackingTarget = CameraProxy`, and
+> `VCam_Player` / `VCam_Editor` each carry a `CinemachineFollow` with a rigid `FollowOffset`
+> ((0,9,−4) and (0,10,−2)) and **zero** PositionDamping. The mistake came from grepping the
+> Cinemachine **2** field name `Follow` against a Cinemachine **3** asset, where it is
+> `TrackingTarget`, and reporting the false negative as fact. See
+> [docs/audit/CINEMACHINE_AUDIT.md](audit/CINEMACHINE_AUDIT.md).
+
 > **THE SHAPE STUDY'S ORIGINAL NUMBERS WERE MEASURED AT THE WRONG RENDER SCALE.** Every capture
 > up to `c38b59f` ran with `QualitySettings` pinned to **PC** (renderScale 1.0) while the game
 > ships **Mobile** (renderScale 0.8). Fill % and tile pixel size are unaffected — they are

@@ -111,3 +111,46 @@ Four arguments, in order of weight:
 
 **Scope warning:** this moves every golden again, and it touches input-adjacent code in Endless.
 It should be its own job with its own approval, not a rider on a framing fix.
+
+---
+
+## CORRECTION (supersedes the vCam findings above)
+
+**The claim "all three are static poses with no targets" was WRONG.** All three vCams carry
+`TrackingTarget: {fileID: 537799367}` — `CameraProxy` — and `VCam_Player` and `VCam_Editor` each
+carry a **`CinemachineFollow`** component (guid `b617507d…`) that acts on it.
+
+**Cause of the mistake, so it is not repeated:** I searched the vCam YAML for a `Follow:` key and
+got no hits. In Cinemachine **2** the field is `Follow`; in Cinemachine **3**, which this project
+uses, it is `TrackingTarget`. A Cinemachine-2 field name was matched against a Cinemachine-3 asset
+and the false negative was reported as fact. **Never conclude a field is absent from a single
+grep for one spelling of its name.**
+
+### Measured `CinemachineFollow` settings
+
+| vCam | FollowOffset | PositionDamping | RotationDamping | BindingMode |
+|---|---|---|---|---|
+| `VCam_Player` | (0, 9, −4) | **(0, 0, 0)** | (1, 1, 1) | 4 |
+| `VCam_Editor` | (0, 10, −2) | **(0, 0, 0)** | (1, 1, 1) | 4 |
+| `VCam_Endless` | — no `CinemachineFollow` at all — | | | |
+
+**PositionDamping is ZERO on both.** There is no positional damping to preserve: the follow is a
+rigid offset from `CameraProxy`. The tuned feel in Play comes from `UniversalCameraController`'s
+`friction` / `returnDelay` / `returnToOrigin`, **not** from Cinemachine. The earlier worry that a
+removal would destroy tuned damping was therefore also wrong — though removal remains off the
+table for other reasons.
+
+`FollowOffset` equals each vCam's own authored transform position, which is consistent: with
+`CameraProxy` at the origin, the vCam resolves to proxy + offset.
+
+`VCam_Endless` **has** a TrackingTarget but **no follow behaviour**, so the target does nothing for
+it — which is exactly why `EndlessModeManager:183` hand-writes `endlessVCam.transform.position`,
+and very likely why Endless is the mode whose tracking is broken.
+
+### The camera chain, per mode — corrected
+
+| mode | chain |
+|---|---|
+| Playing | UCC → `CameraProxy` → `VCam_Player` + `CinemachineFollow` (offset 0,9,−4) → Brain → Main Camera |
+| Editor | UCC → `CameraProxy` → `VCam_Editor` + `CinemachineFollow` (offset 0,10,−2) → Brain → Main Camera |
+| Endless | UCC → `CameraProxy` → `EndlessModeManager:183` direct write → Brain → Main Camera |
