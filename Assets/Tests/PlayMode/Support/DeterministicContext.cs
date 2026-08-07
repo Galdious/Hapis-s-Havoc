@@ -53,7 +53,7 @@ namespace HapisHavoc.Tests
         {
             "CinemachineBrain",          // CRITICAL - the live camera is a vCam, not this pose
             "UniversalCameraController", // pan
-            "EndlessModeManager",        // CRITICAL - disables the mode being captured
+            "EndlessModeManager",        // KNOWN DIVERGENCE #3 - see HARNESS_DIVERGENCE.md
             "BoardFramingDriver",        // would ease off the pinned pose
             "FPSCounter",                // debug overlay, genuinely unwanted
             "QualityLevel:Mobile",       // shipping quality, renderScale 0.8
@@ -206,8 +206,8 @@ namespace HapisHavoc.Tests
             DisableByTypeName("Unity.Cinemachine.CinemachineBrain");
             DisableByTypeName("CinemachineBrain");
             DisableAll<UniversalCameraController>();
-            DisableAll<BoardFramingDriver>();   // would ease the camera off the pinned pose
             DisableAll<EndlessModeManager>();
+            DisableAll<BoardFramingDriver>();   // would ease the camera off the pinned pose
 
             _prevCamPos = Cam.transform.position;
             _prevCamRot = Cam.transform.rotation;

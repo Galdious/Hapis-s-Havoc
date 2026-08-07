@@ -71,3 +71,47 @@ exclusion, so the shipping quality level is selectable in-Editor. This cannot af
 build — `excludedTargetPlatforms` only controls per-platform availability.
 
 Every golden and every study capture before this rendered at renderScale 1.0.
+
+---
+
+## Divergence #3 (`EndlessModeManager` disabled) — ATTEMPTED, NOT RESOLVED
+
+Not documented as permanent. It is **not** proven impossible; the attempt failed for a reason I
+understand and can name, and the next attempt should start from here rather than from scratch.
+
+### What actually makes Endless non-deterministic
+
+Two sources, found in source rather than assumed:
+
+1. **The turn loop.** `EndlessGameLoop()` is a `while (true)` coroutine that pushes rows and
+   drains stamina, so the board mutates with elapsed time. Stoppable, exactly as the boat,
+   PathVisualizer and GridManager coroutines already are.
+2. **The row count.** `GenerateMissingRows(boatY + leadingBuffer)` grows the board from the boat's
+   position. `Random.InitState` is already pinned, but seeding alone is insufficient: the RNG call
+   **sequence** depends on how many rows are generated, so the count must be fixed too.
+
+A third source exists but does **not** affect captures: the camera lerp at
+`EndlessModeManager:179` is frame-count dependent, but it moves only `cameraProxy` and
+`endlessVCam`, neither of which is the capture camera while the Brain is suppressed. It *will*
+matter once divergence #1 is closed.
+
+### Why the attempt failed
+
+Making `GenerateMissingRows` internal and calling it from `Quiesce()` broke **D3** as well as D4.
+
+**`LevelEditor.unity` hosts all three modes.** `EndlessModeManager` is present in the scene
+regardless of the mode being played, so a `Quiesce()` that pins the Endless row count ran in
+**Playing and Editor captures too** — growing the board and consuming RNG in modes whose boards
+are authored and fixed. That is what D3 caught.
+
+### What the next attempt should do differently
+
+- **Scope the pin to Endless mode**, not to every capture.
+- **Pin the row count ONCE at scene setup** (`SceneFixture`), not per-capture. Two contexts in one
+  test each calling `GenerateMissingRows` do different amounts of work — the first grows the
+  board, the second finds it grown — which is its own source of divergence between captures.
+- Only then re-enable the manager and un-ignore **D4**, which is parked rather than deleted and is
+  the proof obligation.
+
+`GenerateMissingRows` has been left `internal` (visibility only, no behaviour change), so the next
+attempt does not have to redo that.

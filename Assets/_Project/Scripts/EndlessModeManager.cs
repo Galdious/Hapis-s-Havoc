@@ -704,7 +704,11 @@ public class EndlessModeManager : MonoBehaviour
         yield return null;
     }
 
-    private void GenerateMissingRows(int targetTopRow)
+    /// <summary>
+    /// INTERNAL, not private, so the capture rig can pin the row count instead of switching this
+    /// whole manager off. Visibility only - no behaviour change. See DeterministicContext.
+    /// </summary>
+    internal void GenerateMissingRows(int targetTopRow)
     {
         // --- THIS IS THE FIX ---
         // 1. Expand BOTH data structures to their final size BEFORE the loop.

@@ -101,5 +101,38 @@ namespace HapisHavoc.Tests
                 "Two DeterministicContexts with the same seed produced different images. " +
                 "Context setup or teardown is leaking state.");
         }
+
+        /// <summary>
+        /// D4. ENDLESS captures must be deterministic WITH THE MANAGER ENABLED. Endless used to be
+        /// captured with EndlessModeManager switched off, so streaming, row spawning and camera
+        /// follow were never truthfully captured. Turning it back on is only safe if the result
+        /// reproduces - this is that proof.
+        /// </summary>
+        [Ignore("Divergence #3: enabling EndlessModeManager during captures is not yet " +
+                "deterministic. See docs/audit/HARNESS_DIVERGENCE.md for the two pinned inputs " +
+                "and the one that is not. Un-ignore when the row count is pinned at scene setup.")]
+        [UnityTest]
+        public IEnumerator D4_EndlessCaptureIsDeterministicWithTheManagerEnabled()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            yield return SceneFixture.Load(FixtureMode.Endless, null);
+            yield return new WaitForSecondsRealtime(1.5f);
+
+            string a, b;
+            using (var ctx = new DeterministicContext()) { ctx.Quiesce(); a = CaptureRig.Capture(ctx, "determinism", "endless-a"); }
+            yield return new WaitForSecondsRealtime(0.8f);
+            using (var ctx = new DeterministicContext()) { ctx.Quiesce(); b = CaptureRig.Capture(ctx, "determinism", "endless-b"); }
+
+            var mgr = Object.FindFirstObjectByType<EndlessModeManager>();
+            Debug.Log($"[D4] EndlessModeManager present={mgr != null} enabled={(mgr != null && mgr.enabled)} " +
+                      $"(it must be ENABLED - that is the point of this test)");
+
+            Assert.IsTrue(mgr != null && mgr.enabled,
+                "D4: EndlessModeManager is not enabled during the capture, so this proves nothing.");
+            Assert.IsTrue(CaptureRig.LooksRendered(a), "D4: capture is black");
+            Assert.IsTrue(PixelUtil.BytesIdentical(a, b),
+                "D4: two Endless captures of the same pinned state differ. Something in Endless is " +
+                "still unpinned - the turn loop, the row count, or the RNG sequence.");
+        }
     }
 }
