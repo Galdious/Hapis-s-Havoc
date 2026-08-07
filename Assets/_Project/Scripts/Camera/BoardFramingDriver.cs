@@ -87,13 +87,30 @@ public class BoardFramingDriver : MonoBehaviour
     /// </summary>
     void OnTileSpawnedHandler(TileInstance tile) => Apply(snap: false);
 
+    /// <summary>
+    /// Four readings together, so "pipeline not reading the field" / "Brain not applying" /
+    /// "blend never finishing" / "something else writing the camera" are separable in ONE run
+    /// rather than by successive guesses.
+    /// </summary>
     IEnumerator LogNextFrame(CinemachineCamera vcam)
     {
-        yield return null;
-        var cam = Camera.main;
-        Debug.Log($"[FRAMEDBG] next frame: vcam.Lens.OrthographicSize={vcam.Lens.OrthographicSize:F2} " +
-                  $"Camera.main.orthographicSize={(cam != null ? cam.orthographicSize : -1f):F2} " +
-                  $"Camera.main.pos={(cam != null ? cam.transform.position : Vector3.zero):F2}");
+        var brain = Camera.main != null ? Camera.main.GetComponent<CinemachineBrain>() : null;
+        for (int frame = 1; frame <= 3; frame++)
+        {
+            yield return null;
+            var cam = Camera.main;
+            float stateLens = brain != null && brain.ActiveVirtualCamera != null
+                ? brain.ActiveVirtualCamera.State.Lens.OrthographicSize : -1f;
+            bool blending = brain != null && brain.IsBlending;
+            string blendInfo = "-";
+            if (brain != null && brain.ActiveBlend != null)
+                blendInfo = $"{brain.ActiveBlend.TimeInBlend:F2}/{brain.ActiveBlend.Duration:F2}";
+
+            Debug.Log($"[LENSDBG] f+{frame}  vcam.Lens={vcam.Lens.OrthographicSize:F3}  " +
+                      $"brain.State.Lens={stateLens:F3}  " +
+                      $"Camera.main={(cam != null ? cam.orthographicSize : -1f):F3}  " +
+                      $"IsBlending={blending} blend={blendInfo}");
+        }
     }
 
     /// <summary>
