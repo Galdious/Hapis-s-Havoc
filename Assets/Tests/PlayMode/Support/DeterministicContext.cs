@@ -66,7 +66,9 @@ namespace HapisHavoc.Tests
         public Bounds FramedBounds { get; private set; }
 
         public DeterministicContext(int seed = DefaultSeed,
-                                    BoardFraming.Projection projection = BoardFraming.Projection.PerspectiveTilted,
+                                    // Orthographic tilted is the adopted default - it won the projection comparison on
+                                    // BOTH foreshortening (1.000 vs 1.114) and fill (47.75% vs 40.89%).
+                                    BoardFraming.Projection projection = BoardFraming.Projection.OrthographicTilted,
                                     BoardLayout layout = null,
                                     BoardLayout.Orientation? orientation = null,
                                     int width = Width, int height = Height)
