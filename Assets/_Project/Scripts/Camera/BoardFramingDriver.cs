@@ -66,17 +66,51 @@ public class BoardFramingDriver : MonoBehaviour
     /// </summary>
     IEnumerator FrameWhenBoardIsReady()
     {
-        float deadline = Time.realtimeSinceStartup + 10f;
-        while (!BoardFraming.TryCollectBoardBounds(out _, out int contributors) || contributors < 2)
+        float deadline = Time.realtimeSinceStartup + 15f;
+        while (!BoardIsReady(out string why))
         {
             if (Time.realtimeSinceStartup > deadline)
             {
-                Debug.LogWarning("[BoardFramingDriver] Timed out waiting for a populated board.");
+                // LOUD, never a silent fallback: framing a half-built board produces a camera
+                // that looks deliberate and is wrong, which is exactly how this went unnoticed.
+                Debug.LogError($"[BoardFramingDriver] Timed out after 15s waiting for the board: {why}. " +
+                               "NOT framing - the camera is left as authored.");
                 yield break;
             }
             yield return null;
         }
         Apply(snap: true);
+    }
+
+    /// <summary>
+    /// COUNTING TILES IS NOT ENOUGH. Measured: the grid reported 9 of 9 tiles while the bounds
+    /// were still degenerate, because the tiles were mid-ScaleIn - most renderers reported
+    /// exactly zero bounds and were filtered out, and the four that survived were a twelfth of
+    /// full size. The gate must wait for the tiles to be the size they will be drawn at.
+    /// </summary>
+    bool BoardIsReady(out string why)
+    {
+        why = null;
+        if (_grid == null || _grid.cols <= 0 || _grid.rows <= 0) { why = "no grid"; return false; }
+
+        int expected = _grid.cols * _grid.rows;
+        var tiles = FindObjectsByType<BoardTile>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        if (tiles.Length < expected)
+        {
+            why = $"{tiles.Length} of {expected} tiles spawned";
+            return false;
+        }
+
+        foreach (var t in tiles)
+        {
+            var sc = t.transform.localScale;
+            if (Mathf.Abs(sc.x - 1f) > 0.01f || Mathf.Abs(sc.y - 1f) > 0.01f || Mathf.Abs(sc.z - 1f) > 0.01f)
+            {
+                why = $"tile '{t.name}' still at scale {sc:F2} - spawn animation in progress";
+                return false;
+            }
+        }
+        return true;
     }
 
     /// <summary>
@@ -106,6 +140,11 @@ public class BoardFramingDriver : MonoBehaviour
             if (brain != null && brain.ActiveBlend != null)
                 blendInfo = $"{brain.ActiveBlend.TimeInBlend:F2}/{brain.ActiveBlend.Duration:F2}";
 
+            Debug.Log($"[TIMEDBG] f+{frame}  Time.time={Time.time:F3} unscaled={Time.unscaledTime:F3} " +
+                      $"deltaTime={Time.deltaTime:F4} captureDeltaTime={Time.captureDeltaTime:F4} " +
+                      $"timeScale={Time.timeScale:F2} " +
+                      $"brainBlendUpdate={(brain != null ? brain.BlendUpdateMethod.ToString() : "?")} " +
+                      $"brainUpdate={(brain != null ? brain.UpdateMethod.ToString() : "?")}");
             Debug.Log($"[LENSDBG] f+{frame}  vcam.Lens={vcam.Lens.OrthographicSize:F3}  " +
                       $"brain.State.Lens={stateLens:F3}  " +
                       $"Camera.main={(cam != null ? cam.orthographicSize : -1f):F3}  " +

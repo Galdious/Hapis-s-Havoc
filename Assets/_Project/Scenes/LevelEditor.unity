@@ -11963,8 +11963,8 @@ MonoBehaviour:
     Enabled: 0
     DefaultMode: 2
   DefaultBlend:
-    Style: 1
-    Time: 2
+    Style: 0
+    Time: 0
     CustomCurve:
       serializedVersion: 2
       m_Curve: []
@@ -16747,7 +16747,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: HapisHavoc.Runtime::ThemeService
   referenceTheme: {fileID: 11400000, guid: d15ed1fd7340c4eb6b663b11292e995d, type: 2}
   startingTheme: {fileID: 11400000, guid: d15ed1fd7340c4eb6b663b11292e995d, type: 2}
-  reconcileIntervalSeconds: 0.25
 --- !u!4 &1798293270
 Transform:
   m_ObjectHideFlags: 0
@@ -17133,7 +17132,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: HapisHavoc.Runtime::BoardFramingDriver
   layout: {fileID: 0}
-  smoothSeconds: 0.35
   hysteresisWorldUnits: 0.75
 --- !u!4 &1855982377
 Transform:

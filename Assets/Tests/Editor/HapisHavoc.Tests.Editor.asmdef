@@ -5,7 +5,8 @@
         "HapisHavoc.Runtime",
         "HapisHavoc.Tests.PlayMode",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "Unity.Cinemachine"
     ],
     "includePlatforms": [
         "Editor"

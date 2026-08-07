@@ -263,6 +263,14 @@ namespace HapisHavoc.Tests
             var cam = Camera.main;
 
             var residuals = SampleTileResiduals(grid, cam, img, egyptPalette);
+
+            // A test that THROWS reports nothing. residuals goes empty when the framing moves
+            // the tiles out from under the sample projection, and Mathf.Min(Count-1, ...) is -1
+            // at Count 0. Fail with the reason instead of an IndexOutOfRange.
+            Assert.IsNotEmpty(residuals,
+                "X12: no sample point landed on a tile, so the control measured nothing. The " +
+                "framing changed under it - fix the sampling, do not relax the assertion.");
+
             residuals.Sort();
             float p95 = residuals[Mathf.Min(residuals.Count - 1, (int)(residuals.Count * 0.95f))];
 
