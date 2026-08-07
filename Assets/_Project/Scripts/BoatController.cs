@@ -106,6 +106,25 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     private List<GameObject> highlightedTiles = new List<GameObject>();
     private List<GameObject> highlightedBanks = new List<GameObject>();
     private Dictionary<TileInstance, int> tileToSnapPoint = new Dictionary<TileInstance, int>();
+
+    // ------------------------------------------------------------------------------------
+    // READ-ONLY VIEWS OF THE PATHFINDING RESULT. No behaviour, no setters.
+    //
+    // L10 asserts a level's goal is reachable from its start, and must do so through THE REAL
+    // traversal rules - reversed tiles forcing straight, seeing through runs of them, blockers,
+    // bank embark/dock. Reimplementing those in a test would be a second copy that drifts, which
+    // is the R1 pattern this project keeps paying for. These three lines are what let the test
+    // reuse FindValidMoves instead. House rule 1 forbids new BEHAVIOUR here; this adds none.
+    // ------------------------------------------------------------------------------------
+
+    /// <summary>Tiles reachable in one move from the current state, as of the last SelectBoat.</summary>
+    public IReadOnlyList<TileInstance> ValidMoves => validMoves;
+
+    /// <summary>Snap point the boat would land on for each tile in <see cref="ValidMoves"/>.</summary>
+    public IReadOnlyDictionary<TileInstance, int> ValidMoveEntrySnaps => tileToSnapPoint;
+
+    /// <summary>Bank objects the boat could dock at from the current state.</summary>
+    public IReadOnlyList<GameObject> DockableBanks => highlightedBanks;
     private Dictionary<TileInstance, int> tileToReverseSnapPoint = new Dictionary<TileInstance, int>();
 
 
