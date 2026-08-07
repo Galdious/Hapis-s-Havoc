@@ -194,6 +194,15 @@ FIX ---` comments throughout record the same handful of failures over and over:
 
 ## 5. House rules
 
+- **THE HARNESS MUST NOT DISABLE ANYTHING THE GAME RUNS.** Anything suppressed for determinism
+  must either be genuinely absent in play, or be documented as a known divergence with a test
+  that detects drift. Three real bugs have hidden behind suppressions that were individually
+  reasonable: the hand palette (concealed the framing bounds bug), `BoardFraming` being
+  harness-only (framing never applied in play), and `CinemachineBrain` (the captured camera was
+  never the real one). `DeterministicContext.Suppressions` is the declared list and
+  `X18` fails if it drifts from the allowlist in
+  [docs/audit/HARNESS_DIVERGENCE.md](docs/audit/HARNESS_DIVERGENCE.md).
+
 - Do not add code to BoatController.cs, GridManager.cs, LevelEditorManager.cs
   or EndlessModeManager.cs. They are already too large. New behaviour goes in
   a new focused class.

@@ -18,6 +18,14 @@ public class GridManager : MonoBehaviour
 
     public event System.Action OnTileConsumed;
 
+    /// <summary>
+    /// Raised when a tile is placed into the grid. DECLARATION AND INVOKE ONLY - a seam, not
+    /// behaviour, which is why house rule 1 permits it here. It removes two workarounds: the
+    /// framing driver had no way to know the board grew, and ThemeService was polling four
+    /// times a second to notice new Endless rows.
+    /// </summary>
+    public event System.Action<TileInstance> OnTileSpawned;
+
     // ------------------------------------------------------------
     // 1.  Inspector references & settings
     // ------------------------------------------------------------
@@ -336,6 +344,7 @@ public class GridManager : MonoBehaviour
 
         grid[x, y] = ti;
         BoardTile.MarkAsBoard(ti);   // board, not inventory - see BoardTile
+            OnTileSpawned?.Invoke(ti);
 
         // Play staggered pop-in animation
         if (animate)
@@ -525,6 +534,7 @@ public class GridManager : MonoBehaviour
 
         TileInstance tile = go.GetComponent<TileInstance>();
         BoardTile.MarkAsBoard(tile);   // board, not inventory - see BoardTile
+        OnTileSpawned?.Invoke(tile);
         InitializeTile(tile, template, isFlipped);
         UpdateTileGameplayVisuals(tile);
 
@@ -1225,6 +1235,7 @@ public class GridManager : MonoBehaviour
             // {
             grid[x, y] = ti;
             BoardTile.MarkAsBoard(ti);   // board, not inventory - see BoardTile
+            OnTileSpawned?.Invoke(ti);
             // }
         }
         

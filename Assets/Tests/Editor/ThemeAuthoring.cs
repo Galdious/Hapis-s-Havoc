@@ -198,6 +198,13 @@ namespace HapisHavoc.Tests.EditorTools
             so.FindProperty("startingTheme").objectReferenceValue = egypt;
             so.ApplyModifiedPropertiesWithoutUndo();
 
+            // The runtime framing driver, alongside ThemeService.
+            var oldDriver = Object.FindFirstObjectByType<BoardFramingDriver>();
+            if (oldDriver != null) Object.DestroyImmediate(oldDriver.gameObject);
+            var driverHost = new GameObject("BoardFramingDriver");
+            driverHost.AddComponent<BoardFramingDriver>();
+            Debug.Log("[AUTHOR] BoardFramingDriver added to LevelEditor.unity.");
+
             EditorSceneManager.MarkSceneDirty(host.scene);
             EditorSceneManager.SaveScene(host.scene);
             Debug.Log("[AUTHOR] ThemeService added to LevelEditor.unity, reference=starting=Egypt " +

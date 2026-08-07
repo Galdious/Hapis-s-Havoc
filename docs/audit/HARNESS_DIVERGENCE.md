@@ -1,0 +1,53 @@
+# Harness / game divergence audit
+
+Everything `DeterministicContext` (and other harness code) disables, hides, pins, overrides or
+substitutes, ranked by whether it could conceal a real defect.
+
+Three bugs have already hidden here — the hand palette, `BoardFraming` being harness-only, and
+`CinemachineBrain`. Each suppression was individually reasonable.
+
+## CRITICAL — has concealed, or is concealing, a real defect
+
+| # | Suppression | What it changes | Absent in play? | What hides behind it |
+|---|---|---|---|---|
+| 1 | `DisableByTypeName("CinemachineBrain")` | Brain stops driving the camera transform **and lens** | **No** — Brain is live in play | **PROVEN.** The camera in every capture is the harness's; the live camera is a vCam. Framing never applied and nobody noticed for the whole project. |
+| 2 | `HideHandPalettes()` | Deactivates `playerHandContainer` / `editorHandContainer` | **No** — the hand is visible in play | **PROVEN.** Hand tiles carry `TileInstance`, entered the framing bounds, and made Editor width bind at 2.54×. Invisible in every golden. |
+| 3 | `DisableAll<EndlessModeManager>()` | Endless streaming, camera follow, storm pushes all stop | **No** — it *is* Endless mode | **FOURTH DIVERGENCE.** Every "Endless" capture is a static board with the mode's own manager switched off. Endless streaming visuals, camera follow and row spawning have never been captured truthfully. B1 reports an "Endless (streamed)" row measured with the streamer disabled. |
+| 4 | `QualitySettings.SetQualityLevel("PC")` | Pins quality by name | **No** — the game ships **Mobile**, whose renderScale is **0.8** vs PC's 1.0 | **FIFTH DIVERGENCE.** Every golden is rendered at PC quality. Any defect that only appears at renderScale 0.8 — aliasing, thin-line dropout, exactly the path-legibility question the shape study asked — cannot appear in a golden. The code comment names the 0.8/1.0 difference and then pins PC anyway. |
+
+## HIGH — could conceal a defect in an area under active work
+
+| # | Suppression | What it changes | Absent in play? | What hides behind it |
+|---|---|---|---|---|
+| 5 | `GridManager.StopAllCoroutines()` | Kills tile slide, pop-in, ejection | No | Push animation defects. The push path is the most bug-prone code here (gotcha 7) and its motion is never captured. |
+| 6 | `Shader.SetGlobalVector("_Time", 0)` | Freezes shader time | No | Any `_Time`-driven effect. **Directly relevant to 7b**, whose flow-scrolling is time-driven and would capture as frozen. |
+| 7 | `DisableAll<BoardFramingDriver>()` | Framing driver stops | No | Added by me this session. A driver that mis-frames cannot show up in a golden. Necessary today; must be removed once the driver *is* the framing. |
+| 8 | `DisableAll<UniversalCameraController>()` | Pan stops | No | Pan defects. Currently low-impact only because UCC's proxy is unread in Playing/Editor — but that inertness is itself a bug this conceals. |
+
+## MEDIUM
+
+| # | Suppression | What it changes | What hides behind it |
+|---|---|---|---|
+| 9 | `boat.StopAllCoroutines()` + `isSelected = false` + `PlaceOnTile` | Pins the boat | Boat animation, bob, lift and resting-height defects |
+| 10 | `PathVisualizer.StopAllCoroutines()` | Kills colour fades | Path highlight fade defects |
+| 11 | `localScale = Vector3.one` on every `BoardTile` | Forces scale | A tile stuck mid-`ScaleIn` renders correct in every capture |
+| 12 | `Camera.targetTexture = 1080×1920 RT` | Substitutes the render target | Real device aspects differ; nothing is captured at a real one |
+
+## LOW — genuinely absent, or deliberate and understood
+
+| # | Suppression | Why it is fine |
+|---|---|---|
+| 13 | `DisableAll<FPSCounter>()` | A debug overlay; genuinely not wanted in a board capture |
+| 14 | `Random.InitState(seed)` | Determinism is the point; D3 asserts the seed is honoured |
+| 15 | `Time.captureDeltaTime = 1/60` | Pins the step; captures are explicit `Camera.Render()` anyway |
+
+## Fourth divergence: yes — two of them
+
+**#3, `EndlessModeManager` disabled**, is the clearest: an entire operating mode is captured with
+its own manager switched off, so nothing Endless-specific has ever been seen by a golden.
+
+**#4, quality pinned to PC while the game ships Mobile**, is arguably worse because it is silent
+and global. renderScale 0.8 versus 1.0 changes every pixel, and the thin-line legibility question
+the shape study just spent a session on is exactly the kind of defect it would mask.
+
+Neither is chased here — this is an audit.

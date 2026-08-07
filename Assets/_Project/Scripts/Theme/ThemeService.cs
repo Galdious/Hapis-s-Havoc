@@ -71,12 +71,6 @@ public class ThemeService : MonoBehaviour
     [Tooltip("Applied on Start. Leave null to apply the reference theme.")]
     [SerializeField] private ThemeDefinition startingTheme;
 
-    [Header("Endless streaming")]
-    [Tooltip("Endless spawns rows continuously. GridManager raises no spawn event and house " +
-             "rule 1 forbids adding one there, so new tiles are reconciled by a low-frequency " +
-             "poll instead of per-frame work. See the note on ReconcileLoop.")]
-    [SerializeField] private float reconcileIntervalSeconds = 0.25f;
-
     /// <summary>The theme currently applied. Null before the first apply.</summary>
     public static ThemeDefinition Active { get; private set; }
 
@@ -107,11 +101,18 @@ public class ThemeService : MonoBehaviour
     void Start()
     {
         ApplyTheme(startingTheme != null ? startingTheme : referenceTheme);
-        if (reconcileIntervalSeconds > 0f) StartCoroutine(ReconcileLoop());
+
+        // SUBSCRIBE, do not poll. This used to wake four times a second to notice new Endless
+        // rows, because GridManager raised no spawn event. It does now.
+        if (_grid != null) _grid.OnTileSpawned += OnTileSpawnedHandler;
     }
+
+    void OnTileSpawnedHandler(TileInstance tile) => ApplyToTile(tile);
 
     void OnDestroy()
     {
+        if (_grid != null) _grid.OnTileSpawned -= OnTileSpawnedHandler;
+
         // Static state must not survive a scene reload; the project relies on domain reload
         // between tests and a stale Active would leak across them.
         Active = null;
@@ -248,36 +249,5 @@ public class ThemeService : MonoBehaviour
 
         if (theme.skyboxMaterial != null)
             RenderSettings.skybox = theme.skyboxMaterial;
-    }
-
-    /// <summary>
-    /// Endless streams new rows in continuously. GridManager raises no "tile spawned" event, and
-    /// house rule 1 forbids adding one to it, so this reconciles instead.
-    ///
-    /// It is a POLL, not per-frame work: it wakes a few times a second and, in the common case,
-    /// does a single int comparison and goes back to sleep. That is cheap enough for a mobile
-    /// target, but it is a stopgap, not the right long-term design - a one-line OnTileSpawned
-    /// event on GridManager would remove it entirely. Flagged rather than added unilaterally.
-    /// </summary>
-    IEnumerator ReconcileLoop()
-    {
-        var wait = new WaitForSeconds(reconcileIntervalSeconds);
-        int lastCount = -1;
-
-        while (true)
-        {
-            yield return wait;
-
-            if (Active == null || _remap.Count == 0) continue;
-            var parent = _grid != null ? _grid.gridParent : null;
-            if (parent == null) continue;
-
-            int count = parent.childCount;
-            if (count == lastCount) continue;    // nothing spawned or despawned
-            lastCount = count;
-
-            ApplyMaterialsUnder(parent);
-            ApplyPathColoursUnder(parent, Active);
-        }
     }
 }

@@ -32,6 +32,38 @@ namespace HapisHavoc.Tests
         // silently changes every pixel.
         public const string PinnedQualityLevel = "PC";
 
+        /// <summary>
+        /// EVERY suppression this context performs, declared rather than scattered.
+        ///
+        /// Three real bugs have hidden behind suppressions that were individually reasonable -
+        /// the hand palette, BoardFraming being harness-only, and CinemachineBrain. Declaring the
+        /// list makes adding a fourth a deliberate act: X18 fails until the new entry is also
+        /// added to the allowlist in docs/audit/HARNESS_DIVERGENCE.md, which forces someone to
+        /// write down why it is safe.
+        ///
+        /// This is a STRUCTURAL guard, not a pixel one. A harness-versus-live image comparison is
+        /// not buildable: the live game is non-deterministic, which is the entire reason this
+        /// class exists.
+        /// </summary>
+        public static readonly string[] Suppressions =
+        {
+            "CinemachineBrain",          // CRITICAL - the live camera is a vCam, not this pose
+            "UniversalCameraController", // pan
+            "EndlessModeManager",        // CRITICAL - disables the mode being captured
+            "BoardFramingDriver",        // would ease off the pinned pose
+            "FPSCounter",                // debug overlay, genuinely unwanted
+            "QualityLevel:PC",           // CRITICAL - game ships Mobile at renderScale 0.8
+            "Time.captureDeltaTime",
+            "Random.InitState",
+            "Camera.targetTexture",
+            "HandPalettes",              // PROVEN to have concealed the framing bounds bug
+            "BoatCoroutines",
+            "PathVisualizerCoroutines",
+            "GridManagerCoroutines",
+            "TileLocalScale",
+            "ShaderGlobalTime",
+        };
+
         public RenderTexture Target { get; private set; }
         public Camera Cam { get; private set; }
 
@@ -170,6 +202,7 @@ namespace HapisHavoc.Tests
             DisableByTypeName("Unity.Cinemachine.CinemachineBrain");
             DisableByTypeName("CinemachineBrain");
             DisableAll<UniversalCameraController>();
+            DisableAll<BoardFramingDriver>();   // would ease the camera off the pinned pose
             DisableAll<EndlessModeManager>();
 
             _prevCamPos = Cam.transform.position;
