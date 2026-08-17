@@ -83,12 +83,17 @@ public static class BoardFraming
     /// <summary>Set for one call to dump every contributor and the reservation step.</summary>
     public static bool DebugBounds;
 
+    /// <summary>Names of every renderer that contributed to the LAST collection. Diagnostic:
+    /// lets two collections at different moments be diffed rather than guessed about.</summary>
+    public static readonly List<string> LastContributors = new List<string>();
+
     public static bool TryCollectBoardBounds(out Bounds bounds, out int contributors)
     {
         // Locals, because C# forbids touching an `out` parameter from a local function.
         var acc = new Bounds();
         int count = 0;
         bool any = false;
+        LastContributors.Clear();
 
         void Add(Renderer r)
         {
@@ -99,6 +104,7 @@ public static class BoardFraming
             if (!any) { acc = r.bounds; any = true; }
             else acc.Encapsulate(r.bounds);
             count++;
+            LastContributors.Add($"{Path(r.transform)}");
             if (DebugBounds && count <= 12)
                 Debug.Log($"[BOUNDSDBG] +{count} '{r.name}' rb={r.bounds.size:F2} -> acc={acc.size:F2}");
         }
@@ -181,6 +187,15 @@ public static class BoardFraming
         bounds = acc;
         contributors = count;
         return any;
+    }
+
+    /// <summary>Root-relative path, so two renderers with the same leaf name are distinguishable.</summary>
+    static string Path(Transform t)
+    {
+        var parts = new List<string>();
+        for (var c = t; c != null; c = c.parent) parts.Add(c.name);
+        parts.Reverse();
+        return string.Join("/", parts);
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -59,6 +60,22 @@ namespace HapisHavoc.Tests
                 Assert.IsNotNull(cam, "no main camera");
                 Assert.IsTrue(ExpectedPose(FixtureMode.Playing, out var want),
                               $"{lvl}: BoardFraming could not compute a pose");
+
+                // The bounds C7 sees AT SAMPLE TIME. If these differ from the bounds the driver
+                // framed against, framing is not stable across the interval - which would be a
+                // bug in its own right, not a test artifact.
+                BoardFraming.TryCollectBoardBounds(out var nowBounds, out int nowCount);
+                var atSample = new System.Collections.Generic.List<string>(BoardFraming.LastContributors);
+                var atFrame = BoardFramingDriver.DriverContributors;
+                var joined = atSample.Except(atFrame).ToList();
+                var left = atFrame.Except(atSample).ToList();
+
+                Debug.Log($"[C7BOUNDS] {lvl.Replace("Levels/", "")}: driver framed {atFrame.Count} " +
+                          $"contributors, sample sees {atSample.Count}\n" +
+                          $"  JOINED AFTER FRAMING ({joined.Count}):\n    " +
+                          string.Join("\n    ", joined.Take(14)) +
+                          (left.Count > 0 ? $"\n  GONE SINCE FRAMING ({left.Count}):\n    " +
+                          string.Join("\n    ", left.Take(8)) : ""));
 
                 float dPos = Vector3.Distance(cam.transform.position, want.position);
                 float dSize = Mathf.Abs(cam.orthographicSize - want.orthographicSize);

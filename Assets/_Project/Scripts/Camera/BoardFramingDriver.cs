@@ -24,6 +24,10 @@ public class BoardFramingDriver : MonoBehaviour
     UniversalCameraController _ucc;
     Transform _proxy;
     Bounds _lastFramed;
+
+    /// <summary>Contributors the driver actually framed against. Diagnostic only.</summary>
+    public static System.Collections.Generic.List<string> DriverContributors =
+        new System.Collections.Generic.List<string>();
     bool _hasFramed;
 
     /// <summary>
@@ -64,21 +68,73 @@ public class BoardFramingDriver : MonoBehaviour
     /// Framing an EMPTY grid gives a meaningless result - the bounds would be the banks alone -
     /// so wait until tiles exist. Wall clock, never frame counts: batchmode runs uncapped.
     /// </summary>
+    [Tooltip("Consecutive frames the board bounds must be unchanged before framing.")]
+    [SerializeField] private int stableFramesRequired = 5;
+
+    [Tooltip("World units within which bounds count as unchanged.")]
+    [SerializeField] private float stabilityEpsilon = 0.01f;
+
+    /// <summary>
+    /// TWO GATES, and the second is deliberately CONTRIBUTOR-AGNOSTIC.
+    ///
+    /// Measured: after the tile-scale gate passed, ELEVEN more renderers still joined - both
+    /// banks, their spawn indicators, the boat and six pieces of the goal marker - growing the
+    /// bounds by a fixed +1.00 X, +0.63 Y, +2.20 Z on every board.
+    ///
+    /// The obvious fix is to also wait for banks, boat and goal. That is exactly the affordance
+    /// reservation's failure mode: a list that grows by one every time something joins and fails
+    /// silently when someone forgets. It has cost five corrections there already.
+    ///
+    /// So the gate waits for the BOUNDS TO STOP CHANGING instead. It survives the theme system,
+    /// the channel geometry and anything else that adds renderers later, without being told.
+    ///
+    /// The tile-scale check is KEPT, because objects that exist but are ramping would otherwise
+    /// read as "stable at zero" and satisfy a stability gate on their own.
+    /// </summary>
     IEnumerator FrameWhenBoardIsReady()
     {
         float deadline = Time.realtimeSinceStartup + 15f;
+
         while (!BoardIsReady(out string why))
         {
             if (Time.realtimeSinceStartup > deadline)
             {
-                // LOUD, never a silent fallback: framing a half-built board produces a camera
-                // that looks deliberate and is wrong, which is exactly how this went unnoticed.
                 Debug.LogError($"[BoardFramingDriver] Timed out after 15s waiting for the board: {why}. " +
                                "NOT framing - the camera is left as authored.");
                 yield break;
             }
             yield return null;
         }
+
+        Bounds previous = default;
+        bool havePrevious = false;
+        int stable = 0;
+
+        while (stable < stableFramesRequired)
+        {
+            yield return null;
+
+            if (Time.realtimeSinceStartup > deadline)
+            {
+                Debug.LogError($"[BoardFramingDriver] Timed out after 15s waiting for the board bounds " +
+                               $"to settle (best run: {stable} of {stableFramesRequired} frames). " +
+                               "NOT framing - the camera is left as authored.");
+                yield break;
+            }
+
+            if (!BoardFraming.TryCollectBoardBounds(out var now, out _)) { stable = 0; continue; }
+
+            if (havePrevious &&
+                (now.center - previous.center).sqrMagnitude <= stabilityEpsilon * stabilityEpsilon &&
+                (now.size - previous.size).sqrMagnitude <= stabilityEpsilon * stabilityEpsilon)
+                stable++;
+            else
+                stable = 0;
+
+            previous = now;
+            havePrevious = true;
+        }
+
         Apply(snap: true);
     }
 
@@ -126,6 +182,16 @@ public class BoardFramingDriver : MonoBehaviour
     /// "blend never finishing" / "something else writing the camera" are separable in ONE run
     /// rather than by successive guesses.
     /// </summary>
+    IEnumerator LogPosNextFrame(CinemachineCamera vcam, Vector3 wantPos, Vector3 offset, Vector3 resting)
+    {
+        yield return null; yield return null;
+        var cam = Camera.main;
+        Vector3 camPos = cam != null ? cam.transform.position : Vector3.zero;
+        Debug.Log($"[POSDBG] f+2 camera={camPos:F3}  proxy={_proxy.position:F3}  " +
+                  $"proxy+offset={(_proxy.position + offset):F3}  want={wantPos:F3}  " +
+                  $"camera-want={(camPos - wantPos):F3}  vcamPos={vcam.transform.position:F3}");
+    }
+
     IEnumerator LogNextFrame(CinemachineCamera vcam)
     {
         var brain = Camera.main != null ? Camera.main.GetComponent<CinemachineBrain>() : null;
@@ -255,6 +321,12 @@ public class BoardFramingDriver : MonoBehaviour
         }
 
         if (_ucc != null) _ucc.SetFramedRestingPosition(resting);
+
+        DriverContributors = new System.Collections.Generic.List<string>(BoardFraming.LastContributors);
+        Debug.Log($"[POSDBG] fit.pos={pose.position:F3}  followOffset={offset:F3}  " +
+                  $"proxy set to={resting:F3}  proxyActual={_proxy.position:F3}  " +
+                  $"boundsUsed min={bounds.min:F2} max={bounds.max:F2} centre={bounds.center:F2}");
+        StartCoroutine(LogPosNextFrame(vcam, pose.position, offset, resting));
     }
 
 }
