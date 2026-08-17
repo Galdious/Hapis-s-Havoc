@@ -84,7 +84,7 @@ namespace HapisHavoc.Tests
         }
 
         /// <summary>Materialises the drop zones, which otherwise only exist during a drag.</summary>
-        static void EnsureDropZones(GridManager grid)
+        internal static void EnsureDropZones(GridManager grid)
         {
             var rc = Object.FindFirstObjectByType<RiverControls>();
             if (rc == null || grid == null) return;
@@ -126,6 +126,20 @@ namespace HapisHavoc.Tests
 
                     lines.Add($"  {label}: {items.Count} interactive element(s), " +
                               $"boardRect(padded) = {rect}");
+                    lines.Add($"      framed bounds  x[{ctx.FramedBounds.min.x:F2},{ctx.FramedBounds.max.x:F2}] " +
+                              $"y[{ctx.FramedBounds.min.y:F2},{ctx.FramedBounds.max.y:F2}] " +
+                              $"z[{ctx.FramedBounds.min.z:F2},{ctx.FramedBounds.max.z:F2}]");
+                    lines.Add($"      reservation    applied={BoardFraming.LastReservationApplied} " +
+                              (BoardFraming.LastReservationApplied
+                                  ? $"x[{BoardFraming.LastReservation.min.x:F2},{BoardFraming.LastReservation.max.x:F2}] " +
+                                    $"z[{BoardFraming.LastReservation.min.z:F2},{BoardFraming.LastReservation.max.z:F2}]"
+                                  : ""));
+
+                    // Does the FRAMED BOX itself land inside the rect? Separates "the fit is off"
+                    // from "this element is outside the box the fit was given".
+                    var boxV = BoardFraming.ViewportRectOf(ctx.FramedBounds, ctx.Cam);
+                    lines.Add($"      framed box projects to x[{boxV.xMin:F3},{boxV.xMax:F3}] " +
+                              $"y[{boxV.yMin:F3},{boxV.yMax:F3}]  (rect y[{rect.yMin:F3},{rect.yMax:F3}])");
 
                     if (items.Count == 0)
                         failures.Add($"{label}: found NO interactive elements to check - the " +
@@ -139,7 +153,9 @@ namespace HapisHavoc.Tests
                         if (!inside)
                         {
                             lines.Add($"      OUTSIDE {name,-22} viewport x[{v.xMin:F3},{v.xMax:F3}] " +
-                                      $"y[{v.yMin:F3},{v.yMax:F3}]");
+                                      $"y[{v.yMin:F3},{v.yMax:F3}]  world " +
+                                      $"x[{b.min.x:F2},{b.max.x:F2}] y[{b.min.y:F2},{b.max.y:F2}] " +
+                                      $"z[{b.min.z:F2},{b.max.z:F2}]");
                             failures.Add($"{label}/{name} outside boardRect: " +
                                          $"x[{v.xMin:F3},{v.xMax:F3}] y[{v.yMin:F3},{v.yMax:F3}]");
                         }

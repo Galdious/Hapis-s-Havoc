@@ -303,42 +303,22 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
         // Add a null check for rowLockStates for safety during initialization
         if (dropZonePrefab == null || row < 0 || rowLockStates == null || row >= rowLockStates.Length) return;
 
-        OperatingMode mode = (gameManager != null) ? gameManager.currentMode : OperatingMode.Editor;
-        RowLockState state = rowLockStates[row];
-
-        // --- UNIFIED POSITIONING LOGIC ---
-        // 1. Get the reliable center position of the row. This works for all modes.
-        Vector3 rowCenter = GetRowCenterPosition(row);
-
-        // 2. Calculate common dimensions.
-        float gridHalfWidth = (gridManager.cols * gridManager.tileWidth + (gridManager.cols - 1) * gridManager.gapX) / 2f;
-        float zoneWidth = gridManager.tileWidth * 1.5f;
-        float zoneHeight = gridManager.tileHeight + (gridManager.gapZ * 0.5f);
+        // POSITIONS COME FROM TryGetDropZonePlacement, which is also what the camera framing
+        // reserves against. Do not inline the maths here again - see the affordance geometry
+        // region for the five drifts that cost.
+        //
+        // The Endless and Puzzle branches this replaced were character-for-character identical
+        // expressions behind an `if (mode == Endless)`, with a comment on each explaining why
+        // they differed. They did not.
 
         // --- Left Zone Creation (if unlocked) ---
-        if (state != RowLockState.LeftLocked && state != RowLockState.BothLocked)
+        if (TryGetDropZonePlacement(row, true, out var leftCenter, out var leftSize))
         {
-            float leftZoneX;
-            if (mode == OperatingMode.Endless)
-            {
-                // In Endless, place it cleanly just outside the grid.
-                float offsetFromEdge = zoneWidth / 2f;
-                leftZoneX = rowCenter.x - gridHalfWidth - offsetFromEdge + 2f;
-            }
-            else
-            {
-                // In Puzzle, use the original, slightly overlapping position that we know works.
-                float offsetFromEdge = zoneWidth / 2f;
-                leftZoneX = rowCenter.x - gridHalfWidth - offsetFromEdge + 2f;
-            }
-
-            // Instantiate and configure the left drop zone
             GameObject leftZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
             leftZoneGO.name = $"DropZone_Row{row}_L";
             RectTransform leftRect = leftZoneGO.GetComponent<RectTransform>();
-            // Use the calculated X, but the row's Y and Z from our reliable helper.
-            leftRect.position = new Vector3(leftZoneX, rowCenter.y, rowCenter.z - 0.25f);
-            leftRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
+            leftRect.position = leftCenter;
+            leftRect.sizeDelta = leftSize;
             leftRect.localScale = new Vector3(-1f, 1f, 1f); // FLIP The Left Zone
             RowDropZone leftZone = leftZoneGO.GetComponent<RowDropZone>();
             leftZone.row = row;
@@ -348,27 +328,14 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
         }
 
         // --- Right Zone Creation (if unlocked) ---
-        if (state != RowLockState.RightLocked && state != RowLockState.BothLocked)
+        if (TryGetDropZonePlacement(row, false, out var rightCenter, out var rightSize))
         {
-            float rightZoneX;
-            if (mode == OperatingMode.Endless)
-            {
-                float offsetFromEdge = zoneWidth / 2f;
-                rightZoneX = rowCenter.x + gridHalfWidth + offsetFromEdge - 2f;
-            }
-            else
-            {
-                float offsetFromEdge = zoneWidth / 2f;
-                rightZoneX = rowCenter.x + gridHalfWidth + offsetFromEdge - 2f;
-            }
-            
-            // Instantiate and configure the right drop zone
             GameObject rightZoneGO = Instantiate(dropZonePrefab, dropZoneCanvas.transform);
             rightZoneGO.name = $"DropZone_Row{row}_R";
             RectTransform rightRect = rightZoneGO.GetComponent<RectTransform>();
-            rightRect.position = new Vector3(rightZoneX, rowCenter.y, rowCenter.z - 0.25f);
-            rightRect.sizeDelta = new Vector2(zoneWidth, zoneHeight);
-            rightRect.localScale = Vector3.one; // <<< ADD THIS LINE (sets scale to 1,1,1)
+            rightRect.position = rightCenter;
+            rightRect.sizeDelta = rightSize;
+            rightRect.localScale = Vector3.one;
             RowDropZone rightZone = rightZoneGO.GetComponent<RowDropZone>();
             rightZone.row = row;
             rightZone.fromLeft = false;
@@ -400,26 +367,20 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
 
     private void CreateArrowsForRow(int row)
     {
-        // Get row center position from grid
-        Vector3 rowCenter = GetRowCenterPosition(row);
+        // POSITIONS COME FROM GetArrowPlacements, which is also what the camera framing reserves
+        // against. The order is fixed by that method: L_Red, L_Blue, R_Blue, R_Red, then Lock.
+        _placementScratch.Clear();
+        GetArrowPlacements(row, _placementScratch);
+        if (_placementScratch.Count < 4) return;
 
-        // FIXED: Use dynamic arrow distance that scales with grid size
-        float dynamicArrowDistance = GetDynamicArrowDistance();
+        leftArrows[row, 1] = CreateSingleArrow(_placementScratch[0].Center, row, true, true);   // Red (farther)
+        leftArrows[row, 0] = CreateSingleArrow(_placementScratch[1].Center, row, true, false);  // Blue (closer to grid)
+        rightArrows[row, 0] = CreateSingleArrow(_placementScratch[2].Center, row, false, false);// Blue (closer to grid)
+        rightArrows[row, 1] = CreateSingleArrow(_placementScratch[3].Center, row, false, true); // Red (farther)
 
-        // Left side arrows: Red (far) - Blue (near grid) - elevated above tiles
-        Vector3 leftBasePos = rowCenter + Vector3.left * dynamicArrowDistance + Vector3.up * arrowHeight;
-        leftArrows[row, 1] = CreateSingleArrow(leftBasePos + Vector3.left * arrowSpacing * 0.5f, row, true, true);   // Red (farther)
-        leftArrows[row, 0] = CreateSingleArrow(leftBasePos + Vector3.right * arrowSpacing * 0.5f, row, true, false); // Blue (closer to grid)
-
-        // Right side arrows: Blue (near grid) - Red (far) - elevated above tiles
-        Vector3 rightBasePos = rowCenter + Vector3.right * dynamicArrowDistance + Vector3.up * arrowHeight;
-        rightArrows[row, 0] = CreateSingleArrow(rightBasePos + Vector3.left * arrowSpacing * 0.5f, row, false, false); // Blue (closer to grid)
-        rightArrows[row, 1] = CreateSingleArrow(rightBasePos + Vector3.right * arrowSpacing * 0.5f, row, false, true);  // Red (farther)
-
-        // Position the lock to the right of the red arrow
-        Vector3 lockPos = rightBasePos + Vector3.right * (arrowSpacing * 1.5f);
-        if (lockPrefab != null)
+        if (lockPrefab != null && _placementScratch.Count >= 5)
         {
+            Vector3 lockPos = _placementScratch[4].Center;
             GameObject lockGO = Instantiate(lockPrefab, lockPos, Quaternion.identity, gridParent);
             lockGO.transform.localScale = Vector3.one * arrowScale;
             lockGO.name = $"Lock_Row{row}";
@@ -447,6 +408,218 @@ private IEnumerator AnimateRowPosition(int row, bool fromLeft, bool reverse = fa
 
 
 
+    }
+
+    // ================================================================= affordance geometry
+    //
+    // ONE SOURCE OF TRUTH FOR WHERE AFFORDANCES GO.
+    //
+    // Everything in this region is used TWICE: once to PLACE the arrows, locks and drop zones,
+    // and once to RESERVE room for them in the camera framing. That is the whole point. The
+    // camera must leave space for a drop zone before the drop zone exists - zones are created
+    // during a drag, and framing that reacted to them would lurch the board mid-interaction -
+    // so the reservation cannot simply measure the objects.
+    //
+    // The previous design had BoardFraming re-derive these formulas from scratch. It drifted
+    // FIVE times: arrows reserved in modes that have none, both sides reserved on one-sided
+    // levels, X reserved but not Z, Z derived at the wrong pitch, and - found while writing
+    // this - an arrow reach computed from `cols * tileWidth`, silently dropping every gap,
+    // where GetDynamicArrowDistance uses `(cols-1) * (tileWidth + gapX) + tileWidth`.
+    //
+    // A sixth drift is now impossible by construction rather than by vigilance: if a placement
+    // formula changes, the reservation changes with it, because they are the same code. D5
+    // asserts the consequence - every affordance that actually exists is inside the reservation.
+
+    /// <summary>A world-axis-aligned box an affordance occupies. Size is FULL extents.</summary>
+    public readonly struct AffordanceBox
+    {
+        public readonly string Name;
+        public readonly Vector3 Center;
+        public readonly Vector3 Size;
+        public AffordanceBox(string name, Vector3 center, Vector3 size)
+        { Name = name; Center = center; Size = size; }
+        public Bounds ToBounds() => new Bounds(Center, Size);
+    }
+
+    // Prefab mesh extents, measured once. The old reservation used a hardcoded `arrowScale * 2f`
+    // for this, which is a guess about art that nobody re-checks when the art changes.
+    bool _prefabExtentsMeasured;
+    Vector3 _arrowLocalSize, _lockLocalSize;
+
+    // Reused so per-row placement does not allocate. Mobile target - house rule.
+    readonly List<AffordanceBox> _placementScratch = new List<AffordanceBox>();
+
+    void MeasurePrefabExtents()
+    {
+        if (_prefabExtentsMeasured) return;
+        _prefabExtentsMeasured = true;
+        _arrowLocalSize = LocalMeshSize(arrowPrefab);
+        _lockLocalSize = LocalMeshSize(lockPrefab);
+    }
+
+    /// <summary>
+    /// Combined mesh size of a prefab IN THE PREFAB ROOT'S OWN LOCAL SPACE. Reads sharedMesh
+    /// rather than renderer.bounds because a prefab asset is not in the scene and has no world
+    /// bounds. Falls back to a unit cube, which is what CreateSingleArrow itself falls back to
+    /// when arrowPrefab is null.
+    ///
+    /// THE ROOT'S OWN SCALE IS DIVIDED OUT, and that is not a detail. CreateSingleArrow does
+    /// `arrow.transform.localScale = Vector3.one * arrowScale`, OVERWRITING whatever the prefab
+    /// was authored at - so the authored root scale never reaches the scene and must not reach
+    /// this measurement either. Including it made the lock reservation exactly half the real
+    /// size, because the lock prefab is authored at root scale 0.5. D5 caught that on its first
+    /// run, which is the entire reason D5 compares against real objects rather than the formula.
+    /// </summary>
+    static Vector3 LocalMeshSize(GameObject prefab)
+    {
+        if (prefab == null) return Vector3.one;
+
+        Vector3 rootScale = prefab.transform.lossyScale;
+        Vector3 Safe(Vector3 v) => new Vector3(
+            Mathf.Approximately(v.x, 0f) ? 1f : v.x,
+            Mathf.Approximately(v.y, 0f) ? 1f : v.y,
+            Mathf.Approximately(v.z, 0f) ? 1f : v.z);
+        rootScale = Safe(rootScale);
+
+        bool any = false;
+        Bounds acc = default;
+        foreach (var mf in prefab.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (mf == null || mf.sharedMesh == null) continue;
+            var b = mf.sharedMesh.bounds;
+
+            // InverseTransformPoint already expresses the centre in root-local units.
+            var centre = prefab.transform.InverseTransformPoint(mf.transform.TransformPoint(b.center));
+
+            // Size relative to the root: the child's world scale with the root's divided out.
+            var child = mf.transform.lossyScale;
+            var rel = new Vector3(child.x / rootScale.x, child.y / rootScale.y, child.z / rootScale.z);
+            var size = Vector3.Scale(b.size, rel);
+
+            var childBox = new Bounds(centre, size);
+            if (!any) { acc = childBox; any = true; } else acc.Encapsulate(childBox);
+        }
+        return any ? acc.size : Vector3.one;
+    }
+
+    /// <summary>
+    /// Where a drop zone for this row/side goes, and how big it is in world space.
+    /// Returns false when that side carries no zone (locked, or the row is out of range).
+    ///
+    /// The canvas is world-space and rotated Euler(90,0,0), so it lies FLAT in the XZ plane:
+    /// the rect's width maps to world X and its height to world Z, and its Y extent is zero.
+    /// That is why this needs no pitch - the zones lie on the ground, they do not face the
+    /// camera, so their world extent does not move when the camera angle does.
+    /// </summary>
+    public bool TryGetDropZonePlacement(int row, bool left, out Vector3 center, out Vector2 sizeXZ)
+    {
+        center = default; sizeXZ = default;
+        if (gridManager == null || row < 0 || row >= gridManager.rows) return false;
+
+        RowLockState state = GetRowLockState(row);
+        bool open = left ? (state != RowLockState.LeftLocked && state != RowLockState.BothLocked)
+                         : (state != RowLockState.RightLocked && state != RowLockState.BothLocked);
+        if (!open) return false;
+
+        Vector3 rowCenter = GetRowCenterPosition(row);
+        float gridHalfWidth = (gridManager.cols * gridManager.tileWidth
+                               + (gridManager.cols - 1) * gridManager.gapX) / 2f;
+        float zoneWidth = gridManager.tileWidth * 1.5f;
+        float zoneHeight = gridManager.tileHeight + (gridManager.gapZ * 0.5f);
+        float offsetFromEdge = zoneWidth / 2f;
+
+        // Endless and Puzzle used to be separate branches computing the identical expression.
+        float x = left ? rowCenter.x - gridHalfWidth - offsetFromEdge + 2f
+                       : rowCenter.x + gridHalfWidth + offsetFromEdge - 2f;
+
+        center = new Vector3(x, rowCenter.y, rowCenter.z - 0.25f);
+        sizeXZ = new Vector2(zoneWidth, zoneHeight);
+        return true;
+    }
+
+    /// <summary>
+    /// The four arrows and the row lock for a row, in world space. Editor-only affordances:
+    /// GenerateControlsForGrid creates arrows ONLY when currentMode == Editor.
+    ///
+    /// Arrows exist on both sides regardless of lock state, because the lock toggle is how you
+    /// change that state - it has to stay reachable.
+    /// </summary>
+    public void GetArrowPlacements(int row, List<AffordanceBox> into)
+    {
+        if (into == null || gridManager == null || row < 0 || row >= gridManager.rows) return;
+        MeasurePrefabExtents();
+
+        Vector3 rowCenter = GetRowCenterPosition(row);
+        float dyn = GetDynamicArrowDistance();
+        Vector3 arrowSize = _arrowLocalSize * arrowScale;
+        Vector3 lockSize = _lockLocalSize * arrowScale;
+
+        Vector3 leftBase = rowCenter + Vector3.left * dyn + Vector3.up * arrowHeight;
+        Vector3 rightBase = rowCenter + Vector3.right * dyn + Vector3.up * arrowHeight;
+
+        into.Add(new AffordanceBox($"Arrow_Row{row}_L_Red",
+                 leftBase + Vector3.left * arrowSpacing * 0.5f, arrowSize));
+        into.Add(new AffordanceBox($"Arrow_Row{row}_L_Blue",
+                 leftBase + Vector3.right * arrowSpacing * 0.5f, arrowSize));
+        into.Add(new AffordanceBox($"Arrow_Row{row}_R_Blue",
+                 rightBase + Vector3.left * arrowSpacing * 0.5f, arrowSize));
+        into.Add(new AffordanceBox($"Arrow_Row{row}_R_Red",
+                 rightBase + Vector3.right * arrowSpacing * 0.5f, arrowSize));
+
+        if (lockPrefab != null)
+            into.Add(new AffordanceBox($"Lock_Row{row}",
+                     rightBase + Vector3.right * (arrowSpacing * 1.5f), lockSize));
+    }
+
+    /// <summary>
+    /// THE ROOM THE CAMERA MUST LEAVE for everything the player has to touch, for the current
+    /// mode and the current lock states. This is what BoardFraming asks for instead of
+    /// re-deriving; see the region header for why that distinction has cost five corrections.
+    ///
+    /// Static for a given level: lock states are fixed at load, so the answer cannot thrash
+    /// while the player interacts.
+    ///
+    /// NOT PITCH-DEPENDENT, deliberately. Every affordance is either a ground-plane world-space
+    /// UI rect or a mesh at a fixed world position; none of them billboard. The pitch-sensitivity
+    /// that showed up in C2 is in the FIT, not in the reservation - BoardFraming already takes
+    /// pitch as an input and it is the projection of these boxes that moves, not the boxes.
+    /// </summary>
+    public bool TryGetReservedBounds(out Bounds reserved)
+    {
+        reserved = default;
+        if (gridManager == null || gridManager.rows <= 0 || gridManager.cols <= 0) return false;
+
+        bool editorMode = gameManager == null || gameManager.currentMode == OperatingMode.Editor;
+        bool any = false;
+
+        // Local, because C# forbids touching an `out` parameter from a local function.
+        Bounds acc = default;
+
+        void Take(Bounds b)
+        {
+            if (!any) { acc = b; any = true; } else acc.Encapsulate(b);
+        }
+
+        var arrows = new List<AffordanceBox>();
+        for (int row = 0; row < gridManager.rows; row++)
+        {
+            if (editorMode)
+            {
+                arrows.Clear();
+                GetArrowPlacements(row, arrows);
+                foreach (var a in arrows) Take(a.ToBounds());
+            }
+            else
+            {
+                if (TryGetDropZonePlacement(row, true, out var cL, out var sL))
+                    Take(new Bounds(cL, new Vector3(sL.x, 0f, sL.y)));
+                if (TryGetDropZonePlacement(row, false, out var cR, out var sR))
+                    Take(new Bounds(cR, new Vector3(sR.x, 0f, sR.y)));
+            }
+        }
+
+        reserved = acc;
+        return any;
     }
 
     private PointerArrowButton CreateSingleArrow(Vector3 position, int row, bool fromLeft, bool isRed)

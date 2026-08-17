@@ -83,6 +83,23 @@ public static class BoardFraming
     /// <summary>Set for one call to dump every contributor and the reservation step.</summary>
     public static bool DebugBounds;
 
+    /// <summary>
+    /// Measurement hook: HAPI_NO_AFFORDANCE_RESERVE=1 collects bounds with affordances
+    /// contributing nothing, to measure the ceiling the reservation costs. A diagnostic, not a
+    /// shipping option - nothing in the game reads this.
+    /// </summary>
+    static bool NoAffordanceReserve =>
+        System.Environment.GetEnvironmentVariable("HAPI_NO_AFFORDANCE_RESERVE") == "1";
+
+    /// <summary>
+    /// What the LAST bounds collection actually reserved, and whether it reserved at all.
+    /// Diagnostic. Exists because "the reservation must have been applied" is precisely the kind
+    /// of assumption that has been wrong here repeatedly - a failing frame check now says whether
+    /// the reservation was missing or merely too small, instead of leaving it to be inferred.
+    /// </summary>
+    public static Bounds LastReservation;
+    public static bool LastReservationApplied;
+
     /// <summary>Names of every renderer that contributed to the LAST collection. Diagnostic:
     /// lets two collections at different moments be diffed rather than guessed about.</summary>
     public static readonly List<string> LastContributors = new List<string>();
@@ -147,38 +164,38 @@ public static class BoardFraming
         //
         // Drop zones are transient (created during a drag), so including them only when they
         // happen to exist would lurch the camera mid-interaction. Their extent is therefore
-        // RESERVED. But the reservation must not be blanket:
-        //   - push arrows and row locks are EDITOR-ONLY (RiverControls gates CreateArrowsForRow
-        //     on currentMode == Editor), so Playing/Endless must not reserve arrow width at all;
-        //   - drop zones exist only on UNLOCKED sides, so a fully locked level - 01_01, 01_02
-        //     and 01_03 all have lockedRows [3,3,3] - reserves nothing;
-        //   - locks sit furthest out and only on the right, so the two sides differ.
-        // lockedRows is fixed at load, so this is still static and still cannot thrash.
+        // RESERVED - and the reservation is ASKED FOR, not recomputed here. RiverControls owns
+        // both, so the mode and lock-state rules that make it non-blanket live with the code that
+        // places the affordances. See RiverControls' affordance geometry region.
         if (DebugBounds)
             Debug.Log($"[BOUNDSDBG] BEFORE reservation: any={any} count={count} " +
                       $"min={acc.min:F2} max={acc.max:F2} size={acc.size:F2}");
 
-        if (any && grid != null)
+        if (any && grid != null && !NoAffordanceReserve)
         {
-            AffordanceReserveX(grid, out float leftReach, out float rightReach);
-            float centreX = grid.cols > 0 && grid.rows > 0
-                ? (grid.GetWorldPosition(0, 0).x + grid.GetWorldPosition(grid.cols - 1, 0).x) * 0.5f
-                : acc.center.x;
-
-            float minX = Mathf.Min(acc.min.x, centreX - leftReach);
-            float maxX = Mathf.Max(acc.max.x, centreX + rightReach);
-
-            // Z TOO. Drop zones are not only offset sideways: RiverControls places them at
-            // rowCenter.z - 0.25 with height tileHeight + gapZ*0.5, so the outermost rows' zones
-            // reach BEYOND the tile block in Z. Reserving X alone left that unframed - the
-            // reframe check at padding 0.20 caught DropZone_Row7 overflowing by ~0.001 of
-            // viewport height in Endless. Same static per-level basis as X, so still no thrash.
-            AffordanceReserveZ(grid, out float reservedMinZ, out float reservedMaxZ, out bool anyZ);
-            float minZ = anyZ ? Mathf.Min(acc.min.z, reservedMinZ) : acc.min.z;
-            float maxZ = anyZ ? Mathf.Max(acc.max.z, reservedMaxZ) : acc.max.z;
-
-            acc.SetMinMax(new Vector3(minX, acc.min.y, minZ),
-                          new Vector3(maxX, acc.max.y, maxZ));
+            // ASK, DO NOT RE-DERIVE. RiverControls owns where affordances go, so it owns how much
+            // room they need; TryGetReservedBounds is computed by the SAME code that places them.
+            //
+            // What used to be here was a reimplementation of those formulas, and it drifted five
+            // times. The last one was found by reading the two side by side rather than by any
+            // test: the arrow reach used `cols * tileWidth` where RiverControls uses
+            // `(cols-1) * (tileWidth + gapX) + tileWidth`, so every inter-tile gap was missing
+            // from the reservation and the error grew with board width.
+            //
+            // Y is deliberately left alone. Arrows sit arrowHeight above the tiles, and folding
+            // that into the fit would shrink the board to make room for empty air above it.
+            var rc = Object.FindFirstObjectByType<RiverControls>(FindObjectsInactive.Include);
+            Bounds reserved = default;
+            LastReservationApplied = rc != null && rc.TryGetReservedBounds(out reserved);
+            LastReservation = reserved;
+            if (LastReservationApplied)
+            {
+                acc.SetMinMax(
+                    new Vector3(Mathf.Min(acc.min.x, reserved.min.x), acc.min.y,
+                                Mathf.Min(acc.min.z, reserved.min.z)),
+                    new Vector3(Mathf.Max(acc.max.x, reserved.max.x), acc.max.y,
+                                Mathf.Max(acc.max.z, reserved.max.z)));
+            }
         }
 
         if (DebugBounds)
@@ -198,86 +215,7 @@ public static class BoardFraming
         return string.Join("/", parts);
     }
 
-    /// <summary>
-    /// How far the side affordances reach from the grid centre, per side, reproducing
-    /// RiverControls' own placement maths so it holds whether or not the objects exist yet.
-    /// Set HAPI_NO_AFFORDANCE_RESERVE=1 to measure the ceiling with affordances contributing
-    /// nothing - that is ITEM 3(a), a measurement hook, not a shipping option.
-    /// </summary>
-    static void AffordanceReserveX(GridManager grid, out float leftReach, out float rightReach)
-    {
-        leftReach = 0f;
-        rightReach = 0f;
 
-        if (System.Environment.GetEnvironmentVariable("HAPI_NO_AFFORDANCE_RESERVE") == "1") return;
-
-        var rc = Object.FindFirstObjectByType<RiverControls>();
-        if (rc == null) return;
-
-        bool editorMode = GameManager.Instance == null
-                       || GameManager.Instance.currentMode == OperatingMode.Editor;
-
-        float gridWidth = grid.cols * grid.tileWidth;
-        float gridHalfWidth = (gridWidth + (grid.cols - 1) * grid.gapX) * 0.5f;
-
-        for (int row = 0; row < grid.rows; row++)
-        {
-            var state = rc.GetRowLockState(row);
-            bool leftOpen = state != RowLockState.LeftLocked && state != RowLockState.BothLocked;
-            bool rightOpen = state != RowLockState.RightLocked && state != RowLockState.BothLocked;
-
-            if (editorMode)
-            {
-                // Arrows exist on both sides in the Editor regardless of lock state, because the
-                // lock toggle is how you change that state - it must stay reachable.
-                float dyn = Mathf.Max(rc.arrowDistance, gridWidth * 0.5f + 1f);
-                leftReach = Mathf.Max(leftReach, dyn + rc.arrowSpacing * 0.5f + rc.arrowScale * 2f);
-                // The lock sits beyond the red arrow, on the right only.
-                rightReach = Mathf.Max(rightReach, dyn + rc.arrowSpacing * 1.5f + rc.arrowScale * 2f);
-            }
-            else
-            {
-                // Drop zone outer edge: centre - gridHalfWidth - zoneWidth/2 + 2, minus another
-                // zoneWidth/2 for its own half-extent.
-                float zoneWidth = grid.tileWidth * 1.5f;
-                float reach = gridHalfWidth + zoneWidth - 2f;
-                if (leftOpen) leftReach = Mathf.Max(leftReach, reach);
-                if (rightOpen) rightReach = Mathf.Max(rightReach, reach);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Z extent the drop zones need. Editor reserves NOTHING here: it has arrows rather than
-    /// zones, and arrows carry no Z offset. Zones exist only on sides that are unlocked, so a
-    /// fully locked level reserves nothing either.
-    /// </summary>
-    static void AffordanceReserveZ(GridManager grid, out float minZ, out float maxZ, out bool any)
-    {
-        minZ = 0f; maxZ = 0f; any = false;
-
-        if (System.Environment.GetEnvironmentVariable("HAPI_NO_AFFORDANCE_RESERVE") == "1") return;
-
-        var rc = Object.FindFirstObjectByType<RiverControls>();
-        if (rc == null || grid == null || grid.rows <= 0) return;
-
-        bool editorMode = GameManager.Instance == null
-                       || GameManager.Instance.currentMode == OperatingMode.Editor;
-        if (editorMode) return;
-
-        float halfHeight = (grid.tileHeight + grid.gapZ * 0.5f) * 0.5f;
-        const float zoneZOffset = 0.25f;      // RiverControls: rowCenter.z - 0.25
-
-        for (int row = 0; row < grid.rows; row++)
-        {
-            if (rc.GetRowLockState(row) == RowLockState.BothLocked) continue;
-
-            float rowZ = grid.GetWorldPosition(0, row).z - zoneZOffset;
-            float lo = rowZ - halfHeight, hi = rowZ + halfHeight;
-            if (!any) { minZ = lo; maxZ = hi; any = true; }
-            else { minZ = Mathf.Min(minZ, lo); maxZ = Mathf.Max(maxZ, hi); }
-        }
-    }
 
     // ---------------------------------------------------------------- fit
 
@@ -371,12 +309,22 @@ public static class BoardFraming
         // camera perpendicular to its view direction translates the image by the same amount at
         // the focal plane, so this is exact for ortho and correct at the board's depth for
         // perspective.
+        //
+        // SIGN: to make the board appear BELOW viewport centre (cy < 0.5) the camera must move
+        // UP, so the shift is ADDED. It was subtracted, which put the board the same distance on
+        // the WRONG SIDE - measured at viewport y-centre 0.55 in all three modes against a
+        // boardRect centred on 0.45, a consistent 2*(0.5-cy) error.
+        //
+        // It hid for so long because boardRect is horizontally centred (cx = 0.5), so the X term
+        // is identically zero and only Y could ever show it; and because a short board still fits
+        // inside the rect when displaced by 0.1 of the viewport. Endless is the first board tall
+        // enough to push an element out, which is how C2 finally caught it.
         float cx = cfg.boardRect.center.x;
         float cy = cfg.boardRect.center.y;
         Vector3 shift = right * ((0.5f - cx) * 2f * viewHalfW)
                       + up * ((0.5f - cy) * 2f * viewHalfH);
 
-        pose.position = c - forward * distance - shift;
+        pose.position = c - forward * distance + shift;
         return pose;
     }
 

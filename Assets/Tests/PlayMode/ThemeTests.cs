@@ -199,17 +199,30 @@ namespace HapisHavoc.Tests
             if (boat != null) boat.DeselectBoat();
             yield return new WaitForSecondsRealtime(Settle);
 
-            string shot;
-            using (var ctx = new DeterministicContext())
-                shot = CaptureRig.Capture(ctx, "theme", "v6-palette");
-            var img = PixelUtil.Load(shot);
-
-            var cam = Camera.main;
-            Assert.IsNotNull(cam, "V6: no main camera");
-
+            // SAMPLE INSIDE THE CONTEXT, THROUGH THE CAMERA THAT RENDERED THE IMAGE.
+            //
+            // This used to capture inside the using block and then project with Camera.main
+            // AFTER disposal - and disposal restores the camera's previous pose. So every sample
+            // point was projected through one pose against an image rendered from another. It
+            // survived only because the two poses were close enough that interior samples still
+            // landed on tiles; the moment BoardFraming's centring sign was fixed and the board
+            // moved 0.1 of the frame, 11 sample points landed on the background and V6 reported
+            // rgb(208,159,6) - the backdrop - as a palette violation.
+            //
+            // The raycast guard inside SampleTileResiduals does NOT catch this: it round-trips
+            // WorldToScreenPoint through ScreenPointToRay on the same camera, so it always agrees
+            // with itself. It validates the projection, never the image lookup.
             var palette = theme.AllPaletteColours().ToList();
             var outliers = new System.Collections.Generic.List<string>();
-            var residuals = SampleTileResiduals(grid, cam, img, palette, outliers);
+            System.Collections.Generic.List<float> residuals;
+
+            using (var ctx = new DeterministicContext())
+            {
+                string shot = CaptureRig.Capture(ctx, "theme", "v6-palette");
+                var img = PixelUtil.Load(shot);
+                Assert.IsNotNull(ctx.Cam, "V6: no capture camera");
+                residuals = SampleTileResiduals(grid, ctx.Cam, img, palette, outliers);
+            }
 
             Assert.Greater(residuals.Count, 100,
                 $"V6: only {residuals.Count} sample points landed on an actual tile. Either the " +
@@ -256,13 +269,16 @@ namespace HapisHavoc.Tests
             if (boat != null) boat.DeselectBoat();
             yield return new WaitForSecondsRealtime(Settle);
 
-            string shot;
+            // Sampled inside the context, through the camera that rendered the image - see the
+            // note in V6. A control that sampled a mismatched pose could report a high residual
+            // for the wrong reason and still look like it was working.
+            System.Collections.Generic.List<float> residuals;
             using (var ctx = new DeterministicContext())
-                shot = CaptureRig.Capture(ctx, "theme", "x12-mismatched-palette");
-            var img = PixelUtil.Load(shot);
-            var cam = Camera.main;
-
-            var residuals = SampleTileResiduals(grid, cam, img, egyptPalette);
+            {
+                string shot = CaptureRig.Capture(ctx, "theme", "x12-mismatched-palette");
+                var img = PixelUtil.Load(shot);
+                residuals = SampleTileResiduals(grid, ctx.Cam, img, egyptPalette);
+            }
 
             // A test that THROWS reports nothing. residuals goes empty when the framing moves
             // the tiles out from under the sample projection, and Mathf.Min(Count-1, ...) is -1
@@ -292,12 +308,72 @@ namespace HapisHavoc.Tests
         /// supplied palette. Shared by V6 and X12 so the control exercises the SAME comparison.
         /// Projected through the camera, never hardcoded pixel coordinates - the V1b lesson.
         /// </summary>
+        /// <summary>
+        /// THE MASK PASS. Screen rects of everything drawn OVER a tile that the theme palette
+        /// does not claim to describe: collectibles, the goal marker and the boat.
+        ///
+        /// Needed because V6's question is "do the THEME's colours describe the BOARD", and a
+        /// gameplay prop sitting on a tile answers a different question. Measured: with the
+        /// projection finally correct, 37 sample points landed on the cyan collectible
+        /// (rgb 5,180,208) and the yellow goal marker (rgb 208,191,3) and were reported as
+        /// palette violations.
+        ///
+        /// Masked BY IDENTITY, never by colour. Excluding pixels for being far from the palette
+        /// is what makes a conformance test vacuous - it would define away exactly the failure
+        /// V6 exists to find. Vortex and blocker decals are deliberately NOT masked: they are
+        /// theme materials and part of what V6 should be checking.
+        ///
+        /// Rects come from the renderer's world bounds corners, which OVERSHOOTS the silhouette.
+        /// That is the right direction to err: it discards a few legitimate edge pixels rather
+        /// than admitting a prop pixel. X12 is what keeps the masking honest - it must still go
+        /// red on a board painted the wrong colour.
+        /// </summary>
+        static System.Collections.Generic.List<Rect> PropScreenRects(Camera cam)
+        {
+            var rects = new System.Collections.Generic.List<Rect>();
+
+            void AddFor(Component c)
+            {
+                if (c == null) return;
+                foreach (var r in c.GetComponentsInChildren<Renderer>(false))
+                {
+                    if (r == null || !r.enabled || r.bounds.size.sqrMagnitude <= 0f) continue;
+                    var b = r.bounds;
+                    float xMin = float.MaxValue, xMax = float.MinValue;
+                    float yMin = float.MaxValue, yMax = float.MinValue;
+                    for (int i = 0; i < 8; i++)
+                    {
+                        var corner = new Vector3(
+                            (i & 1) == 0 ? b.min.x : b.max.x,
+                            (i & 2) == 0 ? b.min.y : b.max.y,
+                            (i & 4) == 0 ? b.min.z : b.max.z);
+                        var sp = cam.WorldToScreenPoint(corner);
+                        if (sp.z <= 0f) continue;
+                        xMin = Mathf.Min(xMin, sp.x); xMax = Mathf.Max(xMax, sp.x);
+                        yMin = Mathf.Min(yMin, sp.y); yMax = Mathf.Max(yMax, sp.y);
+                    }
+                    if (xMax > xMin && yMax > yMin)
+                        rects.Add(Rect.MinMaxRect(xMin, yMin, xMax, yMax));
+                }
+            }
+
+            foreach (var c in Object.FindObjectsByType<CollectibleInstance>(
+                         FindObjectsInactive.Exclude, FindObjectsSortMode.None)) AddFor(c);
+            foreach (var g in Object.FindObjectsByType<GoalMarker>(
+                         FindObjectsInactive.Exclude, FindObjectsSortMode.None)) AddFor(g);
+            foreach (var b in Object.FindObjectsByType<BoatController>(
+                         FindObjectsInactive.Exclude, FindObjectsSortMode.None)) AddFor(b);
+
+            return rects;
+        }
+
         static System.Collections.Generic.List<float> SampleTileResiduals(
             GridManager grid, Camera cam, PixelUtil.Image img,
             System.Collections.Generic.List<Color> palette,
             System.Collections.Generic.List<string> outliers = null)
         {
             var residuals = new System.Collections.Generic.List<float>();
+            var propRects = PropScreenRects(cam);
 
             for (int y = 0; y < grid.rows; y++)
             for (int x = 0; x < grid.cols; x++)
@@ -320,6 +396,12 @@ namespace HapisHavoc.Tests
                     var sp = cam.WorldToScreenPoint(world);
                     if (sp.z <= 0) continue;
 
+                    // Skip pixels a non-theme prop is drawn over. See PropScreenRects.
+                    bool masked = false;
+                    foreach (var pr in propRects)
+                        if (pr.Contains(new Vector2(sp.x, sp.y))) { masked = true; break; }
+                    if (masked) continue;
+
                     // VERIFY THE SAMPLE IS ACTUALLY ON THIS TILE before judging its colour.
                     // Projecting a bounding box overshoots the silhouette under perspective, so
                     // edge tiles used to sample the backdrop and report it as a palette
@@ -337,7 +419,27 @@ namespace HapisHavoc.Tests
                     float r = BestPaletteResidual(c, palette);
                     residuals.Add(r);
                     if (outliers != null && r > MaxPaletteResidual)
-                        outliers.Add($"({x},{y}) rgb({c.r},{c.g},{c.b}) residual={r:F1}");
+                    {
+                        // Name what is actually drawn there. "Some prop" is not diagnosable;
+                        // an over-threshold pixel has to say which object put it there.
+                        string over = "";
+                        foreach (var rr in Object.FindObjectsByType<Renderer>(
+                                     FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                        {
+                            if (rr == null || !rr.enabled || rr.bounds.size.sqrMagnitude <= 0f) continue;
+                            if (rr.transform == tile.transform || rr.transform.IsChildOf(tile.transform))
+                                continue;
+                            var bb = rr.bounds;
+                            var s0 = cam.WorldToScreenPoint(bb.min);
+                            var s1 = cam.WorldToScreenPoint(bb.max);
+                            var rect = Rect.MinMaxRect(Mathf.Min(s0.x, s1.x), Mathf.Min(s0.y, s1.y),
+                                                       Mathf.Max(s0.x, s1.x), Mathf.Max(s0.y, s1.y));
+                            if (rect.Contains(new Vector2(sp.x, sp.y)))
+                                over += (over.Length > 0 ? ", " : "") + rr.name;
+                        }
+                        outliers.Add($"({x},{y}) rgb({c.r},{c.g},{c.b}) residual={r:F1}" +
+                                     (over.Length > 0 ? $"  over: {over}" : "  over: <nothing>"));
+                    }
                 }
             }
             return residuals;
