@@ -47,7 +47,15 @@ namespace HapisHavoc.Tests
             var rows = new List<string>();
             var failures = new List<string>();
 
-            foreach (var lvl in new[] { "Levels/study_3x3", "Levels/study_3x6", "Levels/study_6x6" })
+            // SHIPPED LEVELS AS WELL AS STUDY FIXTURES. C7 covered only study_* until W1's
+            // warts-and-all capture showed 01_01 and 01_06 cropped at the left edge in the LIVE
+            // game while their goldens framed correctly. Study fixtures are authored with an empty
+            // hand and simple lock states, so they never exercised what the shipped levels do -
+            // a test suite that only checks its own fixtures checks the fixtures.
+            var levels = new List<string> { "Levels/study_3x3", "Levels/study_3x6", "Levels/study_6x6" };
+            levels.AddRange(SceneFixture.AllLevels);
+
+            foreach (var lvl in levels)
             {
                 yield return SceneFixture.Load(FixtureMode.Playing, lvl);
                 var boat = SceneFixture.Boat;
@@ -84,7 +92,13 @@ namespace HapisHavoc.Tests
                 rows.Add($"  {lvl.Replace("Levels/", ""),-12} " +
                          $"cam ortho={cam.orthographic} size={cam.orthographicSize:F2} pos={cam.transform.position:F2}\n" +
                          $"                want ortho={want.orthographic} size={want.orthographicSize:F2} pos={want.position:F2}\n" +
-                         $"                delta pos={dPos:F3} size={dSize:F3}");
+                         $"                delta pos={dPos:F3} size={dSize:F3}\n" +
+                         $"                bounds x[{nowBounds.min.x:F2},{nowBounds.max.x:F2}] " +
+                         $"z[{nowBounds.min.z:F2},{nowBounds.max.z:F2}] from {nowCount} renderer(s); " +
+                         $"reservation applied={BoardFraming.LastReservationApplied}" +
+                         (BoardFraming.LastReservationApplied
+                             ? $" x[{BoardFraming.LastReservation.min.x:F2},{BoardFraming.LastReservation.max.x:F2}]"
+                             : ""));
 
                 if (!orthoOk) failures.Add($"{lvl}: projection mismatch");
                 if (dPos > 0.05f) failures.Add($"{lvl}: camera position off by {dPos:F3}");

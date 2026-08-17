@@ -94,6 +94,43 @@ namespace HapisHavoc.Tests
             return path;
         }
 
+        /// <summary>
+        /// WARTS AND ALL. Captures the LIVE camera with NOTHING suppressed - no
+        /// <see cref="DeterministicContext"/>, no Quiesce, no disabled components.
+        ///
+        /// The only divergence left is the one that cannot be removed: a RenderTexture is
+        /// substituted for the screen, because reading pixels requires a target we own. Everything
+        /// the game runs keeps running - CinemachineBrain drives the camera, BoardFramingDriver
+        /// frames it, hand palettes are visible, tiles are at whatever scale their spawn animation
+        /// has reached, shader time advances, every coroutine is live.
+        ///
+        /// These images are NOT deterministic and must never become goldens or be asserted on.
+        /// Their whole purpose is to be looked at by a human: every other capture in this suite has
+        /// something switched off, so this is the only place the game is seen as it actually is.
+        /// </summary>
+        public static string CaptureLive(Camera cam, int width, int height, string suite, string name)
+        {
+            if (cam == null) throw new System.ArgumentNullException(nameof(cam));
+
+            var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32,
+                                       RenderTextureReadWrite.sRGB) { name = "HapiWartsAndAllRT" };
+            var prevTarget = cam.targetTexture;
+            cam.targetTexture = rt;
+
+            string path;
+            try
+            {
+                path = RenderAndSave(cam, rt, suite, name);
+            }
+            finally
+            {
+                cam.targetTexture = prevTarget;
+                rt.Release();
+                Object.DestroyImmediate(rt);
+            }
+            return path;
+        }
+
         static string RenderAndSave(Camera cam, RenderTexture rt, string suite, string name)
         {
             var prevActive = RenderTexture.active;
