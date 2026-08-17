@@ -274,9 +274,32 @@ Two lessons worth keeping:
 portrait by pinning the layout as an INPUT with the driver suppressed; W1 covers "nothing
 suppressed" but only at the batchmode aspect. Neither covers both at once.
 
-**The fix direction**, not done here: give the harness a portrait screen so the live driver picks
-Portrait, rather than teaching the capture to compensate. Compensating in the capture is how this
-divergence became invisible in the first place.
+### RESOLVED
+
+The harness screen is now portrait, so the live driver picks Portrait by its own unmodified logic.
+`HarnessScreen.EnsurePortrait()` does it, called from `HarnessSetUpFixture` before any test runs.
+
+**What works, measured rather than assumed:**
+
+| mechanism | result |
+|---|---|
+| `-screen-width 1080 -screen-height 1920` | **IGNORED** in Editor batchmode. Honoured by a standalone player, not the Editor's dummy view. Screen stayed 640x480. Still passed in `run-tests.sh` because it is correct for a player build. |
+| `Screen.SetResolution(1080, 1920, false)` | **NO-OP** in the Editor, with or without a frame or half a second of settling. |
+| `UnityEditor.PlayModeWindow.SetCustomRenderingResolution` | **WORKS.** Screen becomes 1080x1920 on the next frame. Reached by reflection so the PlayMode assembly does not take an editor-assembly reference. |
+
+**Verified:** `liveOrientation=Portrait`, live orthographic size 4.33 -> 8.12 (matching a hand
+calculation of ~8.10 for bounds ±4.10 — an independent check, not the same code agreeing with
+itself), camera x 1.17 -> 0.00 as the portrait `boardRect` is horizontally centred where the
+landscape one is not. `C7` green on all ten levels. W1's images show the whole board, both banks,
+drop zones both sides and the hand palette, nothing clipped — the first look at the real portrait
+game.
+
+**Residual, unexplained, and NOT absorbed into a golden.** `01_01_BasicMoves` differs from its
+golden by 9 pixels — 0.0004 %, max 21, one 5x4 antialiased cluster on the boat's red edge at
+viewport (0.50, 0.386). Every other level is byte-identical, V8 passes, and the difference is stable
+across separate processes and repeated runs. Three explanations were tested and refuted (an extra
+frame on the first load; treating every level identically, which moved V9 by 30.37 %; the
+resolution landing during the first load). Cause unknown. The golden was deliberately not re-baked.
 
 ---
 

@@ -243,6 +243,14 @@ Standing rules:
   "The test passed" is not evidence the image is right — the first framing pass here rendered
   the board in a middle band with the hand palette sliced off at the frame edge, and every
   assertion still went green.
+- **AN ASSERTION THAT COMPARES A SYSTEM AGAINST THE FUNCTION THAT DROVE IT PROVES APPLICATION, NOT
+  CORRECTNESS.** `C7` compares the runtime camera to `BoardFraming`'s output. If both use a wrong
+  rect they agree at delta `0.000` — which is exactly what happened for the entire life of
+  divergence #9, where the live game framed a landscape rect on a portrait target and C7 reported
+  perfect agreement on all ten levels. Such an assertion **requires a human-reviewed artifact
+  alongside it**. `W1` (the warts-and-all capture) exists for this reason and found #9 on its first
+  run. Ask of any new green test: *would this still pass if the thing it calls were wrong?*
+
 - **Any new assertion ships with a matching meta-test proving it can fail.** A meta-test encodes an assumption
   about **ownership** — which component is allowed to write a thing — so it breaks by design when
   ownership moves. That is the control working. **Never resolve such a break with a tolerance

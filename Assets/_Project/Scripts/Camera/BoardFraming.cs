@@ -132,12 +132,43 @@ public static class BoardFraming
             foreach (var r in c.GetComponentsInChildren<Renderer>(false)) Add(r);
         }
 
+        var grid = Object.FindFirstObjectByType<GridManager>();
+
         // Tiles - BoardTile, so inventory is excluded STRUCTURALLY rather than by a filter
         // this sweep had to remember. Hand and palette tiles carry TileInstance but never
         // BoardTile. See BoardTile for why the default is inverted.
+        //
+        // ON THE GRID ONLY. A push EJECTS the far tile, and an ejected tile keeps its BoardTile
+        // while it falls, so a bare BoardTile sweep collects a tile that is no longer part of the
+        // board. Measured mid-flight at (4.33, -13.66, 1.29) - fourteen units below the board -
+        // which dragged the bounds to y[-14.74, 1.38] and reframed everything around a tile
+        // falling into the void.
+        //
+        // It made V9 FLAKY rather than wrong: two runs of identical code, one with 9 BoardTiles
+        // and passing, one with 10 and off by 30.70 %, depending purely on whether the tile had
+        // been destroyed yet. In the live game it is worse than flaky - any re-frame during or
+        // after a push would zoom out to chase the debris.
+        //
+        // Membership is asked of the grid rather than inferred from position, because "too far
+        // below the board" is the kind of threshold that goes wrong the first time a level is
+        // authored differently.
+        var onGrid = new HashSet<Transform>();
+        if (grid != null)
+            for (int c = 0; c < grid.cols; c++)
+                for (int r = 0; r < grid.rows; r++)
+                {
+                    var tile = grid.GetTileAt(c, r);
+                    if (tile != null) onGrid.Add(tile.transform);
+                }
+
         foreach (var t in Object.FindObjectsByType<BoardTile>(FindObjectsInactive.Exclude,
                                                              FindObjectsSortMode.None))
+        {
+            // No grid to ask: fall back to including it, so a scene without a GridManager still
+            // frames something rather than collapsing to nothing.
+            if (grid != null && !onGrid.Contains(t.transform)) continue;
             AddUnder(t);
+        }
 
         // Banks - the boat embarks from them, so they are part of the playfield.
         foreach (var b in Object.FindObjectsByType<RiverBankManager>(FindObjectsInactive.Exclude,
@@ -151,8 +182,6 @@ public static class BoardFraming
         foreach (var g in Object.FindObjectsByType<GoalMarker>(FindObjectsInactive.Exclude,
                                                               FindObjectsSortMode.None))
             AddUnder(g);
-
-        var grid = Object.FindFirstObjectByType<GridManager>();
 
         // Push arrows and row locks, which live under gridParent.
         if (grid != null && grid.gridParent != null)

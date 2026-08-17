@@ -34,6 +34,21 @@ namespace HapisHavoc.Tests
         public static IEnumerator Load(FixtureMode mode, string levelResourcePath = null,
                                        float timeout = DefaultTimeout)
         {
+            // PORTRAIT BEFORE THE SCENE LOADS. BoardFramingDriver reads Screen.width/height to
+            // choose its layout, so the screen has to be portrait before the driver runs or the
+            // live path frames a landscape rect - divergence #9.
+            //
+            // THE YIELD IS CONDITIONAL, and it must stay that way. Making it unconditional looked
+            // tidier - every level treated identically - and was measurably worse: V9's post-push
+            // golden moved 30.37 % (mean 44.867), a framing-scale change, because the extra frame
+            // per load perturbs the push sequence V9 measures. It did not even fix the thing it was
+            // meant to fix; 01_01 still differed by the same 9 pixels. Reverted on measurement.
+            if (!HarnessScreen.IsPortrait)
+            {
+                HarnessScreen.EnsurePortrait();
+                yield return null;
+            }
+
             switch (mode)
             {
                 case FixtureMode.Endless:

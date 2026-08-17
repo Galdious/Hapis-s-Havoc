@@ -65,8 +65,16 @@ RESULTS="$OUT/results.xml"
 LOG="$OUT/unity.log"
 rm -f "$RESULTS" "$LOG"
 
+# PORTRAIT SCREEN. This is a portrait mobile game, and batchmode's default window is 640x480 -
+# LANDSCAPE. BoardFramingDriver picks its layout from Screen.width/height, so with the default
+# window the live path frames a landscape rect and the player's Portrait layout is never exercised
+# at all. That is divergence #9 in docs/audit/HARNESS_DIVERGENCE.md.
+#
+# Asked for here rather than compensated for in the capture: reinterpreting the aspect at capture
+# time is exactly how the divergence stayed invisible.
 ARGS=(-batchmode -runTests -testPlatform "$PLATFORM"
       -projectPath "$REPO"
+      -screen-width 1080 -screen-height 1920
       -testResults "$RESULTS"
       -logFile "$LOG")
 [[ -n "$FILTER" ]] && ARGS+=(-testFilter "$FILTER")

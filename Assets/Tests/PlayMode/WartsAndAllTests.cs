@@ -141,10 +141,11 @@ namespace HapisHavoc.Tests
 
             Debug.Log($"[W1] warts-and-all captures - LIVE camera, nothing suppressed except the " +
                       $"render target\n  written to {CaptureRig.PathFor("warts", "<level>")}\n" +
-                      $"  NOTE: batchmode's screen is {Screen.width}x{Screen.height}, so the live " +
-                      $"driver frames for that shape. These images show what the live camera\n" +
-                      $"  actually framed; they do NOT show the player's portrait framing, which " +
-                      $"batchmode cannot produce. See HARNESS_DIVERGENCE.md #9.\n" +
+                      $"  screen={Screen.width}x{Screen.height} portrait={HarnessScreen.IsPortrait}" +
+                      (HarnessScreen.IsPortrait
+                          ? " - the live driver is framing the PLAYER'S orientation."
+                          : " - LANDSCAPE. The live driver is NOT framing the player's " +
+                            "orientation; see HARNESS_DIVERGENCE.md #9.") + "\n" +
                       string.Join("\n", lines));
 
             // The only assertions: the capture step ran, and it produced one file per level.

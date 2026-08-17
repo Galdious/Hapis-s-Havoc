@@ -27,6 +27,55 @@ namespace HapisHavoc.Tests
         public static string GoldenDir =>
             Path.Combine(Application.dataPath, "Tests", "Golden");
 
+        /// <summary>
+        /// Off-grid BoardTiles: tiles that still exist in the scene but are no longer part of the
+        /// board. In practice, tiles ejected by a push, falling until they are destroyed.
+        /// </summary>
+        internal static int EjectedTileCount(GridManager grid)
+        {
+            if (grid == null) return 0;
+
+            var onGrid = new System.Collections.Generic.HashSet<Transform>();
+            for (int c = 0; c < grid.cols; c++)
+                for (int r = 0; r < grid.rows; r++)
+                {
+                    var t = grid.GetTileAt(c, r);
+                    if (t != null) onGrid.Add(t.transform);
+                }
+
+            int n = 0;
+            foreach (var bt in Object.FindObjectsByType<BoardTile>(FindObjectsInactive.Exclude,
+                                                                  FindObjectsSortMode.None))
+                if (!onGrid.Contains(bt.transform)) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// Waits until no ejected tile remains in the scene. Wall-clock timeout, loud on expiry -
+        /// a tile that is never destroyed is a leak worth failing on, not worth waiting out.
+        /// </summary>
+        internal static IEnumerator WaitForNoEjectedTiles(GridManager grid, float timeoutSeconds)
+        {
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            int last = -1;
+            while (true)
+            {
+                int n = EjectedTileCount(grid);
+                if (n == 0) yield break;
+                if (n != last) { last = n; }
+                if (Time.realtimeSinceStartup > deadline)
+                {
+                    Debug.LogWarning(
+                        $"[Golden] {n} ejected tile(s) still in the scene after {timeoutSeconds}s " +
+                        "of wall clock. Capturing anyway, but this capture is NOT reproducible - " +
+                        "the debris is rendered wherever it happens to be. Investigate whether " +
+                        "ejected tiles are being destroyed at all.");
+                    yield break;
+                }
+                yield return null;
+            }
+        }
+
         static string GoldenPathFor(string level) =>
             Path.Combine(GoldenDir, "levels", level.Replace("Levels/", "") + ".png");
 
@@ -228,6 +277,18 @@ namespace HapisHavoc.Tests
 
             // Settle to an un-highlighted state so no selection state is baked in.
             if (boat != null) boat.DeselectBoat();
+
+            // WAIT FOR THE EJECTED TILE TO BE GONE, not for a fixed duration.
+            //
+            // A push ejects the far tile and it falls under physics until destroyed. Capturing
+            // while it is still in flight bakes in wherever it happened to be, and that made this
+            // golden FLAKY: measured 0.3686 %, 0.5711 % and 0.8474 % on three runs of identical
+            // code, straddling the 0.5 % threshold, with a different md5 every time.
+            //
+            // This is a wait for a STATE the game reaches on its own, not a suppression: nothing is
+            // disabled and nothing is hidden. Wall clock for the timeout so a tile that never dies
+            // fails loudly instead of hanging - the harness clock, per the no-frames rule.
+            yield return WaitForNoEjectedTiles(grid, 20f);
             yield return new WaitForSecondsRealtime(1.6f);
 
             for (int c = 0; c < 3; c++)
@@ -235,6 +296,31 @@ namespace HapisHavoc.Tests
                 var pushed = grid.GetTileAt(c, row);
                 Assert.IsNotNull(pushed, $"V9: nothing was pushed into ({c},{row})");
                 Debug.Log($"[V9] ({c},{row}) {TileOrientation.Describe(pushed)}");
+            }
+
+            // A PUSH EJECTS THE FAR TILE, and an ejected tile is still a BoardTile in the scene
+            // while it flies. If it is in the framing bounds, the fit depends on where it happens
+            // to be at capture time - which is a timing-dependent framing and therefore a flaky
+            // golden. Report the count and the bounds so a failure says which it was.
+            int expectedOnBoard = grid.cols * grid.rows;
+            var allBoardTiles = Object.FindObjectsByType<BoardTile>(FindObjectsInactive.Exclude,
+                                                                   FindObjectsSortMode.None);
+            BoardFraming.TryCollectBoardBounds(out var preBounds, out int preCount);
+            Debug.Log($"[V9BOUNDS] BoardTile in scene={allBoardTiles.Length} expected on board=" +
+                      $"{expectedOnBoard} (surplus={allBoardTiles.Length - expectedOnBoard})\n" +
+                      $"  bounds x[{preBounds.min.x:F2},{preBounds.max.x:F2}] " +
+                      $"y[{preBounds.min.y:F2},{preBounds.max.y:F2}] " +
+                      $"z[{preBounds.min.z:F2},{preBounds.max.z:F2}] from {preCount} renderer(s)");
+            foreach (var bt in allBoardTiles)
+            {
+                var p = bt.transform.position;
+                bool onGrid = false;
+                for (int c = 0; c < grid.cols && !onGrid; c++)
+                    for (int r = 0; r < grid.rows && !onGrid; r++)
+                        if (grid.GetTileAt(c, r) != null &&
+                            grid.GetTileAt(c, r).transform == bt.transform) onGrid = true;
+                if (!onGrid)
+                    Debug.Log($"[V9BOUNDS] OFF-GRID BoardTile '{bt.name}' at {p:F2} - in flight?");
             }
 
             string shot;
