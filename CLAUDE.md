@@ -194,6 +194,13 @@ FIX ---` comments throughout record the same handful of failures over and over:
 
 ## 5. House rules
 
+- **NO GATE MAY BE EXPRESSED IN FRAMES.** Shipping code gates on **game time**; harness waits use
+  the **wall clock**. Batchmode runs frames at roughly 1 ms while game time advances about 15x
+  slower than real time, so a frame count means nothing and the two clocks are not
+  interchangeable. This has caused three defects: a blend misread as frozen (it was advancing
+  0.0008/frame and printing as 0.02 twice), study_3x3 framing against a board that had not
+  finished arriving, and X17's wait assumptions being silently invalidated.
+
 - **THE HARNESS MUST NOT DISABLE ANYTHING THE GAME RUNS.** Anything suppressed for determinism
   must either be genuinely absent in play, or be documented as a known divergence with a test
   that detects drift. Three real bugs have hidden behind suppressions that were individually
@@ -236,7 +243,12 @@ Standing rules:
   "The test passed" is not evidence the image is right — the first framing pass here rendered
   the board in a middle band with the hand palette sliced off at the frame edge, and every
   assertion still went green.
-- **Any new assertion ships with a matching meta-test proving it can fail.** A test that has
+- **Any new assertion ships with a matching meta-test proving it can fail.** A meta-test encodes an assumption
+  about **ownership** — which component is allowed to write a thing — so it breaks by design when
+  ownership moves. That is the control working. **Never resolve such a break with a tolerance
+  change**; rewrite the breakage so it breaks what the new owner will not put back. X17 is the
+  worked example: displacing `Camera.main` stopped being a breakage once Cinemachine's Brain
+  began restoring it every LateUpdate. A test that has
   never been observed to go red is not a test. Broken controls live in `Assets/Tests/BrokenControls/`.
 - **`-batchmode` WITHOUT `-nographics`, always.** `-nographics` kills the render loop, every
   capture comes back black, and every image comparison then passes vacuously.

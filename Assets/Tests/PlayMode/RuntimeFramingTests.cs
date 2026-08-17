@@ -102,39 +102,61 @@ namespace HapisHavoc.Tests
         }
 
         /// <summary>
-        /// X17 -> C7 must fail. Disables the driver and re-checks: a driver that never applies
-        /// the pose must be caught, otherwise C7 would pass on a scene that simply happened to
-        /// be posed correctly once.
+        /// X17 -> C7 must fail.
+        ///
+        /// REWRITTEN, NOT LOOSENED. The original displaced Camera.main and halved its
+        /// orthographicSize - which stopped being a breakage the moment framing moved onto the
+        /// Cinemachine path, because the Brain restores BOTH from the vCam every LateUpdate. The
+        /// control reported delta 0.000 and failed while the code was fine.
+        ///
+        /// A meta-test encodes an assumption about OWNERSHIP, so it breaks by design when
+        /// ownership moves. That is the control working, and it must never be resolved with a
+        /// tolerance change. It now breaks what the Brain will NOT put back: the proxy the
+        /// follow component tracks, and the vCam's own lens.
         /// </summary>
         [UnityTest]
         public IEnumerator X17_C7_FailsWhenTheDriverNeverApplies()
         {
             LogAssert.ignoreFailingMessages = true;
             yield return SceneFixture.Load(FixtureMode.Playing, "Levels/study_3x6");
-            yield return new WaitForSecondsRealtime(1.2f);
+            yield return new WaitForSecondsRealtime(3.5f);
 
             var driver = Object.FindFirstObjectByType<BoardFramingDriver>();
             Assert.IsNotNull(driver, "X17: no BoardFramingDriver in the scene to disable");
 
-            // THE BREAKAGE: shove the camera somewhere the driver would never leave it, and stop
-            // the driver from correcting it.
+            var vcam = CameraManager.Instance != null
+                ? CameraManager.Instance.CameraFor(OperatingMode.Playing) : null;
+            Assert.IsNotNull(vcam, "X17: no player vCam");
+
+            var follow = vcam.GetComponent<CinemachineFollow>();
+            Transform proxy = vcam.Follow != null ? vcam.Follow : vcam.transform;
+            Assert.IsNotNull(proxy, "X17: no tracking target to displace");
+
+            // THE BREAKAGE: stop the driver, then move the thing the follow component TRACKS and
+            // change the vCam's own lens. The Brain propagates both rather than reverting them,
+            // which is exactly why they are the right things to break.
             driver.enabled = false;
-            var cam = Camera.main;
-            cam.orthographicSize = 3.0f;
-            cam.transform.position += new Vector3(0f, 0f, -25f);
-            yield return new WaitForSecondsRealtime(0.6f);
+            proxy.position += new Vector3(0f, 0f, -25f);
+            var lens = vcam.Lens;
+            lens.OrthographicSize = 1.0f;
+            vcam.Lens = lens;
+            yield return new WaitForSecondsRealtime(1.0f);
 
             Assert.IsTrue(ExpectedPose(FixtureMode.Playing, out var want), "X17: no expected pose");
+            var cam = Camera.main;
             float dPos = Vector3.Distance(cam.transform.position, want.position);
             float dSize = Mathf.Abs(cam.orthographicSize - want.orthographicSize);
 
-            Debug.Log($"[X17] driver disabled and camera displaced: delta pos={dPos:F3} size={dSize:F3} " +
-                      $"(C7 allows 0.05)");
+            Debug.Log($"[X17] driver disabled, proxy displaced 25 and vCam lens forced to 1.0: " +
+                      $"camera pos={cam.transform.position:F2} size={cam.orthographicSize:F2}  " +
+                      $"want pos={want.position:F2} size={want.orthographicSize:F2}  " +
+                      $"delta pos={dPos:F3} size={dSize:F3} (C7 allows 0.05)");
 
             Assert.IsTrue(dPos > 0.05f || dSize > 0.05f,
-                "X17 META-FAILURE: the camera was displaced 25 units and its ortho size halved " +
-                "with the driver disabled, yet C7's comparison still reports a match. C7 cannot " +
-                "detect an unapplied pose. Fix C7, not this control.");
+                "X17 META-FAILURE: the tracking target was displaced 25 units and the vCam lens " +
+                "forced to 1.0 with the driver disabled, yet C7's comparison still reports a " +
+                "match. C7 cannot detect an unapplied pose. Fix C7, not this control.");
         }
+
     }
 }

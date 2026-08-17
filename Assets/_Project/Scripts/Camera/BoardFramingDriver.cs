@@ -68,8 +68,9 @@ public class BoardFramingDriver : MonoBehaviour
     /// Framing an EMPTY grid gives a meaningless result - the bounds would be the banks alone -
     /// so wait until tiles exist. Wall clock, never frame counts: batchmode runs uncapped.
     /// </summary>
-    [Tooltip("Consecutive frames the board bounds must be unchanged before framing.")]
-    [SerializeField] private int stableFramesRequired = 5;
+    [Tooltip("GAME-time seconds the board bounds must be unchanged before framing. Never a " +
+             "frame count - see the note on FrameWhenBoardIsReady.")]
+    [SerializeField] private float stableGameSeconds = 0.25f;
 
     [Tooltip("World units within which bounds count as unchanged.")]
     [SerializeField] private float stabilityEpsilon = 0.01f;
@@ -106,30 +107,41 @@ public class BoardFramingDriver : MonoBehaviour
             yield return null;
         }
 
+        // GAME TIME, NOT FRAMES. A 5-consecutive-frame check passed in about four MILLISECONDS
+        // of batchmode time - before the banks had even spawned - and study_3x3 framed against a
+        // board that was still arriving. Larger boards only passed because tile spawning burned
+        // enough frames for the banks to land first, which is luck, not correctness.
+        //
+        // Game time because the banks arrive on coroutines that run on game time; the timeout
+        // stays on the wall clock so a genuine hang fails loudly instead of blocking forever.
         Bounds previous = default;
         bool havePrevious = false;
-        int stable = 0;
+        float stableSince = -1f;
 
-        while (stable < stableFramesRequired)
+        while (true)
         {
             yield return null;
 
             if (Time.realtimeSinceStartup > deadline)
             {
                 Debug.LogError($"[BoardFramingDriver] Timed out after 15s waiting for the board bounds " +
-                               $"to settle (best run: {stable} of {stableFramesRequired} frames). " +
+                               $"to settle for {stableGameSeconds:F2}s of game time. " +
                                "NOT framing - the camera is left as authored.");
                 yield break;
             }
 
-            if (!BoardFraming.TryCollectBoardBounds(out var now, out _)) { stable = 0; continue; }
+            if (!BoardFraming.TryCollectBoardBounds(out var now, out _)) { stableSince = -1f; continue; }
 
-            if (havePrevious &&
+            bool unchanged = havePrevious &&
                 (now.center - previous.center).sqrMagnitude <= stabilityEpsilon * stabilityEpsilon &&
-                (now.size - previous.size).sqrMagnitude <= stabilityEpsilon * stabilityEpsilon)
-                stable++;
-            else
-                stable = 0;
+                (now.size - previous.size).sqrMagnitude <= stabilityEpsilon * stabilityEpsilon;
+
+            if (unchanged)
+            {
+                if (stableSince < 0f) stableSince = Time.time;
+                if (Time.time - stableSince >= stableGameSeconds) break;
+            }
+            else stableSince = -1f;
 
             previous = now;
             havePrevious = true;
