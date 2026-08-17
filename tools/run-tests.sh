@@ -87,6 +87,8 @@ fi
 
 python3 - "$RESULTS" <<'PY'
 import sys, xml.etree.ElementTree as ET
+CAP = 60          # generous; the point is that exceeding it is ANNOUNCED, not hidden.
+
 r = ET.parse(sys.argv[1]).getroot()
 total  = r.get('total');  passed = r.get('passed')
 failed = r.get('failed'); skipped = r.get('skipped')
@@ -99,8 +101,14 @@ for tc in r.iter('test-case'):
     if res == 'Failed':
         msg = tc.find('.//message')
         if msg is not None and msg.text:
-            for line in msg.text.strip().splitlines()[:6]:
+            # NEVER truncate silently. This capped at 6 lines and hid two of V8's seven
+            # stale goldens plus part of C2's element list - a shorter failure looked like
+            # a smaller problem. If a cap is ever needed again, it must announce itself.
+            lines = msg.text.strip().splitlines()
+            for line in lines[:CAP]:
                 print(f"         {line}")
+            if len(lines) > CAP:
+                print(f"         ... {len(lines) - CAP} MORE LINE(S) NOT SHOWN - see {sys.argv[1]}")
 sys.exit(0 if (failed or '0') == '0' else 1)
 PY
 RC=$?

@@ -8,20 +8,41 @@ the bottom of this file.
 | | |
 |---|---|
 | Unity editor | **6000.3.21f1** (LTS) |
-| Render pipeline | **URP 17.3.0** |
-| Quality level | `PC` (pinned by name; `DeterministicContext` throws if unavailable) |
+| Render pipeline | **URP 17.3.0**, asset `Mobile_RPAsset` (renderScale 0.8) |
+| Quality level | **`Mobile`** (pinned by name; `DeterministicContext` throws if unavailable) |
 | Build target | `StandaloneOSX` |
+| Projection | `OrthographicTilted` |
+| Camera pitch | **70°** |
+| Framing | **runtime-applied** — see below |
 | Colour space | Linear |
 | RenderTexture | 1080×1920, sRGB |
-| Captured from | `chore/assertion-suite`, forked from tag **`v0.2-unity63`** (`8378bba`) |
+| Captured from | `feat/runtime-framing` |
+
+**Quality is `Mobile`, not `PC`.** This is a mobile target, so the baseline must be the pipeline
+the player actually gets. `Mobile_RPAsset` renders at `renderScale 0.8` and resamples up, which
+softens every edge in the frame — worth roughly 3–4 % of pixels on its own (measured below).
+Capturing at `PC` was measuring a pipeline nobody ships.
+
+**Framing is runtime-applied as of `573f4db`.** `BoardFramingDriver` now sets the resting pose
+and the vCam lens in the running game, so a 3×3 and a 6×6 are framed differently — they used to
+be identical. The capture path does **not** go through the driver: `DeterministicContext`
+suppresses it and calls `BoardFraming.TryFit` itself, so captures pin the framing *inputs*
+(layout, orientation, projection, RT size, pitch) and let the production framing code compute
+the pose. If `BoardFraming` is wrong, the capture is wrong — which is the point. `C7` is the
+assertion that the driver applies the same result in play.
 
 Every `.png` has a matching `.conditions.txt` recording these values as measured at capture
 time. **A golden without its conditions sidecar is not reproducible** — keep them together.
 
 Captures render through an explicit synchronous `Camera.Render()` into a fixed RenderTexture,
 never the frame loop, and the camera pose is derived from the grid bounds rather than
-hardcoded. The player hand palette is hidden during capture because it is level- and
-mode-dependent and would inject false diffs.
+hardcoded.
+
+The player hand palette is hidden during capture because it is level- and mode-dependent.
+**That suppression concealed a real bug** — the framing bounds were wrong in a way only the
+palette would have shown — so it is no longer treated as obviously safe. It is declared in
+`DeterministicContext.Suppressions` and `X18` fails if the list drifts from the reviewed
+allowlist in `docs/audit/HARNESS_DIVERGENCE.md`.
 
 ### Comparison tolerance
 
@@ -30,8 +51,8 @@ mode-dependent and would inject false diffs.
 Not arbitrary. Diffing the same scene rendered under URP 17.5.0 against URP 17.3.0 measured
 **mean 0.067/255, max 2/255, 0.00% of pixels differing by more than 4/255** — the observed
 noise floor of a real renderer change that looks identical. The tolerance sits just above
-that. On a clean re-run all seven levels currently report **0.0000% differing, mean 0.000,
-max 0**.
+that. On a clean re-run all seven levels currently report **0.0000 % differing, mean 0.000**,
+with `max` 0 on six and 4 on one — at the per-pixel threshold, so nothing is counted.
 
 ### Not drift
 
@@ -119,6 +140,28 @@ that should never fire.
 > no longer a perspective trapezoid, every tile reads at the same size, and path width is uniform
 > across the board. Approved as the PRE-SHADER baseline so the channel-geometry work starts from
 > a clean suite.
+>
+> **Re-baselined for pitch 70° and `Mobile` quality.** All 8 moved 19.3–25.1 %. Approved by
+> Pawel after side-by-side review. The cause was **attributed by experiment, not by assertion** —
+> five candidate changes were in flight and only two of them turn out to touch a pixel:
+>
+> | change | contribution | how established |
+> |---|---|---|
+> | pitch 55° → 70° | **18.6–24.3 %** (mean 10.2–13.5, max 205) | captured at PC/55 vs PC/70 |
+> | quality PC → Mobile | **2.9–4.1 %** (mean 0.95–1.40, max 184) | captured at PC/70 vs Mobile/70 |
+> | orthographic adoption | none | already recorded in the old sidecars |
+> | `DefaultBlend` → Cut | none | `CinemachineBrain` is suppressed during capture |
+> | framing going live | none | the driver is suppressed; the context fits directly |
+>
+> The decisive check: rebuilding the **old** conditions (`PC` + 55°) reproduced the previous
+> goldens at **0.0000 % differing, max 0** on seven of eight and sub-tolerance on the rest. That
+> is what licenses the table above — every moved pixel is accounted for by the two knobs, and
+> `BoardFraming`'s own evolution over this period contributed nothing measurable.
+>
+> What a human checked in the images: the board sits taller in frame and is less foreshortened,
+> as a steeper pitch requires; ground-plane decals (the cyan collectible, the vortex spirals)
+> read closer to their true shape; the bank marker's cyan panel is no longer hidden behind the
+> red flag. Same geometry, steeper angle — no element lost, clipped or restyled.
 
 
 
