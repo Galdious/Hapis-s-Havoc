@@ -39,6 +39,21 @@ public class ScreenFader : MonoBehaviour
     }
 
 
+    /// <summary>
+    /// Goes fully black THIS FRAME, with no animation.
+    ///
+    /// Distinct from FadeOut on purpose. FadeOut animates to black over defaultFadeDuration, which
+    /// means it SHOWS whatever is underneath while it does so - useless for hiding an un-framed
+    /// camera on scene entry, because the un-framed camera is precisely what would be visible for
+    /// those frames. See FramingGate.
+    /// </summary>
+    public void SetOpaqueNow()
+    {
+        if (canvasGroup == null) return;
+        canvasGroup.alpha = 1f;
+        canvasGroup.blocksRaycasts = true;
+    }
+
     /// Coroutine to fade the screen from transparent to fully opaque (black).
 
     public IEnumerator FadeOut()

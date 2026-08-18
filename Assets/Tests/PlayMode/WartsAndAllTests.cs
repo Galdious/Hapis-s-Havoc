@@ -103,6 +103,18 @@ namespace HapisHavoc.Tests
                     continue;
                 }
 
+                // NO CAPTURE MAY SHOW AN UN-FRAMED BOARD. This is a precondition, not a claim
+                // about image content: a picture of the authored camera pose would be a picture of
+                // the thing FramingGate exists to hide, and reading it as "the live game" would be
+                // wrong. Assert the driver actually framed before the shutter.
+                var driver = Object.FindFirstObjectByType<BoardFramingDriver>(
+                    FindObjectsInactive.Include);
+                Assert.IsNotNull(driver, $"W1: no BoardFramingDriver for {lvl}.");
+                Assert.IsTrue(driver.HasFramed,
+                    $"W1: {lvl} had not been framed when it was captured, so this image shows the " +
+                    "authored camera pose rather than the live framed one. Wait longer or find out " +
+                    "why framing never arrived - do not publish the capture.");
+
                 string name = lvl.Replace("Levels/", "");
                 CaptureSizeForLiveScreen(out int w, out int h);
                 string shot = CaptureRig.CaptureLive(cam, w, h, "warts", name);

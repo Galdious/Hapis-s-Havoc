@@ -31,6 +31,24 @@ public class BoardFramingDriver : MonoBehaviour
     bool _hasFramed;
 
     /// <summary>
+    /// Raised the FIRST time framing is applied, on the frame it is applied.
+    ///
+    /// Exists so nothing has to show the camera before it has been framed. The driver waits for
+    /// the board bounds to be stable for 0.25s of GAME time, and everything before that moment -
+    /// the authored camera pose, tiles mid-ScaleIn, banks arriving, rows popping in - is on screen
+    /// while it waits. Framing cannot honestly be made faster; the fix is not to SHOW it.
+    /// See FramingGate, which holds the screen black until this fires.
+    ///
+    /// Static because the listener is a separate component that may wake in any order, and because
+    /// a scene reload replaces both. Cleared in OnDisable so a stale subscriber cannot survive a
+    /// domain reload boundary - the project relies on domain reload between tests.
+    /// </summary>
+    public static event System.Action FramingApplied;
+
+    /// <summary>True once this driver has applied framing at least once.</summary>
+    public bool HasFramed => _hasFramed;
+
+    /// <summary>
     /// The layout a mode should use. The Editor is a DESKTOP AUTHORING SURFACE — tile palette,
     /// hand builder, grid-size controls, lock toggles — so it gets the landscape config rather
     /// than being forced into the player's portrait one.
@@ -54,6 +72,16 @@ public class BoardFramingDriver : MonoBehaviour
         _grid = FindFirstObjectByType<GridManager>();
         _ucc = FindFirstObjectByType<UniversalCameraController>();
         if (layout == null) layout = LayoutFor(CurrentMode);
+
+        // The gate that keeps the un-framed camera off screen. Installed here rather than authored
+        // in LevelEditor.unity because it must exist wherever this driver does - the two are only
+        // useful together - and because a component that is easy to forget to add is a component
+        // that will be missing in exactly the scene nobody checked.
+        //
+        // An authored instance WINS: if someone adds a FramingGate to the scene to tune its
+        // timeout or switch it off, this does not create a second one.
+        if (FindFirstObjectByType<FramingGate>(FindObjectsInactive.Include) == null)
+            gameObject.AddComponent<FramingGate>();
     }
 
     void Start() => StartCoroutine(FrameWhenBoardIsReady());
@@ -289,6 +317,7 @@ public class BoardFramingDriver : MonoBehaviour
             Screen.width, Screen.height, BoardFraming.Projection.OrthographicTilted, pitch);
 
         _lastFramed = bounds;
+        bool first = !_hasFramed;
         _hasFramed = true;
 
         var brain = Camera.main != null ? Camera.main.GetComponent<CinemachineBrain>() : null;
@@ -315,7 +344,7 @@ public class BoardFramingDriver : MonoBehaviour
 
         // Endless drives its own vCam transform directly (EndlessModeManager:183), so the driver
         // must not also move the proxy there or the two would fight. Lens only in that mode.
-        if (CurrentMode == OperatingMode.Endless) return;
+        if (CurrentMode == OperatingMode.Endless) { RaiseIfFirst(first); return; }
 
         var follow = vcam.GetComponent<CinemachineFollow>();
         Vector3 offset = follow != null ? follow.FollowOffset : Vector3.zero;
@@ -339,6 +368,24 @@ public class BoardFramingDriver : MonoBehaviour
                   $"proxy set to={resting:F3}  proxyActual={_proxy.position:F3}  " +
                   $"boundsUsed min={bounds.min:F2} max={bounds.max:F2} centre={bounds.center:F2}");
         StartCoroutine(LogPosNextFrame(vcam, pose.position, offset, resting));
+        RaiseIfFirst(first);
+    }
+
+    /// <summary>
+    /// Announces the FIRST successful framing. Every early return in Apply that still framed must
+    /// pass through here - a listener holding the screen black would otherwise wait forever on the
+    /// one code path that forgot, which is a far worse failure than a slightly late fade.
+    /// </summary>
+    void RaiseIfFirst(bool wasFirst)
+    {
+        if (!wasFirst) return;
+        FramingApplied?.Invoke();
+    }
+
+    /// <summary>Static event, so it must not outlive the scene that raised it.</summary>
+    void OnDestroy()
+    {
+        if (_hasFramed) FramingApplied = null;
     }
 
 }

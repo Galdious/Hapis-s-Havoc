@@ -52,8 +52,13 @@ public class UniversalCameraController : MonoBehaviour
     { 
         panMode = PanMode.ZAxisOnly, 
         panSpeed = 1f, 
-        friction = 5f, 
-        clampPadding = new Vector2(0f, 10f) // Only Z padding for endless
+        // Play's friction, because Play's feel is the reference Pawel says is right.
+        friction = 3f, 
+        clampPadding = new Vector2(0f, 10f), // Only Z padding for endless
+        // Longer than Play's 1s: in Endless the player pans to READ the river ahead, and a
+        // one-second leash snatches the view back before they have finished looking.
+        returnToOrigin = true,
+        returnDelay = 3f
     };
 
     [Header("Input Detection")]
@@ -443,6 +448,28 @@ public class UniversalCameraController : MonoBehaviour
             {
                 float maxOffset = currentSettings.clampPadding.y;
                 endlessCameraOffset.z = Mathf.Clamp(endlessCameraOffset.z, -maxOffset, maxOffset);
+            }
+        }
+        else if (currentSettings.returnToOrigin)
+        {
+            // RETURN TO THE BOAT AFTER A PAUSE, requested after playtesting: Endless originally
+            // held wherever the player left it, and holding it turned out to feel like the camera
+            // had been abandoned rather than parked.
+            //
+            // Deliberately the SAME SHAPE as the Play-mode return in ApplyStandardMovement - the
+            // same delay-then-friction-lerp - because Play's feel is the reference Pawel says is
+            // right, and a second easing curve here would be a second thing to tune and to drift.
+            //
+            // Only the OFFSET is eased, so this stays on the streaming axis: the offset is what
+            // pans, while the boat-following part of the position is EndlessModeManager's.
+            if (Time.time - lastPlayerInputTime > currentSettings.returnDelay)
+            {
+                endlessCameraOffset = Vector3.Lerp(endlessCameraOffset, Vector3.zero,
+                                                   Time.deltaTime * currentSettings.friction);
+
+                // Settle exactly, so the offset does not sit forever at a hair above zero and keep
+                // the camera imperceptibly off the boat.
+                if (endlessCameraOffset.sqrMagnitude < 0.0001f) endlessCameraOffset = Vector3.zero;
             }
         }
         

@@ -125,6 +125,18 @@ public class BoatController : MonoBehaviour, IPointerClickHandler
     /// <summary>Snap point the boat would land on for each tile in <see cref="ValidMoves"/>.</summary>
     internal IReadOnlyDictionary<TileInstance, int> ValidMoveEntrySnaps => tileToSnapPoint;
 
+    /// <summary>
+    /// True while a move is animating. Read-only; adds NO behaviour, same justification as the
+    /// lines above.
+    ///
+    /// The harness needs it to drive the game the way a player does: OnTileClicked refuses while
+    /// isMoving is true, so a driver that fires clicks without waiting silently drops most of them
+    /// and then reports that the game did not respond. Polling the boat's position instead would be
+    /// a second copy of "has the move finished", which is the drift pattern this project keeps
+    /// paying for.
+    /// </summary>
+    internal bool IsMoving => isMoving;
+
     /// <summary>Bank objects the boat could dock at from the current state.</summary>
     internal IReadOnlyList<GameObject> DockableBanks => highlightedBanks;
     private Dictionary<TileInstance, int> tileToReverseSnapPoint = new Dictionary<TileInstance, int>();

@@ -10677,10 +10677,10 @@ MonoBehaviour:
   endlessSettings:
     panMode: 1
     panSpeed: 1
-    friction: 5
+    friction: 3
     clampPadding: {x: 0, y: 10}
-    returnToOrigin: 0
-    returnDelay: 1
+    returnToOrigin: 1
+    returnDelay: 3
   dragThreshold: 15
 --- !u!4 &1036911507
 Transform:

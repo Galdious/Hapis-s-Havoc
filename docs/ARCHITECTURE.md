@@ -1132,6 +1132,36 @@ it. It can be deleted (along with its `.meta`) with no impact.
 
 ---
 
+## 6.5 A `BoardTile` marker is NOT grid membership
+
+`BoardTile` marks a tile as board geometry rather than inventory, and `BoardFraming` used a bare
+`FindObjectsByType<BoardTile>()` sweep to decide what to frame. That is wrong in one specific and
+costly case.
+
+**A push EJECTS the far tile, and the ejected tile keeps its `BoardTile` while it falls.** It is no
+longer part of the board in any meaningful sense — it is debris under physics, on its way to being
+destroyed — but the marker says otherwise.
+
+Measured mid-flight at **y = −13.66**, fourteen units below the board, which dragged the framing
+bounds to **y[−14.74, 1.38]**. The camera then framed the board *and the debris*.
+
+Consequences, both real:
+
+- **In the harness**, it made `V9` FLAKY rather than wrong: two runs of identical code, one with 9
+  `BoardTile`s that passed, one with 10 that was off by 30.70 %, depending purely on whether the
+  tile had been destroyed yet.
+- **In the live game** it is worse than flaky. Any re-frame during or after a push would zoom out
+  to chase a tile falling into the void. It does not bite today only because
+  `BoardFramingDriver` frames once at load.
+
+**The rule: ask the grid.** `BoardFraming.TryCollectBoardBounds` now builds the set of transforms
+actually in `GridManager`'s array and ignores any `BoardTile` outside it. Membership is asked, never
+inferred from position — "too far below the board" is the kind of threshold that breaks the first
+time a level is authored differently.
+
+Anything else that reasons about "the tiles on the board" must do the same. The marker answers
+*"is this board geometry or inventory?"*; it does not answer *"is this still on the board?"*.
+
 ## 7. Risk register
 
 Ranked by expected cost — likelihood of causing a bug × difficulty of finding it × how much future
